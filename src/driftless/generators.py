@@ -21,6 +21,7 @@ from typing import Any, Callable
 from .contract import RepairSpec
 from .engine import Patch, PatchContext, PatchGenerator, cluster_trajectories
 from .errors import DriftlessError
+from .progress import log as progress_log
 
 CompleteFn = Callable[[str, str, float], str]
 
@@ -431,6 +432,11 @@ class LLMPatchGenerator:
         for i in range(self.num_candidates):
             # Vary temperature across candidates to diversify proposals.
             temperature = 0.2 + 0.3 * i
+            progress_log(
+                f"migration: [iter {context.iteration + 1}] "
+                f"LLM completion {i + 1}/{self.num_candidates} "
+                f"({self.provider}:{self.model})..."
+            )
             try:
                 text = self.complete_fn(system, user, temperature)
             except DriftlessError:
@@ -440,6 +446,16 @@ class LLMPatchGenerator:
             patch = parse_patch(text, editable)
             if patch is not None:
                 patches.append(patch)
+                progress_log(
+                    f"migration: [iter {context.iteration + 1}] "
+                    f"LLM completion {i + 1}/{self.num_candidates} — patch parsed "
+                    f"({', '.join(sorted(patch.files))})"
+                )
+            else:
+                progress_log(
+                    f"migration: [iter {context.iteration + 1}] "
+                    f"LLM completion {i + 1}/{self.num_candidates} — no valid patch"
+                )
         return patches
 
 

@@ -433,6 +433,18 @@ def _fmt_f1(value: float | None) -> str:
     return f"{value:.3f}" if value is not None else "n/a"
 
 
+def _iter_tag(iteration: int, max_iterations: int) -> str:
+    return f"[iter {iteration + 1}/{max_iterations}]"
+
+
+def _generator_label(generator: PatchGenerator) -> str:
+    provider = getattr(generator, "provider", None)
+    model = getattr(generator, "model", None)
+    if provider and model:
+        return f"{provider}:{model}"
+    return type(generator).__name__
+
+
 def run_migration(
     workflow_name: str,
     workflow: Workflow,
@@ -506,16 +518,16 @@ def run_migration(
                 )
 
     progress_log(
-        f"migration: {len(split.tuning_idx)} tuning / "
-        f"{len(split.holdout_idx)} holdout examples"
+        f"migration: phase 1/3 — initial eval "
+        f"({len(split.tuning_idx)} tuning examples, model={current})"
     )
-    progress_log(f"migration: baseline eval ({current}) on tuning split...")
+    progress_log("migration: phase 1/3 — baseline prompt on tuning split...")
     baseline_tuning = evaluate_on(current, split.tuning_idx).metrics
-    progress_log(f"migration: baseline F1={_fmt_f1(baseline_tuning.f1)}")
-    progress_log(f"migration: target eval ({target_model}) on tuning split...")
+    progress_log(f"migration: phase 1/3 — baseline F1={_fmt_f1(baseline_tuning.f1)}")
+    progress_log("migration: phase 1/3 — current prompt on tuning split...")
     naive_analysis = evaluate_on(target_model, split.tuning_idx)
     naive_tuning = naive_analysis.metrics
-    progress_log(f"migration: target F1={_fmt_f1(naive_tuning.f1)}")
+    progress_log(f"migration: phase 1/3 — current F1={_fmt_f1(naive_tuning.f1)}")
 
     def holdout_ok(files: dict[str, str] | None) -> tuple[bool, Metrics | None, list[ThresholdCheck]]:
         if not mig.holdout_required:
@@ -575,13 +587,19 @@ def run_migration(
     escalated_width = max(base_width * 3, 5) if can_widen else None
     widened = False
 
+    progress_log(
+        f"migration: phase 2/3 — repair loop begins "
+        f"(up to {mig.max_iterations} iterations, generator={_generator_label(generator)})"
+    )
+
     for i in range(mig.max_iterations):
         iterations_run += 1
+        tag = _iter_tag(i, mig.max_iterations)
         clusters = cluster_failures(best_analysis.rows)
         cluster_history.append(clusters)
         progress_log(
-            f"migration: iteration {i + 1}/{mig.max_iterations} — "
-            f"{len(clusters)} failure cluster(s), best F1={_fmt_f1(best_metrics.f1)}"
+            f"migration: {tag} analyze failures — "
+            f"{len(clusters)} cluster(s), best F1={_fmt_f1(best_metrics.f1)}"
         )
         context = PatchContext(
             workflow=workflow,
@@ -598,17 +616,29 @@ def run_migration(
             cluster_history=list(cluster_history),
             context_files=context_files,
         )
+        width = escalated_width if widened else None
+        n_cands = width if width is not None else getattr(generator, "num_candidates", 1)
+        progress_log(
+            f"migration: {tag} generate patches "
+            f"({n_cands} candidate(s) via {_generator_label(generator)})..."
+        )
         patches = _generate_candidates(
-            generator, context, escalated_width if widened else None
+            generator, context, width
         )
         if not patches:
-            progress_log("migration: no repair candidates produced; stopping")
+            progress_log(f"migration: {tag} no patches produced; stopping repair loop")
             break
 
-        progress_log(f"migration: evaluating {len(patches)} candidate patch(es)...")
+        progress_log(
+            f"migration: {tag} score patches on tuning split "
+            f"({len(split.tuning_idx)} examples, model={target_model})..."
+        )
         improved = False
         for cand_idx, patch in enumerate(patches, start=1):
-            progress_log(f"migration: candidate {cand_idx}/{len(patches)}...")
+            progress_log(
+                f"migration: {tag} score candidate {cand_idx}/{len(patches)} "
+                f"on tuning split..."
+            )
             # A single bad candidate (out-of-scope edit, or content that breaks the
             # workflow -- e.g. invalid YAML/JSON) must not abort the whole search.
             # Record it as a failed attempt and move on to the next candidate.
@@ -645,6 +675,17 @@ def run_migration(
             # risk. (Against the no-op baseline, best_size is 0, so a same-scoring
             # patch is correctly rejected in favor of changing nothing.)
             accepted = cand_key > best_key or (cand_key == best_key and cand_size < best_size)
+            cand_f1 = _fmt_f1(analysis.metrics.f1)
+            if accepted:
+                progress_log(
+                    f"migration: {tag} candidate {cand_idx}/{len(patches)} accepted "
+                    f"(F1 {_fmt_f1(best_metrics.f1)} -> {cand_f1})"
+                )
+            else:
+                progress_log(
+                    f"migration: {tag} candidate {cand_idx}/{len(patches)} rejected "
+                    f"(F1 {cand_f1}, best {_fmt_f1(best_metrics.f1)})"
+                )
             passed_tuning = all(
                 c.passed for c in check_thresholds(thresholds, baseline_tuning, analysis.metrics)
             )
@@ -705,8 +746,13 @@ def run_migration(
             # Nothing better this round. Widen the search once before giving up
             # (multi-candidate generators only); otherwise stop early.
             if can_widen and not widened:
+                progress_log(
+                    f"migration: {tag} stalled — widening to "
+                    f"{escalated_width} candidate(s) next iteration"
+                )
                 widened = True
                 continue
+            progress_log(f"migration: {tag} no improvement; stopping repair loop")
             break
 
     # MAXIMIZE (refine): budget spent. Validate the winner on the never-tuned
@@ -716,7 +762,10 @@ def run_migration(
         holdout_metrics: Metrics | None = None
         holdout_checks: list[ThresholdCheck] = []
         if mig.holdout_required and split.holdout_idx:
-            progress_log("migration: holdout validation on refined prompt...")
+            progress_log(
+                f"migration: phase 3/3 — holdout validation "
+                f"({len(split.holdout_idx)} examples, model={current})..."
+            )
             baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
             holdout_metrics = evaluate_on(
                 current, split.holdout_idx, files=best_files or None
