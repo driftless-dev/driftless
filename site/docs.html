@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Docs — driftless</title>
+<meta name="description" content="Documentation for driftless: install, the workflow contract, the migration loop, CLI reference, policy, and the GitHub Action." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/styles.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ea8fe'/%3E%3Cstop offset='.5' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%2343e0c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%230a0b0f'/%3E%3Cpath d='M9 21V11l7 6 7-6v10' fill='none' stroke='url(%23g)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#6ea8fe"/><stop offset=".5" stop-color="#8b7bff"/><stop offset="1" stop-color="#43e0c4"/>
+        </linearGradient></defs>
+        <rect width="32" height="32" rx="8" fill="#11141f"/>
+        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      driftless
+    </a>
+    <nav class="nav-links">
+      <a href="index.html#how">How it works</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#evidence">Evidence</a>
+      <a href="docs.html">Docs</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
+      <a class="btn btn-primary" href="#quickstart">Get started</a>
+    </div>
+    <button class="nav-toggle" aria-label="Toggle menu" id="navToggle">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="docs-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="docs-sidebar" id="sidebar">
+      <h5>Getting started</h5>
+      <a href="#intro">Introduction</a>
+      <a href="#install">Installation</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#contract">The workflow contract</a>
+
+      <h5>Concepts</h5>
+      <a href="#loop">The migration loop</a>
+      <a href="#statuses">Migration statuses</a>
+      <a href="#safety">Safety guarantees</a>
+      <a href="#policy">Triggers &amp; policy</a>
+
+      <h5>Reference</h5>
+      <a href="#cli">CLI commands</a>
+      <a href="#schema">Contract schema</a>
+      <a href="#metrics">Evaluation metrics</a>
+
+      <h5>Guides</h5>
+      <a href="runs.html">Run viewer</a>
+      <a href="#measuring">Measuring migration gains</a>
+      <a href="#repair">Repair &amp; generators</a>
+      <a href="#github">GitHub Action</a>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="docs-content">
+      <h1>Documentation</h1>
+      <p class="doc-lede">driftless keeps prompts in sync when their dependencies change. Think <strong>Poetry</strong> (regenerate the lock when model or eval data moves) plus <strong>Dependabot</strong> (watch, test, open a PR with evidence).</p>
+
+      <!-- INTRO -->
+      <section id="intro">
+        <h2>Introduction</h2>
+        <p>LLM providers deprecate and retire models on aggressive timelines. When a model is retired, every workflow that depends on it breaks or silently degrades. Swapping a model ID is rarely enough — the new model behaves differently, so prompts, format instructions, and few-shot examples often need to change too, and you need <strong>evidence</strong> that the new model still meets your quality bar before you ship.</p>
+        <p>driftless is <strong>CLI-first</strong>: the CLI <em>is</em> the engine, and the GitHub Action just invokes the same commands. You describe your model-dependent workflow once in a <code class="inline">driftless.yml</code> contract, and the tool orchestrates everything else.</p>
+        <div class="callout good">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg></span>
+          <p><strong>Two analogies:</strong> <code class="inline">driftless.yml</code> declares deps (model + dataset); editable prompts are the lockfile. When deps drift, regenerate the lock — except LLM behavior is empirical, so driftless scores candidates on your eval instead of running a resolver. Delivery is Dependabot-style: watch → test → PR with metrics.</p>
+        </div>
+        <div class="callout good">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg></span>
+          <p><strong>Core idea:</strong> the customer owns the workflow; driftless orchestrates it. We shell out to <em>your</em> eval command with the model overridden — never reimplementing your pre/post-processing.</p>
+        </div>
+      </section>
+
+      <!-- INSTALL -->
+      <section id="install">
+        <h2>Installation</h2>
+        <p>Once published, install with <code class="inline">pipx</code> (recommended) so the CLI lives in its own isolated environment:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>pipx install driftless</code></pre>
+        <p>For local development from source:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>python -m venv .venv
+source .venv/bin/activate
+pip install -e <span class="tok-s">".[dev]"</span></code></pre>
+        <p>LLM-backed repair needs at least one provider key. Install the optional extra and export a key:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>pip install -e <span class="tok-s">".[llm]"</span>      <span class="tok-c"># openai + anthropic SDKs</span>
+export OPENAI_API_KEY=<span class="tok-s">sk-...</span>   <span class="tok-c"># or ANTHROPIC_API_KEY</span></code></pre>
+        <div class="callout">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
+          <p>Requires Python 3.10+. The provider is chosen automatically by which API key is present, so the same contract works across OpenAI and Anthropic.</p>
+        </div>
+      </section>
+
+      <!-- QUICKSTART -->
+      <section id="quickstart">
+        <h2>Quickstart</h2>
+        <p>From the root of the repo you want to migrate:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># 1. find probable LLM usage and at-risk models</span>
+driftless scan
+
+<span class="tok-c"># 2. scaffold a contract for a detected workflow</span>
+driftless configure support_classifier
+
+<span class="tok-c"># 3. sanity-check the contract parses and the harness runs</span>
+driftless validate -w support_classifier
+
+<span class="tok-c"># 4. score a candidate replacement on your real eval</span>
+driftless compare -w support_classifier --to gpt-4o-mini
+
+<span class="tok-c"># 5. repair + validate + produce migrated files</span>
+driftless migrate -w support_classifier --to gpt-4o-mini
+
+<span class="tok-c"># 6. render the evidence and open a PR (dry run by default)</span>
+driftless report  -w support_classifier
+driftless open-pr -w support_classifier --create</code></pre>
+        <p>If you're starting from scratch rather than a scan, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template you can fill in.</p>
+      </section>
+
+      <!-- CONTRACT -->
+      <section id="contract">
+        <h2>The workflow contract</h2>
+        <p>A <code class="inline">driftless.yml</code> declares one or more model-dependent <strong>workflows</strong>. Each is a strict, typed schema — unknown keys are rejected, so typos surface as errors rather than silent misbehavior.</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-k">workflows</span>:
+  <span class="tok-k">support_classifier</span>:
+    <span class="tok-k">run</span>:
+      <span class="tok-k">command</span>: <span class="tok-s">"python evals/run_eval.py"</span>
+      <span class="tok-k">input_path</span>: <span class="tok-s">evals/inputs.jsonl</span>
+      <span class="tok-k">output_path</span>: <span class="tok-s">evals/outputs.jsonl</span>
+      <span class="tok-k">timeout_seconds</span>: <span class="tok-p">600</span>
+    <span class="tok-k">model</span>:
+      <span class="tok-k">current</span>: <span class="tok-s">gpt-3.5-turbo</span>
+      <span class="tok-k">target_candidates</span>: [<span class="tok-s">gpt-4o-mini</span>]
+      <span class="tok-k">env_var</span>: <span class="tok-s">SUPPORT_CLASSIFIER_MODEL</span>
+      <span class="tok-k">config_file</span>: <span class="tok-s">config/llm.yml</span>
+      <span class="tok-k">config_path</span>: <span class="tok-s">model</span>
+    <span class="tok-k">files</span>:
+      <span class="tok-k">editable</span>: [<span class="tok-s">prompts/system.md</span>, <span class="tok-s">prompts/examples.yml</span>]
+      <span class="tok-k">readonly</span>: [<span class="tok-s">src/**</span>]
+    <span class="tok-k">eval</span>:
+      <span class="tok-k">labels_path</span>: <span class="tok-s">evals/labels.jsonl</span>
+      <span class="tok-k">schema_path</span>: <span class="tok-s">schemas/ticket.schema.json</span>
+      <span class="tok-k">label_field</span>: <span class="tok-s">category</span>
+      <span class="tok-k">split</span>: { <span class="tok-k">tuning</span>: <span class="tok-s">60%</span>, <span class="tok-k">seed</span>: <span class="tok-p">7</span> }
+    <span class="tok-k">thresholds</span>:
+      <span class="tok-k">min_f1</span>: <span class="tok-p">0.9</span>
+      <span class="tok-k">max_schema_error_rate</span>: <span class="tok-p">0.02</span>
+    <span class="tok-k">migration</span>:
+      <span class="tok-k">max_iterations</span>: <span class="tok-p">4</span>
+      <span class="tok-k">holdout_required</span>: <span class="tok-k">true</span></code></pre>
+        <p>There are two override mechanisms, and a workflow may use both:</p>
+        <ul>
+          <li><strong><code class="inline">env_var</code></strong> — the harness sets this environment variable to run the workflow under a different model. This is the runtime override used during evaluation.</li>
+          <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a dotted path into a JSON/YAML config file. Used when opening a PR, to write the new model ID into the repo.</li>
+        </ul>
+        <p>Percentages are ergonomic: <code class="inline">60%</code>, <code class="inline">60</code>, and <code class="inline">0.6</code> all parse to <code class="inline">0.6</code>.</p>
+      </section>
+
+      <!-- LOOP -->
+      <section id="loop">
+        <h2>The migration loop</h2>
+        <p>This is the core of the product. The same loop powers <code class="inline">migrate</code> and <code class="inline">refine</code>; they differ only in the <strong>objective</strong>:</p>
+        <ul>
+          <li><strong><code class="inline">MEET_THRESHOLDS</code></strong> (<code class="inline">migrate</code>) — a <em>new model</em> regressed; repair until the contract's <code class="inline">thresholds:</code> pass. Candidates are ranked by how close they are to passing.</li>
+          <li><strong><code class="inline">MAXIMIZE</code></strong> (<code class="inline">refine</code>) — the <em>dataset</em> changed, so the old thresholds are stale; the model is pinned, the loop chases the best primary metric, then proposes fresh thresholds.</li>
+        </ul>
+        <p>Full algorithm, from <code class="inline">run_migration</code> in <code class="inline">engine.py</code> (<code class="inline">primary</code> = F1 or score/pass-rate; <code class="inline">diff_size</code> = changed lines vs. the original editable files; <code class="inline">evaluate</code> = apply files in a backup/restore sandbox, run your real workflow, score the split):</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>run_migration(W, M_target, generator G, objective O, seed):
+
+  <span class="tok-c"># ── Setup ──────────────────────────────────────────────</span>
+  tuning, holdout ← split(W.dataset, seed)        <span class="tok-c"># deterministic, seeded</span>
+  baseline     ← evaluate(M_current, current_files, tuning)
+  naive_target ← evaluate(M_target,  current_files, tuning)
+
+  <span class="tok-c"># ── Short-circuit: is a bare model swap enough? (migrate) ─</span>
+  if O = MEET_THRESHOLDS and passes(baseline, naive_target)
+     and passes_on(holdout):
+       return model_change_only               <span class="tok-c"># just bump the model ID</span>
+
+  <span class="tok-c"># ── Iterative repair ───────────────────────────────────</span>
+  original ← current editable files            <span class="tok-c"># frozen, for diff sizing</span>
+  best ← naive_target ; best_files ← {} ; best_size ← 0
+  width ← G.num_candidates ; widened ← false   <span class="tok-c"># adaptive search width</span>
+
+  for i in 1 .. W.migration.max_iterations:
+      clusters   ← cluster_failures(best.rows)  <span class="tok-c"># group similar errors</span>
+      context    ← { clusters, failing &amp; correct examples,
+                     attempt history, editable + readonly files }
+      candidates ← G.generate(context, escalated_width if widened else width)
+      if candidates = ∅: break
+
+      improved ← false
+      for patch in candidates:
+          size ← diff_size(patch, original)
+          try:
+              check_scope(patch)               <span class="tok-c"># reject edits outside files.editable</span>
+              cand ← evaluate(M_target, apply(patch), tuning)
+          except error:                        <span class="tok-c"># patch broke the workflow</span>
+              log(failed) ; continue           <span class="tok-c"># skip it — never abort the run</span>
+
+          better ← score(cand, O) &gt; score(best, O)
+          tie    ← score(cand, O) = score(best, O) and size &lt; best_size
+          if better or tie:                    <span class="tok-c"># tie → the smaller edit wins</span>
+              best, best_files, best_size ← cand, patch.files, size
+              improved ← true
+
+      if O = MEET_THRESHOLDS and passes(baseline, best)
+         and passes_on(holdout, best_files):
+           commit(best_files) ; return pass    <span class="tok-c"># validated on never-tuned data</span>
+
+      if improved:         widened ← false             <span class="tok-c"># progress → cheap width</span>
+      else if not widened: widened ← true ; continue   <span class="tok-c"># stall → widen once</span>
+      else:                break                        <span class="tok-c"># stalled at full width</span>
+
+  <span class="tok-c"># ── Resolve outcome ────────────────────────────────────</span>
+  if O = MAXIMIZE:                              <span class="tok-c"># refine</span>
+      validate best_files on holdout (no-regression vs. current)
+      suggest fresh thresholds from holdout metrics
+      return pass if best beats naive_target else no_change
+  else:                                         <span class="tok-c"># migrate, thresholds unmet</span>
+      return partial if best improved over naive_target else blocked</code></pre>
+        <div class="callout">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
+          <p>Holdout validation is what makes the result honest: the winning patch must perform on data the loop never optimized against.</p>
+        </div>
+        <p><strong>Invariants the loop guarantees</strong>, regardless of what a generator proposes:</p>
+        <ul>
+          <li><strong>Sandboxed trials</strong> — every candidate is applied via backup → run → restore; the working tree is written only on a committed <span class="status-tag pass">pass</span>.</li>
+          <li><strong>Crash isolation</strong> — a candidate that breaks the workflow (e.g. emits invalid YAML/JSON) is logged as a failed attempt and skipped; it can't abort the run.</li>
+          <li><strong>Minimal-change tie-breaker</strong> — on an exact score tie the smaller edit wins; against the no-op baseline (<code class="inline">best_size = 0</code>) a same-scoring patch is rejected, so the loop never makes a change that doesn't help.</li>
+          <li><strong>Stall-escalation</strong> — a stalled iteration widens the candidate pool once (to <code class="inline">max(width × 3, 5)</code>) before giving up — cheap when easy, broad when stuck.</li>
+          <li><strong>Holdout gate</strong> — nothing is committed until it clears a split it never tuned against.</li>
+        </ul>
+      </section>
+
+      <!-- STATUSES -->
+      <section id="statuses">
+        <h2>Migration statuses</h2>
+        <table class="doc-table">
+          <thead><tr><th>Status</th><th>Meaning</th><th>Files committed?</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status-tag change">model_change_only</span></td><td>Naive swap already passes thresholds.</td><td>No — just a model-ID change.</td></tr>
+            <tr><td><span class="status-tag pass">pass</span></td><td>Repair succeeded and holdout validated.</td><td>Yes.</td></tr>
+            <tr><td><span class="status-tag partial">partial</span></td><td>Improved over the naive swap but below thresholds.</td><td>No.</td></tr>
+            <tr><td><span class="status-tag blocked">blocked</span></td><td>Could not recover quality within budget.</td><td>No.</td></tr>
+            <tr><td><span class="status-tag change">no_change</span></td><td><code>refine</code>: nothing beat the current prompt on the new dataset.</td><td>No.</td></tr>
+          </tbody>
+        </table>
+        <p><code class="inline">migrate</code> exits non-zero on <code class="inline">partial</code> / <code class="inline">blocked</code>, so it gates CI naturally. A blocked migration still produces a full report and files an actionable issue.</p>
+      </section>
+
+      <!-- SAFETY -->
+      <section id="safety">
+        <h2>Safety guarantees</h2>
+        <p>These are enforced by the engine, not left to the patch generator:</p>
+        <ul>
+          <li><strong>Edit-scope enforcement</strong> — any patch touching a file outside <code class="inline">files.editable</code> is rejected before it is applied.</li>
+          <li><strong>Sandboxed application</strong> — candidate edits are applied with originals backed up and always restored, so evaluation never leaves the repo dirty.</li>
+          <li><strong>Holdout gating</strong> — nothing is committed unless it passes thresholds on the holdout split.</li>
+          <li><strong>No auto-merge, no force-push</strong> — <code class="inline">open-pr</code> is a dry run by default; <code class="inline">--create</code> opens a PR/issue but never merges or pushes to the base branch.</li>
+        </ul>
+      </section>
+
+      <!-- POLICY -->
+      <section id="policy">
+        <h2>Triggers &amp; policy</h2>
+        <p>The rest of the tool answers <em>can</em> we migrate; the policy layer answers <em>when should</em> we — the "Dependabot config" of the project. A trigger is only a <strong>candidate</strong>; whether it's worth it is decided by running your eval.</p>
+        <table class="doc-table">
+          <thead><tr><th>Trigger</th><th>Tier</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>deprecation</code></td><td>Forced</td><td>Within the warn window it always surfaces — a validated migration opens a PR; a blocked one files an issue. Urgency escalates as the retirement date nears.</td></tr>
+            <tr><td><code>cost</code></td><td>Opportunistic</td><td>Surfaces only if a candidate is sufficiently cheaper with quality within tolerance.</td></tr>
+            <tr><td><code>quality</code></td><td>Opportunistic</td><td>Surfaces only if a candidate measurably improves quality.</td></tr>
+            <tr><td><code>new_model</code></td><td>Opportunistic</td><td>Surfaces a newly released candidate that passes your eval.</td></tr>
+          </tbody>
+        </table>
+        <p>A <code class="inline">.driftless/policy.yml</code> configures per-trigger thresholds, candidate allow/deny globs (preview models denied by default), and an <code class="inline">ignore</code> snooze list. The <code class="inline">plan</code> command wires this together as a CI triage step.</p>
+        <div class="callout warn">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <p>Today <code class="inline">discovery</code> emits <code class="inline">deprecation</code> triggers from the bundled lifecycle data. Cost / quality / new-model discovery plug in once a richer model catalog (pricing, release dates) is wired up.</p>
+        </div>
+      </section>
+
+      <!-- CLI -->
+      <section id="cli">
+        <h2>CLI commands</h2>
+        <table class="doc-table">
+          <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>init</code></td><td>Scaffold a <code>driftless.yml</code>.</td></tr>
+            <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
+            <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
+            <tr><td><code>configure &lt;workflow&gt;</code></td><td>Turn a detected workflow into a migration-ready contract.</td></tr>
+            <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check the contract parses and the harness runs.</td></tr>
+            <tr><td><code>compare -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Baseline vs. target scorecard + threshold checks.</td></tr>
+            <tr><td><code>migrate -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Repair + validate + produce migrated files.</td></tr>
+            <tr><td><code>report [-w &lt;w&gt;]</code></td><td>Render the latest migration report(s).</td></tr>
+            <tr><td><code>open-pr -w &lt;w&gt;</code></td><td>Open a PR (or issue) from the latest result (dry run by default).</td></tr>
+          </tbody>
+        </table>
+        <p>Useful flags on <code class="inline">migrate</code>:</p>
+        <ul>
+          <li><code class="inline">--generator llm|none</code> — the repair strategy (LLM-backed by default; <code class="inline">none</code> turns the loop into a dry analysis).</li>
+          <li><code class="inline">--to &lt;model&gt;</code> — the target model to migrate to (otherwise the contract's candidates are used).</li>
+        </ul>
+      </section>
+
+      <!-- SCHEMA -->
+      <section id="schema">
+        <h2>Contract schema reference</h2>
+        <table class="doc-table">
+          <thead><tr><th>Block</th><th>Key fields</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>run</code></td><td><code>command</code>, <code>input_path</code>, <code>output_path</code>, <code>timeout_seconds</code></td><td>How to execute the real workflow.</td></tr>
+            <tr><td><code>model</code></td><td><code>current</code>, <code>target_candidates</code>, <code>env_var</code>, <code>config_file</code>, <code>config_path</code></td><td>Which model and how to override it.</td></tr>
+            <tr><td><code>files</code></td><td><code>editable[]</code>, <code>readonly[]</code></td><td>Edit scope for the repair loop.</td></tr>
+            <tr><td><code>eval</code></td><td><code>labels_path</code>, <code>schema_path</code>, <code>label_field</code>, <code>id_field</code>, <code>split</code></td><td>How to score outputs.</td></tr>
+            <tr><td><code>thresholds</code></td><td><code>min_f1</code>, <code>min_precision</code>, <code>min_recall</code>, <code>max_schema_error_rate</code>, <code>max_cost_increase</code>, <code>max_latency_increase</code></td><td>What must hold to pass.</td></tr>
+            <tr><td><code>migration</code></td><td><code>allow_*_edits</code>, <code>max_iterations</code>, <code>holdout_required</code></td><td>What the engine may do.</td></tr>
+            <tr><td><code>repair</code></td><td><code>system_prompt(_path)</code>, <code>guidance</code>, <code>user_template(_path)</code></td><td>Customize the LLM repair prompt.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- METRICS -->
+      <section id="metrics">
+        <h2>Evaluation metrics</h2>
+        <p><code class="inline">compare</code> and <code class="inline">migrate</code> load the output JSONL your command writes, align it with gold labels, validate each record against the JSON schema, and compute:</p>
+        <p>By default they compare <strong>current prompt on current model</strong> vs <strong>current prompt on target</strong>. When the prompt was never source-optimized, that delta mixes prompt debt with model drift — see <a href="#measuring">Measuring migration gains</a>.</p>
+        <ul>
+          <li><strong>Accuracy + macro precision / recall / F1</strong> (per-class breakdown retained for failure clustering).</li>
+          <li><strong>Schema error rate</strong> — unparseable or schema-invalid records.</li>
+          <li><strong>Refusal rate</strong> — empty/<code class="inline">null</code> labels, a truthy <code class="inline">refused</code> field, or values listed in <code class="inline">eval.refusal_values</code>.</li>
+          <li><strong>Average latency</strong> — derived from run duration / record count.</li>
+          <li><strong>Total cost</strong> — only when the workflow emits a per-record <code class="inline">cost_field</code>. Token-based estimates are never fabricated.</li>
+        </ul>
+      </section>
+
+      <!-- MEASURING -->
+      <section id="measuring">
+        <h2>Measuring migration gains</h2>
+        <p><code class="inline">compare</code> and <code class="inline">migrate</code> score your <strong>current prompt</strong> on the current model (<code class="inline">baseline</code>) and the <strong>same prompt</strong> on the target (<code class="inline">naive_target</code>). That mirrors flipping a model ID in prod without touching the prompt — the right default.</p>
+        <p>But when the prompt was never tuned to its ceiling on the source model, the delta conflates two effects:</p>
+        <ul>
+          <li><strong>Prompt debt</strong> — under-optimization that would improve on either model.</li>
+          <li><strong>Model-induced drift</strong> — quality lost because the target behaves differently.</li>
+        </ul>
+        <p>A headline "+0.07 F1 after migration" can be mostly debt, not repair. The <code class="inline">refine</code> path (dataset change, model pinned) avoids this; model migration needs a control.</p>
+        <h3>2×2 control</h3>
+        <p>Optimize on the <strong>source</strong> model first, then switch. Example from the testbed (macro-F1, 290 labels, real API calls, <code class="inline">gpt-3.5-turbo</code> → <code class="inline">gpt-4o-mini</code>):</p>
+        <table class="doc-table">
+          <thead><tr><th>Prompt</th><th>Source</th><th>Target</th></tr></thead>
+          <tbody>
+            <tr><td><strong>P0</strong> — original hand prompt</td><td>0.922</td><td>0.904</td></tr>
+            <tr><td><strong>P<sub>src</sub>*</strong> — optimized for source</td><td><strong>0.993</strong> (A)</td><td><strong>0.921</strong> (B)</td></tr>
+            <tr><td><strong>P<sub>tgt</sub>*</strong> — optimized for target</td><td>1.000 (C)</td><td><strong>0.987</strong> (D)</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong>P0 → A</strong> = prompt debt on the source (not migration).</li>
+          <li><strong>A → B</strong> (−0.072) = true model-induced drift from a strong baseline.</li>
+          <li><strong>B → D</strong> (+0.066) = gain from re-tuning after the switch.</li>
+        </ul>
+        <div class="callout warn">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <p>Report migration repair relative to <strong>(B)</strong> — target model + source-optimized prompt — not the raw hand prompt. If baseline is far below your bar, run <code class="inline">refine</code> on the source model first, then <code class="inline">compare --to</code> again. Offline simulator regressions in the testbed do not reproduce on real <code class="inline">gpt-4o-mini</code>; validate model-switch claims on live APIs.</p>
+        </div>
+        <p>Full write-up and repro steps: <code class="inline">docs/repair-and-generators.md</code> § "Measuring migration gains honestly".</p>
+      </section>
+
+      <!-- RUN VIEWER -->
+      <section id="run-viewer">
+        <h2>Run viewer</h2>
+        <p>After <code class="inline">migrate</code> or <code class="inline">refine</code>, inspect the optimization trajectory in a local web UI — iteration metrics chart, failure-cluster trends, and a full attempt log (rationales, scores, diff sizes, accept/reject).</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>driftless view                    <span class="tok-c"># opens http://localhost:8777/runs.html</span>
+driftless view -w support_classifier</code></pre>
+        <p>The viewer reads <code class="inline">.driftless/migrations/&lt;workflow&gt;.json</code> from the current project. You can also load any result JSON via file picker or drag-and-drop. Static demo: <a href="runs.html">runs.html</a> → <strong>Load sample</strong>.</p>
+      </section>
+
+      <!-- REPAIR -->
+      <section id="repair">
+        <h2>Repair &amp; custom generators</h2>
+        <p>The engine defines a <code class="inline">PatchGenerator</code> protocol; the repair <em>strategy</em> is swappable. Two ship out of the box:</p>
+        <ul>
+          <li><strong><code class="inline">LLMPatchGenerator</code></strong> (default) — asks an LLM to rewrite the editable files to fix the observed failure clusters. Provider-neutral, requests strict JSON, and varies temperature across candidates.</li>
+          <li><strong><code class="inline">NoOpPatchGenerator</code></strong> (<code class="inline">--generator none</code>) — proposes nothing; the loop becomes a dry analysis, useful offline and for CI gating.</li>
+        </ul>
+        <p>You can customize repair via the contract's <code class="inline">repair:</code> block — append domain <code class="inline">guidance</code>, fully replace the system prompt, or supply a <code class="inline">user_template</code> with <code class="inline">{{placeholder}}</code> substitution (placeholders include <code class="inline">failure_clusters</code>, <code class="inline">failing_examples</code>, <code class="inline">editable_files</code>, <code class="inline">metrics</code>, and <code class="inline">target_model</code>).</p>
+        <p>A generator only ever <em>proposes</em> — the engine owns acceptance. See <a href="#loop">The migration loop</a> for the full algorithm (sandboxing, crash isolation, the minimal-change tie-breaker, stall-escalation, and holdout gating).</p>
+        <div class="callout">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
+          <p>See the in-repo guide <code class="inline">docs/repair-and-generators.md</code> for writing your own deterministic, rule-based generator.</p>
+        </div>
+      </section>
+
+      <!-- GITHUB -->
+      <section id="github">
+        <h2>GitHub Action</h2>
+        <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. The same commands you run locally run unchanged in a workflow.</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/llm-model-scan.yml</span>
+<span class="tok-k">name</span>: llm-model-scan
+<span class="tok-k">on</span>:
+  <span class="tok-k">schedule</span>: [{ <span class="tok-k">cron</span>: <span class="tok-s">"0 9 * * 1"</span> }]
+  <span class="tok-k">workflow_dispatch</span>: {}
+
+<span class="tok-k">jobs</span>:
+  <span class="tok-k">scan</span>:
+    <span class="tok-k">runs-on</span>: ubuntu-latest
+    <span class="tok-k">steps</span>:
+      - <span class="tok-k">uses</span>: actions/checkout@v4
+      - <span class="tok-k">uses</span>: driftless/action@v1
+        <span class="tok-k">with</span>:
+          <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
+        <p>A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>
+        <div class="callout good" style="margin-top:28px;">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <p>Ready to try it? Head back to the <a href="#quickstart">quickstart</a>, or explore the project on <a href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#11141f"/>
+        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      driftless
+    </div>
+    <div class="footer-links">
+      <a href="index.html#how">How it works</a>
+      <a href="index.html#features">Features</a>
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="dim">Dependabot for LLM models · MIT licensed</div>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

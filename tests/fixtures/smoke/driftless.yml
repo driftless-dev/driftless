@@ -1,0 +1,17 @@
+version: 1
+
+workflows:
+  smoke:
+    description: "Minimal installed-package smoke workflow."
+    run:
+      command: python -c "print('not run during smoke')"
+      input_path: inputs.jsonl
+      output_path: .driftless/results/smoke.outputs.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: SMOKE_MODEL
+      target_candidates:
+        - gpt-5-mini
+    eval:
+      labels_path: labels.jsonl
+

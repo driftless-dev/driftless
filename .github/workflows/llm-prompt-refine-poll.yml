@@ -1,0 +1,52 @@
+name: LLM prompt refine (external dataset poll)
+
+# Re-optimize a prompt when its eval dataset changes -- for datasets that live
+# OUTSIDE the repo (object storage, a labeling tool, a warehouse), where git
+# can't see the change. A scheduled job fetches the dataset (eval.data_source),
+# fingerprints it, and refines only when a *meaningful* change is detected per
+# policy.data_change (so whitespace / a couple of new rows stay quiet).
+#
+# For IN-REPO datasets, use llm-prompt-refine.yml instead -- git is the change
+# detector and no fetch/state is needed.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC -- the coarse debounce
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install driftless
+        run: pip install -e .
+
+      - name: Poll external datasets and refine on meaningful change
+        run: driftless poll --act --create
+        env:
+          # Provider key(s) the workflow + repair generator need.
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional bearer token for eval.data_source.inputs_url / labels_url.
+          DRIFTLESS_DATASOURCE_TOKEN: ${{ secrets.DRIFTLESS_DATASOURCE_TOKEN }}
+          # gh uses this to open the refine PR(s).
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Persist updated dataset state
+        run: |
+          if [ -n "$(git status --porcelain .driftless/state.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .driftless/state.json
+            git commit -m "chore: update dataset poll state"
+            git push
+          fi

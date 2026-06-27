@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "description": "Illustrative seed data for model lifecycle status, pricing, and capability tier. Structured to become a hosted, regularly-updated database. Dates and prices are examples, not authoritative.",
+    "as_of": "2026-06-21",
+    "statuses": [
+      "active",
+      "deprecated",
+      "retired"
+    ],
+    "capability_tiers": [
+      "frontier",
+      "balanced",
+      "economy",
+      "reasoning"
+    ],
+    "pricing_units": "USD per 1,000,000 tokens (input_per_1m / output_per_1m)"
+  },
+  "models": [
+    {"model": "claude-2", "provider": "anthropic", "status": "retired", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-sonnet", "release_date": "2023-07-11", "capability_tier": "balanced", "pricing": null},
+    {"model": "claude-2.0", "provider": "anthropic", "status": "retired", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-sonnet", "release_date": "2023-07-11", "capability_tier": "balanced", "pricing": {"input_per_1m": 8.0, "output_per_1m": 24.0}},
+    {"model": "claude-2.1", "provider": "anthropic", "status": "retired", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-sonnet", "release_date": "2023-11-21", "capability_tier": "balanced", "pricing": {"input_per_1m": 8.0, "output_per_1m": 24.0}},
+    {"model": "claude-3-5-haiku", "provider": "anthropic", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-11-04", "capability_tier": "economy", "pricing": {"input_per_1m": 0.8, "output_per_1m": 4.0}},
+    {"model": "claude-3-5-sonnet", "provider": "anthropic", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-06-20", "capability_tier": "frontier", "pricing": {"input_per_1m": 3.0, "output_per_1m": 15.0}},
+    {"model": "claude-3-5-sonnet-20241022", "provider": "anthropic", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-10-22", "capability_tier": "frontier", "pricing": {"input_per_1m": 3.0, "output_per_1m": 15.0}},
+    {"model": "claude-3-haiku-20240307", "provider": "anthropic", "status": "deprecated", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-haiku", "release_date": "2024-03-07", "capability_tier": "economy", "pricing": {"input_per_1m": 0.25, "output_per_1m": 1.25}},
+    {"model": "claude-3-opus-20240229", "provider": "anthropic", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-02-29", "capability_tier": "frontier", "pricing": {"input_per_1m": 15.0, "output_per_1m": 75.0}},
+    {"model": "claude-3-sonnet-20240229", "provider": "anthropic", "status": "deprecated", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-sonnet", "release_date": "2024-02-29", "capability_tier": "balanced", "pricing": {"input_per_1m": 3.0, "output_per_1m": 15.0}},
+    {"model": "claude-instant-1.2", "provider": "anthropic", "status": "retired", "retirement_date": "2025-07-21", "recommended_replacement": "claude-3-5-haiku", "release_date": "2023-08-09", "capability_tier": "economy", "pricing": {"input_per_1m": 0.8, "output_per_1m": 2.4}},
+    {"model": "gemini-1.0-pro", "provider": "google", "status": "deprecated", "retirement_date": "2025-02-15", "recommended_replacement": "gemini-1.5-pro", "release_date": "2023-12-13", "capability_tier": "balanced", "pricing": {"input_per_1m": 0.5, "output_per_1m": 1.5}},
+    {"model": "gemini-1.5-flash", "provider": "google", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-05-14", "capability_tier": "economy", "pricing": {"input_per_1m": 0.075, "output_per_1m": 0.3}},
+    {"model": "gemini-1.5-pro", "provider": "google", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-05-14", "capability_tier": "frontier", "pricing": {"input_per_1m": 1.25, "output_per_1m": 5.0}},
+    {"model": "gemini-pro", "provider": "google", "status": "deprecated", "retirement_date": "2025-02-15", "recommended_replacement": "gemini-1.5-pro", "release_date": "2023-12-13", "capability_tier": "balanced", "pricing": {"input_per_1m": 0.5, "output_per_1m": 1.5}},
+    {"model": "gemini-pro-vision", "provider": "google", "status": "retired", "retirement_date": "2025-02-15", "recommended_replacement": "gemini-1.5-pro", "release_date": "2023-12-13", "capability_tier": "balanced", "pricing": null},
+    {"model": "gpt-3.5-turbo", "provider": "openai", "status": "deprecated", "retirement_date": "2025-09-30", "recommended_replacement": "gpt-4o-mini", "release_date": "2023-03-01", "capability_tier": "economy", "pricing": {"input_per_1m": 0.5, "output_per_1m": 1.5}},
+    {"model": "gpt-3.5-turbo-16k", "provider": "openai", "status": "retired", "retirement_date": "2024-09-13", "recommended_replacement": "gpt-4o-mini", "release_date": "2023-06-13", "capability_tier": "economy", "pricing": {"input_per_1m": 3.0, "output_per_1m": 4.0}},
+    {"model": "gpt-4", "provider": "openai", "status": "deprecated", "retirement_date": "2025-09-30", "recommended_replacement": "gpt-4o", "release_date": "2023-03-14", "capability_tier": "frontier", "pricing": {"input_per_1m": 30.0, "output_per_1m": 60.0}},
+    {"model": "gpt-4-32k", "provider": "openai", "status": "retired", "retirement_date": "2025-06-06", "recommended_replacement": "gpt-4o", "release_date": "2023-03-14", "capability_tier": "frontier", "pricing": {"input_per_1m": 60.0, "output_per_1m": 120.0}},
+    {"model": "gpt-4-turbo", "provider": "openai", "status": "deprecated", "retirement_date": "2025-12-01", "recommended_replacement": "gpt-4o", "release_date": "2024-04-09", "capability_tier": "frontier", "pricing": {"input_per_1m": 10.0, "output_per_1m": 30.0}},
+    {"model": "gpt-4-vision-preview", "provider": "openai", "status": "retired", "retirement_date": "2024-12-06", "recommended_replacement": "gpt-4o", "release_date": "2023-11-06", "capability_tier": "frontier", "pricing": {"input_per_1m": 10.0, "output_per_1m": 30.0}},
+    {"model": "gpt-4o", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-05-13", "capability_tier": "frontier", "pricing": {"input_per_1m": 2.5, "output_per_1m": 10.0}},
+    {"model": "gpt-4o-mini", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-07-18", "capability_tier": "economy", "pricing": {"input_per_1m": 0.15, "output_per_1m": 0.6}},
+    {"model": "o1", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-12-05", "capability_tier": "reasoning", "pricing": {"input_per_1m": 15.0, "output_per_1m": 60.0}},
+    {"model": "o1-mini", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-09-12", "capability_tier": "reasoning", "pricing": {"input_per_1m": 3.0, "output_per_1m": 12.0}},
+    {"model": "o1-preview", "provider": "openai", "status": "deprecated", "retirement_date": "2025-12-01", "recommended_replacement": "o1", "release_date": "2024-09-12", "capability_tier": "reasoning", "pricing": {"input_per_1m": 15.0, "output_per_1m": 60.0}},
+    {"model": "text-davinci-002", "provider": "openai", "status": "retired", "retirement_date": "2024-01-04", "recommended_replacement": "gpt-4o-mini", "release_date": "2022-01-27", "capability_tier": "economy", "pricing": null},
+    {"model": "text-davinci-003", "provider": "openai", "status": "retired", "retirement_date": "2024-01-04", "recommended_replacement": "gpt-4o-mini", "release_date": "2022-11-28", "capability_tier": "economy", "pricing": null},
+    {"model": "text-embedding-3-large", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-01-25", "capability_tier": "economy", "pricing": {"input_per_1m": 0.13, "output_per_1m": 0.0}},
+    {"model": "text-embedding-3-small", "provider": "openai", "status": "active", "retirement_date": null, "recommended_replacement": null, "release_date": "2024-01-25", "capability_tier": "economy", "pricing": {"input_per_1m": 0.02, "output_per_1m": 0.0}},
+    {"model": "text-embedding-ada-002", "provider": "openai", "status": "deprecated", "retirement_date": null, "recommended_replacement": "text-embedding-3-small", "release_date": "2022-12-15", "capability_tier": "economy", "pricing": {"input_per_1m": 0.1, "output_per_1m": 0.0}}
+  ]
+}

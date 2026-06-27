@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>driftless — run viewer</title>
+<meta name="description" content="Inspect migration and refine runs: iteration metrics, failure-cluster trends, and candidate attempt logs." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/styles.css" />
+<link rel="stylesheet" href="assets/runs.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ea8fe'/%3E%3Cstop offset='.5' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%2343e0c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%230a0b0f'/%3E%3Cpath d='M9 21V11l7 6 7-6v10' fill='none' stroke='url(%23g)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+</head>
+<body class="runs-page">
+
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#6ea8fe"/><stop offset=".5" stop-color="#8b7bff"/><stop offset="1" stop-color="#43e0c4"/>
+        </linearGradient></defs>
+        <rect width="32" height="32" rx="8" fill="#11141f"/>
+        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      driftless
+    </a>
+    <nav class="nav-links">
+      <a href="docs.html">Docs</a>
+      <a href="runs.html" class="active">Run viewer</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main class="runs-main container">
+  <header class="runs-header">
+    <div>
+      <p class="eyebrow">Optimization observability</p>
+      <h1>Run viewer</h1>
+      <p class="runs-lede">Inspect a <code>.driftless/migrations/&lt;workflow&gt;.json</code> artifact: metrics across iterations, failure-cluster trends, and every candidate the optimizer tried.</p>
+    </div>
+    <div class="runs-load">
+      <label class="btn btn-primary runs-file-btn">
+        Load JSON
+        <input type="file" id="fileInput" accept="application/json,.json" hidden />
+      </label>
+      <select id="runSelect" class="runs-select" hidden aria-label="Select run from project"></select>
+      <button type="button" class="btn btn-ghost" id="loadSample">Load sample</button>
+    </div>
+  </header>
+
+  <div id="dropZone" class="runs-drop" hidden>
+    <p>Drop a migration JSON here</p>
+  </div>
+
+  <div id="emptyState" class="runs-empty">
+    <p>Load a migration result JSON, pick a run from the current project, or try the bundled sample.</p>
+    <p class="dim">From your repo: <code>driftless view</code> then open <code>http://localhost:8777/runs.html</code></p>
+  </div>
+
+  <div id="runPanel" class="runs-panel" hidden>
+    <section class="runs-summary card">
+      <div class="runs-summary-top">
+        <div>
+          <h2 id="runTitle">—</h2>
+          <p id="runSubtitle" class="dim"></p>
+        </div>
+        <span id="statusBadge" class="status-pill">—</span>
+      </div>
+      <div class="runs-kpis" id="kpiRow"></div>
+    </section>
+
+    <div class="runs-grid">
+      <section class="card runs-chart-card">
+        <h3>Primary metric by iteration</h3>
+        <p class="chart-caption">Baseline (tuning) and best accepted candidate per iteration. Light dots are rejected candidates.</p>
+        <div class="chart-wrap" id="metricChart"></div>
+        <div class="chart-legend" id="metricLegend"></div>
+      </section>
+
+      <section class="card runs-chart-card">
+        <h3>Failure clusters</h3>
+        <p class="chart-caption">Count per cluster across iterations (from the running best prompt).</p>
+        <div class="chart-wrap" id="clusterChart"></div>
+        <div class="chart-legend" id="clusterLegend"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h3>Scorecard</h3>
+      <div class="table-scroll">
+        <table class="doc-table" id="scorecard"></table>
+      </div>
+    </section>
+
+    <section class="card" id="holdoutSection" hidden>
+      <h3>Holdout validation</h3>
+      <ul id="holdoutChecks" class="checks-list"></ul>
+    </section>
+
+    <section class="card">
+      <h3>Attempt log</h3>
+      <p class="chart-caption">Grouped by iteration — rationale, scores, diff size, and outcome for each candidate.</p>
+      <div id="attemptLog"></div>
+    </section>
+
+    <section class="card" id="clustersSection" hidden>
+      <h3>Remaining failure clusters</h3>
+      <ul id="remainingClusters" class="cluster-list"></ul>
+    </section>
+
+    <section class="card" id="thresholdsSection" hidden>
+      <h3>Suggested thresholds</h3>
+      <pre id="thresholdsBlock" class="code-block"></pre>
+    </section>
+  </div>
+</main>
+
+<script src="assets/runs.js"></script>
+</body>
+</html>

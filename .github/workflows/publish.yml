@@ -1,0 +1,48 @@
+name: Publish to PyPI
+
+# Publishes on a GitHub Release using PyPI Trusted Publishing (OIDC) — no API
+# token secret required. Configure a trusted publisher for this repo/workflow
+# at https://pypi.org/manage/project/driftless/settings/publishing/
+#
+# Release process: docs/RELEASE.md
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install and test
+        run: |
+          pip install -e ".[dev]"
+          chmod +x scripts/release-check.sh
+          ./scripts/release-check.sh --tag "${{ github.event.release.tag_name }}"
+          pytest -q
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

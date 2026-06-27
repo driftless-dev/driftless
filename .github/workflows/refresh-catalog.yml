@@ -1,0 +1,60 @@
+name: Refresh model catalog
+
+# Scheduled maintenance for the model lifecycle catalog (P1.1). Turns "author
+# the data" into "review a diff": the job normalizes (and, once a provider
+# scraper is wired in, merges) the catalog, then opens a PR when it changes.
+# Today there is no live source, so a scheduled run is a safe no-op unless the
+# committed file drifts out of normal form. A human always reviews the PR.
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Mondays 12:00 UTC
+  workflow_dispatch:
+    inputs:
+      updates_url:
+        description: "Optional URL to a JSON array of model entries to merge"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch upstream updates (optional)
+        id: fetch
+        run: |
+          if [ -n "${{ github.event.inputs.updates_url }}" ]; then
+            curl -fsSL "${{ github.event.inputs.updates_url }}" -o updates.json
+            echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "updates=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Normalize / merge catalog
+        run: |
+          python tools/refresh_catalog.py --write ${{ steps.fetch.outputs.updates }} \
+            --stamp-date "$(date -u +%F)"
+          python tools/refresh_catalog.py --validate
+
+      - name: Open PR if the catalog changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(catalog): refresh model lifecycle data"
+          title: "chore(catalog): refresh model lifecycle data"
+          body: |
+            Automated model catalog refresh.
+
+            Review the diff for status/pricing/lifecycle changes before merging.
+          branch: chore/refresh-catalog
+          delete-branch: true
+          add-paths: |
+            src/driftless/data/model_lifecycle.json

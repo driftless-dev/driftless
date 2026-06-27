@@ -1,0 +1,17 @@
+name: LLM model dependency scan
+
+# Weekly deprecation scan: surfaces deprecated/retired model dependencies.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for at-risk model dependencies
+        uses: ./ # replace with driftless/action@v1 once published
+        with:
+          command: scan

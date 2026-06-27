@@ -1,0 +1,57 @@
+name: "driftless"
+description: "Dependabot for LLM models — scan, compare, and migrate model dependencies in CI."
+branding:
+  icon: "git-pull-request"
+  color: "purple"
+
+inputs:
+  command:
+    description: "driftless subcommand to run (scan, compare, migrate, refine, validate, open-pr)."
+    required: false
+    default: "scan"
+  workflow:
+    description: "Workflow name (for compare/migrate/validate/open-pr)."
+    required: false
+    default: ""
+  to:
+    description: "Target model (for compare/migrate)."
+    required: false
+    default: ""
+  args:
+    description: "Extra raw arguments appended to the command."
+    required: false
+    default: ""
+  version:
+    description: "driftless version/spec to install (e.g. '==0.1.0' or a git URL)."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install driftless
+      shell: bash
+      run: |
+        if [ -f "pyproject.toml" ] && grep -q 'name = "driftless"' pyproject.toml; then
+          pip install -e .
+        else
+          pip install "driftless${{ inputs.version }}"
+        fi
+
+    - name: Run driftless
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        cmd=(driftless ${{ inputs.command }})
+        [ -n "${{ inputs.workflow }}" ] && cmd+=(--workflow "${{ inputs.workflow }}")
+        [ -n "${{ inputs.to }}" ] && cmd+=(--to "${{ inputs.to }}")
+        [ -n "${{ inputs.args }}" ] && cmd+=(${{ inputs.args }})
+        echo "Running: ${cmd[*]}"
+        "${cmd[@]}"

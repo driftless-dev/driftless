@@ -1,0 +1,43 @@
+name: LLM model migration
+
+# Manually triggered migration: runs the workflow under the target model,
+# repairs prompts/configs where allowed, validates on holdout, and opens a PR
+# (or an issue if the migration is blocked).
+on:
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: "Workflow name from driftless.yml"
+        required: true
+      to:
+        description: "Target model"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Attempt migration
+        uses: ./ # replace with driftless/action@v1 once published
+        with:
+          command: migrate
+          workflow: ${{ github.event.inputs.workflow }}
+          to: ${{ github.event.inputs.to }}
+        env:
+          # Provide the provider API key(s) your workflow needs.
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Open migration PR (or issue)
+        uses: ./
+        with:
+          command: open-pr
+          workflow: ${{ github.event.inputs.workflow }}
+          args: "--create"
