@@ -17,6 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2026-06-27
+
+Patch release to validate PyPI Trusted Publishing from GitHub Releases.
+
+### Fixed
+
+- CLI tests use `tmp_path` instead of `CliRunner.isolated_filesystem` so CI passes
+  across Typer/Click versions.
+
+### Changed
+
+- Repository and documentation URLs point at `driftless-dev/driftless`.
+
+---
+
 ## [0.1.0] - 2026-06-27
 
 First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
@@ -38,5 +53,6 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.1
 [0.1.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.0
