@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .contract import Workflow
 from .errors import HarnessError
+from .progress import enabled as progress_enabled, log as progress_log
 
 #: Optional bearer token for endpoint workflows, sent as ``Authorization``.
 ENDPOINT_TOKEN_ENV = "DRIFTLESS_ENDPOINT_TOKEN"
@@ -57,6 +58,7 @@ def run_workflow(
     *,
     cwd: Path | None = None,
     substitute_cli_arg: bool = True,
+    stream_output: bool | None = None,
 ) -> RunResult:
     """Run ``workflow`` once with ``model``, returning a :class:`RunResult`.
 
@@ -94,6 +96,12 @@ def run_workflow(
     overrides = _model_env(workflow, model)
     env.update(overrides)
 
+    stream = progress_enabled() if stream_output is None else stream_output
+    progress_log(
+        f"harness: running {workflow.run.command!r} with model={model} "
+        f"(output -> {run.output_path})"
+    )
+
     start = time.monotonic()
     try:
         proc = subprocess.run(
@@ -101,7 +109,7 @@ def run_workflow(
             shell=True,
             cwd=cwd,
             env=env,
-            capture_output=True,
+            capture_output=not stream,
             text=True,
             timeout=run.timeout_seconds,
         )
@@ -117,9 +125,14 @@ def run_workflow(
         output_path=output_path,
         returncode=proc.returncode,
         duration_seconds=duration,
-        stdout=proc.stdout or "",
-        stderr=proc.stderr or "",
+        stdout="" if stream else (proc.stdout or ""),
+        stderr="" if stream else (proc.stderr or ""),
         env_overrides=overrides,
+    )
+
+    progress_log(
+        f"harness: finished model={model} in {duration:.1f}s "
+        f"(exit={proc.returncode})"
     )
 
     if proc.returncode != 0:

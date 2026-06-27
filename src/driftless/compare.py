@@ -15,6 +15,7 @@ from pathlib import Path
 from .contract import ThresholdsSpec, Workflow
 from .evaluation import Metrics, evaluate
 from .harness import run_workflow
+from .progress import log as progress_log
 
 
 @dataclass
@@ -160,6 +161,16 @@ def check_thresholds(
     return checks
 
 
+def _metric_summary(metrics: Metrics) -> str:
+    if metrics.f1 is not None:
+        return f"{metrics.f1:.3f}"
+    if metrics.score is not None:
+        return f"score={metrics.score:.3f}"
+    if metrics.accuracy is not None:
+        return f"acc={metrics.accuracy:.3f}"
+    return "n/a"
+
+
 def compare_models(
     workflow_name: str,
     workflow: Workflow,
@@ -177,11 +188,21 @@ def compare_models(
 
         judge = build_judge(workflow.eval.judge)
 
+    progress_log(f"compare: baseline run ({current})...")
     baseline_run = run_workflow(workflow, current, cwd=cwd)
     baseline_metrics = evaluate(workflow, baseline_run, judge=judge, cwd=cwd)
+    progress_log(
+        f"compare: baseline done — "
+        f"F1={_metric_summary(baseline_metrics)}, n={baseline_metrics.n}"
+    )
 
+    progress_log(f"compare: target run ({target_model})...")
     target_run = run_workflow(workflow, target_model, cwd=cwd)
     target_metrics = evaluate(workflow, target_run, judge=judge, cwd=cwd)
+    progress_log(
+        f"compare: target done — "
+        f"F1={_metric_summary(target_metrics)}, n={target_metrics.n}"
+    )
 
     checks = check_thresholds(workflow.thresholds, baseline_metrics, target_metrics)
 

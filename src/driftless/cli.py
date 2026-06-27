@@ -7,6 +7,7 @@ declared so the surface is stable and discoverable.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import typer
@@ -18,8 +19,14 @@ from .compare import Comparison, compare_models, save_comparison
 from .contract import CONTRACT_FILENAMES, Workflow, find_contract, load_contract
 from .errors import HarnessError, DriftlessError
 from .harness import check_inputs, run_workflow
+from .progress import log as progress_log
 from .templates import CONTRACT_TEMPLATE, POLICY_TEMPLATE
 
+_CI_PROGRESS = (
+    os.environ.get("GITHUB_ACTIONS") == "true"
+    or os.environ.get("CI") == "true"
+    or os.environ.get("DRIFTLESS_PROGRESS", "").strip().lower() in ("1", "true", "yes", "on")
+)
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
@@ -27,8 +34,8 @@ app = typer.Typer(
     "replacements through your real workflow, repair prompts/configs, and open "
     "migration PRs with evidence.",
 )
-console = Console()
-err_console = Console(stderr=True)
+console = Console(force_terminal=_CI_PROGRESS)
+err_console = Console(stderr=True, force_terminal=True)
 
 
 def _fail(exc: DriftlessError) -> None:
@@ -338,6 +345,7 @@ def compare(
         contract = load_contract(contract_path)
         wf = contract.workflow(workflow)
         _preflight(wf, to)
+        progress_log(f"compare: {workflow} {wf.model.current} -> {to}")
         console.print(f"Running [bold]{wf.model.current}[/] (baseline) and [bold]{to}[/] (target)...")
         comparison = compare_models(workflow, wf, to, cwd=Path.cwd())
     except DriftlessError as exc:
@@ -757,6 +765,10 @@ def migrate(
             num_candidates=candidates,
         )
         gen_desc = "no-op" if gen is None else f"llm ({gen.provider}:{gen.model})"
+        progress_log(
+            f"migrate: {workflow} {wf.model.current} -> {to} "
+            f"(max {wf.migration.max_iterations} iterations, repair={gen_desc})"
+        )
         console.print(
             f"Migrating [bold]{workflow}[/]: {wf.model.current} -> {to} "
             f"(max {wf.migration.max_iterations} iterations, repair={gen_desc})..."
@@ -861,6 +873,10 @@ def refine(
             num_candidates=candidates,
         )
         gen_desc = "no-op" if gen is None else f"llm ({gen.provider}:{gen.model})"
+        progress_log(
+            f"refine: {workflow} (model pinned to {wf.model.current}, "
+            f"max {wf.migration.max_iterations} iterations, repair={gen_desc})"
+        )
         console.print(
             f"Refining [bold]{workflow}[/] for the updated dataset "
             f"(model pinned to {wf.model.current}, max {wf.migration.max_iterations} "

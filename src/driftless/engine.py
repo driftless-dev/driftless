@@ -32,6 +32,7 @@ from .contract import ThresholdsSpec, Workflow
 from .errors import DriftlessError
 from .evaluation import Metrics, RecordRow, RunAnalysis, analyze
 from .harness import run_workflow
+from .progress import log as progress_log
 from .splits import make_splits, materialize_inputs
 
 
@@ -428,6 +429,10 @@ def _generate_candidates(
         generator.num_candidates = prev
 
 
+def _fmt_f1(value: float | None) -> str:
+    return f"{value:.3f}" if value is not None else "n/a"
+
+
 def run_migration(
     workflow_name: str,
     workflow: Workflow,
@@ -500,9 +505,17 @@ def run_migration(
                     cwd=cwd,
                 )
 
+    progress_log(
+        f"migration: {len(split.tuning_idx)} tuning / "
+        f"{len(split.holdout_idx)} holdout examples"
+    )
+    progress_log(f"migration: baseline eval ({current}) on tuning split...")
     baseline_tuning = evaluate_on(current, split.tuning_idx).metrics
+    progress_log(f"migration: baseline F1={_fmt_f1(baseline_tuning.f1)}")
+    progress_log(f"migration: target eval ({target_model}) on tuning split...")
     naive_analysis = evaluate_on(target_model, split.tuning_idx)
     naive_tuning = naive_analysis.metrics
+    progress_log(f"migration: target F1={_fmt_f1(naive_tuning.f1)}")
 
     def holdout_ok(files: dict[str, str] | None) -> tuple[bool, Metrics | None, list[ThresholdCheck]]:
         if not mig.holdout_required:
@@ -566,6 +579,10 @@ def run_migration(
         iterations_run += 1
         clusters = cluster_failures(best_analysis.rows)
         cluster_history.append(clusters)
+        progress_log(
+            f"migration: iteration {i + 1}/{mig.max_iterations} — "
+            f"{len(clusters)} failure cluster(s), best F1={_fmt_f1(best_metrics.f1)}"
+        )
         context = PatchContext(
             workflow=workflow,
             workflow_name=workflow_name,
@@ -585,10 +602,13 @@ def run_migration(
             generator, context, escalated_width if widened else None
         )
         if not patches:
+            progress_log("migration: no repair candidates produced; stopping")
             break
 
+        progress_log(f"migration: evaluating {len(patches)} candidate patch(es)...")
         improved = False
-        for patch in patches:
+        for cand_idx, patch in enumerate(patches, start=1):
+            progress_log(f"migration: candidate {cand_idx}/{len(patches)}...")
             # A single bad candidate (out-of-scope edit, or content that breaks the
             # workflow -- e.g. invalid YAML/JSON) must not abort the whole search.
             # Record it as a failed attempt and move on to the next candidate.
@@ -696,6 +716,7 @@ def run_migration(
         holdout_metrics: Metrics | None = None
         holdout_checks: list[ThresholdCheck] = []
         if mig.holdout_required and split.holdout_idx:
+            progress_log("migration: holdout validation on refined prompt...")
             baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
             holdout_metrics = evaluate_on(
                 current, split.holdout_idx, files=best_files or None
