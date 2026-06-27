@@ -15,29 +15,29 @@ def test_cli_version():
     assert "driftless" in result.output
 
 
-def test_init_scaffolds_contract():
-    with runner.isolated_filesystem():
-        result = runner.invoke(app, ["init", "--path", "driftless.yml"])
+def test_init_scaffolds_contract(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--path", "driftless.yml"])
 
-        assert result.exit_code == 0
-        assert Path("driftless.yml").is_file()
-        assert "support_classifier" in Path("driftless.yml").read_text()
-
-
-def test_init_policy_scaffolds_policy():
-    with runner.isolated_filesystem():
-        result = runner.invoke(app, ["init-policy"])
-
-        assert result.exit_code == 0
-        assert Path(".driftless/policy.yml").is_file()
-        assert "deprecation" in Path(".driftless/policy.yml").read_text()
+    assert result.exit_code == 0
+    assert Path("driftless.yml").is_file()
+    assert "support_classifier" in Path("driftless.yml").read_text()
 
 
-def test_validate_no_run_accepts_minimal_contract():
-    with runner.isolated_filesystem():
-        Path("inputs.jsonl").write_text('{"id": "1", "text": "hello"}\n')
-        Path("driftless.yml").write_text(
-            """
+def test_init_policy_scaffolds_policy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init-policy"])
+
+    assert result.exit_code == 0
+    assert Path(".driftless/policy.yml").is_file()
+    assert "deprecation" in Path(".driftless/policy.yml").read_text()
+
+
+def test_validate_no_run_accepts_minimal_contract(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("inputs.jsonl").write_text('{"id": "1", "text": "hello"}\n')
+    Path("driftless.yml").write_text(
+        """
 version: 1
 workflows:
   smoke:
@@ -49,27 +49,24 @@ workflows:
       current: gpt-4o-mini
       env_var: SMOKE_MODEL
 """.lstrip()
-        )
+    )
 
-        result = runner.invoke(
-            app,
-            ["validate", "--workflow", "smoke", "--contract", "driftless.yml", "--no-run"],
-        )
+    result = runner.invoke(
+        app,
+        ["validate", "--workflow", "smoke", "--contract", "driftless.yml", "--no-run"],
+    )
 
-        assert result.exit_code == 0
-        assert "contract ok" in result.output
-        assert "skipping harness run" in result.output
+    assert result.exit_code == 0
+    assert "contract ok" in result.output
+    assert "skipping harness run" in result.output
 
 
-def test_scan_reports_detected_model():
-    with runner.isolated_filesystem():
-        Path("app.py").write_text(
-            'from openai import OpenAI\nMODEL = "gpt-4o-mini"\n'
-        )
+def test_scan_reports_detected_model(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("app.py").write_text('from openai import OpenAI\nMODEL = "gpt-4o-mini"\n')
 
-        result = runner.invoke(app, ["scan", "."])
+    result = runner.invoke(app, ["scan", "."])
 
-        assert result.exit_code == 0
-        assert "Probable LLM workflows" in result.output
-        assert "gpt-4o-mini" in result.output
-
+    assert result.exit_code == 0
+    assert "Probable LLM workflows" in result.output
+    assert "gpt-4o-mini" in result.output
