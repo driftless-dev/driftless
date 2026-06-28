@@ -312,7 +312,7 @@ driftless open-pr -w support_classifier --create</code></pre>
             <tr><td><code>compare -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Baseline vs. target scorecard + threshold checks.</td></tr>
             <tr><td><code>migrate -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Repair + validate + produce migrated files.</td></tr>
             <tr><td><code>report [-w &lt;w&gt;]</code></td><td>Render the latest migration report(s).</td></tr>
-            <tr><td><code>open-pr -w &lt;w&gt;</code></td><td>Open a PR (or issue) from the latest result (dry run by default).</td></tr>
+            <tr><td><code>open-pr -w &lt;w&gt;</code></td><td>Open a PR (or issue) whose body is the evidence report: summary, scorecard, unified diffs, attempt log, holdout checks.</td></tr>
           </tbody>
         </table>
         <p>Useful flags on <code class="inline">migrate</code>:</p>

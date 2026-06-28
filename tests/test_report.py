@@ -164,3 +164,99 @@ def test_save_report_writes_both_files(tmp_path: Path):
     assert md_path == tmp_path / ".driftless" / "reports" / "support_classifier.md"
     assert "Model Migration" in md_path.read_text()
     assert json.loads(json_path.read_text())["target_model"] == "gpt-5-mini"
+
+
+def test_summary_and_diff_sections_in_pr_body():
+    result = _result(
+        MigrationStatus.PASS,
+        edited_files=["prompts/system.md"],
+        holdout=_metrics(f1=0.991),
+        holdout_checks=[ThresholdCheck("min_f1", True, "0.991 >= 0.9")],
+        original_editable_files={"prompts/system.md": "old line\nkeep\n"},
+        experiment_log=[
+            AttemptRecord(
+                0,
+                "llm",
+                "tighten billing rule",
+                ["prompts/system.md"],
+                0.95,
+                0.0,
+                0.0,
+                True,
+                True,
+                diff_size=2,
+                file_contents={"prompts/system.md": "old line\nkeep\n+ billing rule\n"},
+            ),
+        ],
+    )
+    md = render_markdown(result)
+    assert "## Summary" in md
+    assert "**Tuning F1:**" in md
+    assert "## Proposed Diffs" in md
+    assert "```diff" in md
+    assert "+ billing rule" in md
+    assert "## Full Run Data" in md
+    assert ".driftless/migrations/support_classifier.json" in md
+
+
+def test_partial_report_shows_best_attempt_diff():
+    result = _result(
+        MigrationStatus.PARTIAL,
+        edited_files=[],
+        original_editable_files={"prompts/p.md": "before\n"},
+        experiment_log=[
+            AttemptRecord(
+                0,
+                "llm",
+                "almost worked",
+                ["prompts/p.md"],
+                0.88,
+                0.0,
+                0.0,
+                False,
+                False,
+                file_contents={"prompts/p.md": "before\nafter fix\n"},
+            ),
+        ],
+    )
+    md = render_markdown(result)
+    assert "## Best Attempt (not committed)" in md
+    assert "+after fix" in md or "+after fix\n" in md
+
+
+def test_alternates_section_lists_rejected_candidates():
+    result = _result(
+        MigrationStatus.PASS,
+        edited_files=["prompts/p.md"],
+        original_editable_files={"prompts/p.md": "v0\n"},
+        experiment_log=[
+            AttemptRecord(
+                0,
+                "llm",
+                "weak try",
+                ["prompts/p.md"],
+                0.85,
+                0.0,
+                0.0,
+                False,
+                False,
+                file_contents={"prompts/p.md": "v0\nweak\n"},
+            ),
+            AttemptRecord(
+                1,
+                "llm",
+                "winning try",
+                ["prompts/p.md"],
+                0.92,
+                0.0,
+                0.0,
+                True,
+                True,
+                file_contents={"prompts/p.md": "v0\nwin\n"},
+            ),
+        ],
+    )
+    md = render_markdown(result)
+    assert "## Other Attempts Considered" in md
+    assert "weak try" in md
+    assert "Best tuning F1 by iteration" in md

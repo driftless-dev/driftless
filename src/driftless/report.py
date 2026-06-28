@@ -8,13 +8,17 @@ must carry its weight too.
 
 from __future__ import annotations
 
+import difflib
 import json
 from dataclasses import asdict
 from pathlib import Path
 
 from .contract import Workflow
-from .engine import MigrationResult, MigrationStatus, cluster_trajectories
+from .engine import AttemptRecord, MigrationResult, MigrationStatus, cluster_trajectories
 from .evaluation import Metrics
+
+_MAX_DIFF_LINES = 180
+_MAX_ALTERNATE_ATTEMPTS = 2
 
 _STATUS_HEADLINE = {
     MigrationStatus.PASS: "Migration passed configured thresholds.",
@@ -120,6 +124,219 @@ def _per_field_section(result: MigrationResult) -> list[str]:
     return parts
 
 
+def _primary_metric(metrics: Metrics | None) -> float | None:
+    if metrics is None:
+        return None
+    if metrics.f1 is not None:
+        return metrics.f1
+    if metrics.score is not None:
+        return metrics.score
+    return metrics.accuracy
+
+
+def _metric_name(metrics: Metrics | None) -> str:
+    if metrics is None:
+        return "score"
+    if metrics.f1 is not None:
+        return "F1"
+    if metrics.score is not None:
+        return "score"
+    return "accuracy"
+
+
+def _summary_section(result: MigrationResult) -> list[str]:
+    """Executive summary for PR/issue reviewers."""
+    metric = _metric_name(result.baseline)
+    base = _primary_metric(result.baseline)
+    final = _primary_metric(result.final)
+    hold = _primary_metric(result.holdout) if result.holdout else None
+    delta = (final - base) if base is not None and final is not None else None
+
+    attempts = len(result.experiment_log)
+    accepted = sum(1 for a in result.experiment_log if a.accepted)
+
+    parts = ["## Summary\n"]
+    parts.append(
+        f"- **Status:** `{result.status.value}` · **Iterations:** {result.iterations} · "
+        f"**Attempts:** {attempts} ({accepted} accepted)"
+    )
+    if base is not None and final is not None:
+        delta_s = f"{delta:+.3f}" if delta is not None else "n/a"
+        parts.append(f"- **Tuning {metric}:** {_num(base)} → {_num(final)} ({delta_s})")
+    if hold is not None:
+        parts.append(f"- **Holdout {metric}:** {_num(hold)}")
+    if result.edited_files:
+        files = ", ".join(f"`{f}`" for f in result.edited_files)
+        parts.append(f"- **Files changed:** {files}")
+    elif result.status == MigrationStatus.MODEL_CHANGE_ONLY:
+        parts.append(f"- **Model:** `{result.current_model}` → `{result.target_model}` (config only)")
+    parts.append("")
+    return parts
+
+
+def _unified_diff_text(path: str, original: str, proposed: str) -> str:
+    lines = list(
+        difflib.unified_diff(
+            original.splitlines(),
+            proposed.splitlines(),
+            fromfile=f"a/{path}",
+            tofile=f"b/{path}",
+            lineterm="",
+            n=3,
+        )
+    )
+    if not lines:
+        return "(no textual changes)\n"
+    if len(lines) > _MAX_DIFF_LINES:
+        kept = lines[:_MAX_DIFF_LINES]
+        kept.append(f"... diff truncated ({len(lines) - _MAX_DIFF_LINES} more lines)")
+        return "\n".join(kept) + "\n"
+    return "\n".join(lines) + "\n"
+
+
+def _diff_file_block(path: str, original: str, proposed: str) -> list[str]:
+    changed = _patch_line_delta(original, proposed)
+    summary = f"`{path}`"
+    if changed is not None:
+        summary += f" ({changed} changed line(s))"
+    parts = [f"<details><summary>{summary}</summary>\n", "```diff"]
+    parts.append(_unified_diff_text(path, original, proposed).rstrip())
+    parts.append("```")
+    parts.append("\n</details>\n")
+    return parts
+
+
+def _patch_line_delta(original: str, proposed: str) -> int | None:
+    total = 0
+    for line in difflib.unified_diff(
+        original.splitlines(), proposed.splitlines(), lineterm="", n=0
+    ):
+        if line.startswith(("+", "-")) and not line.startswith(("+++", "---")):
+            total += 1
+    return total
+
+
+def _attempt_with_contents(attempt: AttemptRecord) -> bool:
+    return bool(attempt.file_contents)
+
+
+def _winning_attempt(result: MigrationResult) -> AttemptRecord | None:
+    accepted = [a for a in result.experiment_log if a.accepted and _attempt_with_contents(a)]
+    return accepted[-1] if accepted else None
+
+
+def _best_scoring_attempt(result: MigrationResult) -> AttemptRecord | None:
+    scored = [a for a in result.experiment_log if _attempt_with_contents(a) and not a.error]
+    if not scored:
+        return None
+    return max(scored, key=lambda a: a.primary)
+
+
+def _proposed_diffs_section(result: MigrationResult) -> list[str]:
+    """Unified diffs for the committed patch (or best attempt when blocked)."""
+    original = result.original_editable_files
+    if not original:
+        return []
+
+    attempt = _winning_attempt(result)
+    committed = bool(result.edited_files)
+    if attempt is None and not committed:
+        attempt = _best_scoring_attempt(result)
+        if attempt is None:
+            return []
+        heading = "## Best Attempt (not committed)\n"
+        intro = (
+            "No patch was committed, but this candidate scored highest on the tuning "
+            "split — useful context for a manual fix:\n"
+        )
+    else:
+        if attempt is None:
+            return []
+        heading = "## Proposed Diffs\n"
+        intro = "Unified diff vs. the pre-migration editable files:\n"
+
+    parts = [heading, intro]
+    for path in sorted(attempt.file_contents):
+        if path not in original and path not in attempt.files:
+            continue
+        old = original.get(path, "")
+        new = attempt.file_contents.get(path, old)
+        if old == new:
+            continue
+        parts.extend(_diff_file_block(path, old, new))
+    if len(parts) <= 2:
+        return []
+    return parts
+
+
+def _alternates_section(result: MigrationResult) -> list[str]:
+    """Top rejected candidates for auditability (collapsible)."""
+    winner = _winning_attempt(result)
+    rejected = [
+        a
+        for a in result.experiment_log
+        if _attempt_with_contents(a) and not a.error and a is not winner
+    ]
+    if not rejected:
+        return []
+    rejected.sort(key=lambda a: a.primary, reverse=True)
+    picked = rejected[:_MAX_ALTERNATE_ATTEMPTS]
+    if not picked:
+        return []
+
+    parts = ["## Other Attempts Considered\n"]
+    for idx, attempt in enumerate(picked, start=1):
+        label = (
+            f"Iter {attempt.iteration}, {metric_short(attempt.primary)} — "
+            f"{attempt.rationale or attempt.kind}"
+        )
+        parts.append(f"<details><summary>{label}</summary>\n")
+        parts.append(
+            f"- Accepted: {'yes' if attempt.accepted else 'no'} · "
+            f"Passed tuning: {'yes' if attempt.passed_tuning else 'no'} · "
+            f"Diff ±: {attempt.diff_size if attempt.diff_size is not None else 'n/a'}"
+        )
+        for path in sorted(attempt.file_contents):
+            old = result.original_editable_files.get(path, "")
+            new = attempt.file_contents[path]
+            if old != new:
+                parts.extend(_diff_file_block(path, old, new))
+        parts.append("</details>\n")
+    return parts
+
+
+def metric_short(value: float) -> str:
+    return f"F1 {_num(value)}"
+
+
+def _metric_progression_line(result: MigrationResult) -> str | None:
+    """Best accepted primary metric after each iteration."""
+    by_iter: dict[int, float] = {}
+    for a in result.experiment_log:
+        if a.accepted and not a.error:
+            by_iter[a.iteration] = max(by_iter.get(a.iteration, a.primary), a.primary)
+    if not by_iter:
+        return None
+    keys = sorted(by_iter)
+    values = [_num(by_iter[k]) for k in keys]
+    metric = _metric_name(result.baseline)
+    return f"Best tuning {metric} by iteration: " + " → ".join(values)
+
+
+def _run_data_footer(result: MigrationResult) -> list[str]:
+    parts = ["## Full Run Data\n"]
+    parts.append(
+        f"- Machine-readable trace: `.driftless/migrations/{result.workflow}.json`"
+    )
+    parts.append(f"- Markdown report: `.driftless/reports/{result.workflow}.md`")
+    parts.append(
+        f"- Inspect locally: `driftless view -w {result.workflow}` or "
+        f"`driftless report -w {result.workflow}`"
+    )
+    parts.append("")
+    return parts
+
+
 def _fallback_candidates(result: MigrationResult, workflow: Workflow | None) -> list[str]:
     if workflow is None:
         return []
@@ -140,6 +357,10 @@ def _trajectory_section(result: MigrationResult) -> list[str]:
         return []
 
     parts: list[str] = ["## Optimization Trajectory\n"]
+
+    progression = _metric_progression_line(result)
+    if progression:
+        parts.append(progression + "\n")
 
     traj = cluster_trajectories(result.cluster_history)
     if traj:
@@ -212,6 +433,8 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
     parts.append(f"**Status:** `{result.status.value}`  \n")
     parts.append(f"**Iterations:** {result.iterations}\n")
 
+    parts.extend(_summary_section(result))
+
     parts.append("## Result\n")
     headline = (
         _REFINE_HEADLINE.get(result.status) if refine else _STATUS_HEADLINE.get(result.status)
@@ -228,6 +451,8 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
         for w in result.warnings:
             parts.append(f"- {w}")
         parts.append("")
+
+    parts.extend(_proposed_diffs_section(result))
 
     parts.append("## Changes Made\n")
     if result.edited_files:
@@ -275,6 +500,8 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
 
     parts.extend(_trajectory_section(result))
 
+    parts.extend(_alternates_section(result))
+
     fallbacks = _fallback_candidates(result, workflow)
     if not result.succeeded and fallbacks:
         parts.append("## Suggested Fallback Candidates\n")
@@ -285,6 +512,8 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
     parts.append("## Recommendation\n")
     parts.append(_RECOMMENDATION.get(result.status, result.message))
     parts.append("")
+
+    parts.extend(_run_data_footer(result))
 
     return "\n".join(parts)
 
