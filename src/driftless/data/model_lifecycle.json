@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "Illustrative seed data for model lifecycle status, pricing, and capability tier. Structured to become a hosted, regularly-updated database. Dates and prices are examples, not authoritative.",
-    "as_of": "2026-06-21",
+    "as_of": "2026-06-29",
     "statuses": [
       "active",
       "deprecated",
