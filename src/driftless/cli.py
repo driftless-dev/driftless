@@ -1269,6 +1269,41 @@ def judge_check(
             console.print("[dim]re-run with --enforce to apply contract gates[/]")
 
 
+@app.command(name="audit-labels")
+def audit_labels_cmd(
+    workflow: str = typer.Option(..., "--workflow", "-w"),
+    contract_path: Path = typer.Option(None, "--contract", help="Path to driftless.yml."),
+    near_threshold: float = typer.Option(
+        0.85, "--near-threshold", min=0.5, max=1.0,
+        help="Token Jaccard threshold for near-duplicate detection.",
+    ),
+    fail: bool = typer.Option(
+        False, "--fail", help="Exit non-zero when label conflicts are found.",
+    ),
+) -> None:
+    """Audit gold labels for duplicate inputs with disagreeing labels."""
+    from .label_audit import audit_labels, format_audit_report
+
+    try:
+        contract = load_contract(contract_path)
+        wf = contract.workflow(workflow)
+        report = audit_labels(
+            workflow, wf, cwd=Path.cwd(), near_threshold=near_threshold
+        )
+    except DriftlessError as exc:
+        _fail(exc)
+        return
+
+    text = format_audit_report(report)
+    if report.has_conflicts:
+        err_console.print(text)
+    else:
+        console.print(text)
+
+    if fail and report.has_conflicts:
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def report(
     workflow: str = typer.Option(None, "--workflow", "-w", help="Workflow to show (default: all)."),

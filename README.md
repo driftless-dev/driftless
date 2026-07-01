@@ -69,6 +69,7 @@ optimizes against it, with your team owning the definition of "good":
 | `poll [--act]` | Detect external eval-dataset changes and refine on a meaningful change. |
 | `validate -w <w>` | Check the contract parses and the harness runs. |
 | `judge-check -w <w>` | Measure judge↔human agreement on a calibration set (`--enforce` to gate). |
+| `audit-labels -w <w>` | Find duplicate inputs with disagreeing gold labels (`--fail` for CI). |
 | `report` | Render the latest migration report. |
 | `view` | Open the optimization run viewer (charts + attempt log). |
 | `open-pr -w <w>` | Open a PR (or issue) from the latest migration result. |

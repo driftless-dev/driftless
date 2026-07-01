@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`driftless judge-check`** — measure judge↔human agreement on a calibration set;
   `--enforce` applies the same gates as `migrate` / `compare`.
+- **`driftless audit-labels`** — find duplicate/near-duplicate inputs with disagreeing
+  gold labels before ``refine`` / ``migrate`` stall on label noise.
 - Live eval CI: `--require-all` baseline check, metrics job summary, explicit metrics path.
 
 ### Changed
