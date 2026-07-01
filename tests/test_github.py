@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -139,6 +140,70 @@ def test_execute_plan_no_dedupe_when_disabled(tmp_path, monkeypatch):
     )
     actions = execute_plan(plan, cwd=tmp_path, create=False, dedupe=False)
     assert any("create branch" in a for a in actions)
+
+
+def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
+    """create=True must invoke the full git checkout -> commit -> push -> gh pr path."""
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "p.md").write_text("hello\n")
+    plan = build_pr_plan(_result(), "REPORT BODY", committed_files=["prompts/p.md"])
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+
+    actions = execute_plan(plan, cwd=tmp_path, create=True, push=True, dedupe=True)
+
+    assert actions[-1] == "PR created"
+    assert calls[0] == ["git", "checkout", "-b", plan.branch]
+    assert calls[1] == ["git", "add", "prompts/p.md"]
+    assert calls[2][:2] == ["git", "commit"]
+    assert calls[2][3] == plan.commit_message
+    assert calls[3] == ["git", "push", "-u", "origin", plan.branch]
+    assert calls[4][:3] == ["gh", "pr", "create"]
+    assert plan.title in calls[4]
+    assert "--body-file" in calls[4]
+
+
+def test_execute_plan_create_pr_no_push_skips_push(tmp_path, monkeypatch):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+
+    execute_plan(plan, cwd=tmp_path, create=True, push=False, dedupe=False)
+
+    assert not any(a[:2] == ["git", "push"] for a in calls)
+    assert calls[-1][:3] == ["gh", "pr", "create"]
+
+
+def test_execute_plan_create_issue_runs_gh(tmp_path, monkeypatch):
+    plan = build_pr_plan(
+        _result(status="blocked", succeeded=False), "ISSUE BODY", committed_files=[]
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+
+    actions = execute_plan(plan, cwd=tmp_path, create=True)
+
+    assert actions[-1] == "issue created"
+    assert calls[0][:3] == ["gh", "issue", "create"]
+    assert plan.title in calls[0]
+    assert "--body-file" in calls[0]
 
 
 def test_apply_model_change_env_var_returns_none(tmp_path: Path):

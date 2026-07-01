@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
 
+from driftless import github
 from driftless.cli import app
 
 
@@ -70,3 +72,108 @@ def test_scan_reports_detected_model(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Probable LLM workflows" in result.output
     assert "gpt-4o-mini" in result.output
+
+
+def test_open_pr_dry_run_reads_migration_artifacts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".driftless" / "migrations").mkdir(parents=True)
+    (tmp_path / ".driftless" / "reports").mkdir(parents=True)
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "system.md").write_text("prompt\n")
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "llm.yml").write_text(
+        "workflows:\n  support_classifier:\n    model: gpt-4o-mini\n"
+    )
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  support_classifier:
+    run:
+      command: "python -c pass"
+      input_path: inputs.jsonl
+      output_path: outputs.jsonl
+    model:
+      current: gpt-4o-mini
+      target_candidates: [gpt-5-mini]
+      config_file: config/llm.yml
+      config_path: workflows.support_classifier.model
+    eval:
+      labels_path: labels.jsonl
+""".lstrip()
+    )
+    migration = {
+        "workflow": "support_classifier",
+        "current_model": "gpt-4o-mini",
+        "target_model": "gpt-5-mini",
+        "status": "pass",
+        "succeeded": True,
+        "edited_files": ["prompts/system.md"],
+    }
+    Path(".driftless/migrations/support_classifier.json").write_text(json.dumps(migration))
+    Path(".driftless/reports/support_classifier.md").write_text("# Migration report\n")
+
+    result = runner.invoke(app, ["open-pr", "-w", "support_classifier"])
+
+    assert result.exit_code == 0
+    assert "Dry run" in result.output
+    assert "create branch" in result.output
+    assert "re-run with --create" in result.output
+
+
+def test_open_pr_create_invokes_execute_plan(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".driftless" / "migrations").mkdir(parents=True)
+    (tmp_path / ".driftless" / "reports").mkdir(parents=True)
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "system.md").write_text("prompt\n")
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  support_classifier:
+    run:
+      command: "python -c pass"
+      input_path: inputs.jsonl
+      output_path: outputs.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: SUPPORT_CLASSIFIER_MODEL
+    eval:
+      labels_path: labels.jsonl
+""".lstrip()
+    )
+    migration = {
+        "workflow": "support_classifier",
+        "current_model": "gpt-4o-mini",
+        "target_model": "gpt-5-mini",
+        "status": "pass",
+        "succeeded": True,
+        "edited_files": ["prompts/system.md"],
+    }
+    Path(".driftless/migrations/support_classifier.json").write_text(json.dumps(migration))
+    Path(".driftless/reports/support_classifier.md").write_text("# report\n")
+
+    seen: dict = {}
+
+    def fake_execute(plan, *, cwd, create, push, dedupe):
+        seen.update(create=create, push=push, dedupe=dedupe, kind=plan.kind, title=plan.title)
+        return ["create branch: x", "PR created"]
+
+    monkeypatch.setattr(github, "execute_plan", fake_execute)
+
+    result = runner.invoke(
+        app,
+        ["open-pr", "-w", "support_classifier", "--create", "--no-push", "--no-dedupe"],
+    )
+
+    assert result.exit_code == 0
+    assert seen == {
+        "create": True,
+        "push": False,
+        "dedupe": False,
+        "kind": "pr",
+        "title": "chore: migrate support_classifier from gpt-4o-mini to gpt-5-mini",
+    }
+    assert "Creating" in result.output
+    assert "PR created" in result.output
