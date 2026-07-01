@@ -5,16 +5,13 @@ name: LLM prompt refine (dataset change)
 # tuned toward the new data, validated on a holdout, and proposed via PR with a
 # fresh suggested `thresholds:` block.
 #
-# This is the in-repo MVP: git is the change detector. Point the `paths:` filter
-# at your workflow's eval dataset (eval.labels_path / run.input_path in
-# driftless.yml). When those files change on main, refine runs and opens a PR.
+# Point the `paths:` filter at your workflow's eval dataset (eval.labels_path /
+# run.input_path in driftless.yml). When those files change on main, refine runs
+# and opens a PR.
 on:
   push:
     branches: [main]
     paths:
-      # Replace with your workflow's dataset paths (eval.labels_path,
-      # run.input_path). Keep this strictly on dataset files so a refine PR's
-      # prompt edits can't re-trigger this workflow.
       - "data/labels.jsonl"
       - "data/inputs.jsonl"
   workflow_dispatch:
@@ -28,7 +25,6 @@ permissions:
   pull-requests: write
 
 env:
-  # The workflow under test; for `push` set your workflow name here.
   WORKFLOW: ${{ github.event.inputs.workflow || 'support_classifier' }}
 
 jobs:
@@ -38,18 +34,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Refine prompt toward the updated dataset
-        uses: ./ # replace with driftless/action@v1 once published
+        uses: driftless-dev/driftless@v0.2.0
         with:
           command: refine
           workflow: ${{ env.WORKFLOW }}
         env:
-          # Provide the provider API key(s) your workflow needs to run, plus the
-          # key for the repair generator (defaults to the same provider).
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Open refine PR
-        uses: ./
+        uses: driftless-dev/driftless@v0.2.0
         with:
           command: open-pr
           workflow: ${{ env.WORKFLOW }}

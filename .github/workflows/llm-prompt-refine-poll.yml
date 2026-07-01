@@ -10,7 +10,7 @@ name: LLM prompt refine (external dataset poll)
 # detector and no fetch/state is needed.
 on:
   schedule:
-    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC -- the coarse debounce
+    - cron: "0 6 * * 1"
   workflow_dispatch: {}
 
 permissions:
@@ -23,22 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install driftless
-        run: pip install -e .
-
       - name: Poll external datasets and refine on meaningful change
-        run: driftless poll --act --create
+        uses: driftless-dev/driftless@v0.2.0
+        with:
+          command: poll
+          args: "--act --create"
         env:
-          # Provider key(s) the workflow + repair generator need.
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Optional bearer token for eval.data_source.inputs_url / labels_url.
           DRIFTLESS_DATASOURCE_TOKEN: ${{ secrets.DRIFTLESS_DATASOURCE_TOKEN }}
-          # gh uses this to open the refine PR(s).
           GH_TOKEN: ${{ github.token }}
 
       - name: Persist updated dataset state

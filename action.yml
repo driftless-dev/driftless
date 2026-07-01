@@ -6,7 +6,7 @@ branding:
 
 inputs:
   command:
-    description: "driftless subcommand to run (scan, compare, migrate, refine, validate, open-pr)."
+    description: "driftless subcommand to run (scan, plan, compare, migrate, refine, poll, validate, open-pr)."
     required: false
     default: "scan"
   workflow:
@@ -22,9 +22,9 @@ inputs:
     required: false
     default: ""
   version:
-    description: "driftless version/spec to install (e.g. '==0.1.0' or a git URL)."
+    description: "driftless version/spec to install (e.g. '==0.2.0' or a git URL)."
     required: false
-    default: ""
+    default: "==0.2.0"
 
 runs:
   using: "composite"

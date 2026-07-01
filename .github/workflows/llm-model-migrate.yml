@@ -25,18 +25,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Attempt migration
-        uses: ./ # replace with driftless/action@v1 once published
+        uses: driftless-dev/driftless@v0.2.0
         with:
           command: migrate
           workflow: ${{ github.event.inputs.workflow }}
           to: ${{ github.event.inputs.to }}
         env:
-          # Provide the provider API key(s) your workflow needs.
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Open migration PR (or issue)
-        uses: ./
+        uses: driftless-dev/driftless@v0.2.0
         with:
           command: open-pr
           workflow: ${{ github.event.inputs.workflow }}
