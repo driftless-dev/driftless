@@ -24,7 +24,7 @@ inputs:
   version:
     description: "driftless version/spec to install (e.g. '==0.2.0' or a git URL)."
     required: false
-    default: "==0.2.7"
+    default: "==0.2.8"
 
 runs:
   using: "composite"

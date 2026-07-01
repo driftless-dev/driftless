@@ -1,10 +1,9 @@
 name: Refresh model catalog
 
-# Scheduled maintenance for the model lifecycle catalog (P1.1). Turns "author
-# the data" into "review a diff": the job normalizes (and, once a provider
-# scraper is wired in, merges) the catalog, then opens a PR when it changes.
-# Today there is no live source, so a scheduled run is a safe no-op unless the
-# committed file drifts out of normal form. A human always reviews the PR.
+# Scheduled maintenance for the model lifecycle catalog (P1.1). Normalizes the
+# committed file, optionally merges new model IDs from provider /models APIs
+# (when repo secrets are set) or a manual updates_url, then opens a PR when
+# the catalog changes. A human always reviews the PR.
 
 on:
   schedule:
@@ -35,9 +34,22 @@ jobs:
           if [ -n "${{ github.event.inputs.updates_url }}" ]; then
             curl -fsSL "${{ github.event.inputs.updates_url }}" -o updates.json
             echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ secrets.OPENAI_API_KEY }}" ] || [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            python tools/fetch_provider_models.py \
+              --provider openai --provider anthropic \
+              --catalog src/driftless/data/model_lifecycle.json \
+              -o updates.json || echo '[]' > updates.json
+            if python -c "import json; raise SystemExit(0 if json.load(open('updates.json')) else 1)"; then
+              echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
+            else
+              echo "updates=" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "updates=" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Normalize / merge catalog
         run: |
