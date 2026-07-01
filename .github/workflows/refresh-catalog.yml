@@ -2,8 +2,8 @@ name: Refresh model catalog
 
 # Scheduled maintenance for the model lifecycle catalog (P1.1). Normalizes the
 # committed file, optionally merges new model IDs from provider /models APIs
-# (when repo secrets are set) or a manual updates_url, then opens a PR when
-# the catalog changes. A human always reviews the PR.
+# (when repo secrets are set), refreshes pricing from LiteLLM's public table,
+# or a manual updates_url, then opens a PR when the catalog changes.
 
 on:
   schedule:
@@ -28,22 +28,40 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Fetch upstream updates (optional)
+      - name: Fetch catalog updates
         id: fetch
         run: |
+          merge_updates() {
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          parts = []
+          for name in ("model_updates.json", "pricing_updates.json"):
+              p = Path(name)
+              if p.is_file():
+                  parts.extend(json.loads(p.read_text(encoding="utf-8") or "[]"))
+          Path("updates.json").write_text(json.dumps(parts, indent=2) + "\n", encoding="utf-8")
+          print(f"merged {len(parts)} update(s)")
+          PY
+          }
           if [ -n "${{ github.event.inputs.updates_url }}" ]; then
             curl -fsSL "${{ github.event.inputs.updates_url }}" -o updates.json
-            echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ secrets.OPENAI_API_KEY }}" ] || [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
-            python tools/fetch_provider_models.py \
+          else
+            echo '[]' > model_updates.json
+            if [ -n "${{ secrets.OPENAI_API_KEY }}" ] || [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+              python tools/fetch_provider_models.py \
+                --provider openai --provider anthropic \
+                --catalog src/driftless/data/model_lifecycle.json \
+                -o model_updates.json || echo '[]' > model_updates.json
+            fi
+            python tools/fetch_provider_pricing.py --source litellm \
               --provider openai --provider anthropic \
               --catalog src/driftless/data/model_lifecycle.json \
-              -o updates.json || echo '[]' > updates.json
-            if python -c "import json; raise SystemExit(0 if json.load(open('updates.json')) else 1)"; then
-              echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
-            else
-              echo "updates=" >> "$GITHUB_OUTPUT"
-            fi
+              -o pricing_updates.json || echo '[]' > pricing_updates.json
+            merge_updates
+          fi
+          if python -c "import json; raise SystemExit(0 if json.load(open('updates.json')) else 1)"; then
+            echo "updates=--updates updates.json" >> "$GITHUB_OUTPUT"
           else
             echo "updates=" >> "$GITHUB_OUTPUT"
           fi

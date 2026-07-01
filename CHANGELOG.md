@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.11] - 2026-07-01
+
+### Added
+
+- **P1.1 catalog pricing refresh** — `tools/fetch_provider_pricing.py` pulls
+  USD/1M token prices from LiteLLM's public table (or a JSON overlay) and
+  emits pricing-only updates for existing catalog models; the scheduled
+  `refresh-catalog.yml` job merges pricing alongside model discoveries.
+
+---
+
 ## [0.2.10] - 2026-07-01
 
 ### Added
@@ -184,9 +195,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.10...HEAD
-[0.2.10]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.10
-[0.2.9]: https://github.com/driftless-dev/driftless/compare/v0.2.9...v0.2.10
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.11
+[0.2.10]: https://github.com/driftless-dev/driftless/compare/v0.2.10...v0.2.11
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
