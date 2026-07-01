@@ -194,3 +194,37 @@ Update [`action.yml`](../action.yml) default `version` input when cutting releas
 `0.1.0` was uploaded manually before Trusted Publishing was wired. Tags and
 GitHub Release for `v0.1.0` can be added retroactively for a clean history; PyPI
 already hosts that version.
+
+---
+
+## Maintainer: live optimizer eval (P0.1)
+
+The **migration-regression** workflow runs deterministic regression on every
+push/PR and a **live** LLM optimizer eval nightly (or on manual dispatch). The
+live job costs tokens and is opt-in via repository secrets.
+
+### Required secrets
+
+In **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Used by |
+|---|---|
+| `OPENAI_API_KEY` | Live eval matrix job (`provider: openai`) |
+| `ANTHROPIC_API_KEY` | Live eval matrix job (`provider: anthropic`) |
+
+If a secret is missing, that provider job exits cleanly with a warning (CI stays
+green). When both are set, nightly runs append to
+`.driftless/regression-metrics.jsonl` and check against
+`tests/fixtures/live_eval_baseline.json` with `--require-all`.
+
+### Local reproduction
+
+```bash
+export DRIFTLESS_LIVE_EVAL=1
+export OPENAI_API_KEY=...
+pytest tests/test_migration_live.py -v -k openai
+python scripts/check_live_eval_metrics.py --provider openai --require-all
+```
+
+After a few stable nightly runs, tighten floors in `live_eval_baseline.json`
+(iterations ceiling, min F1/score).

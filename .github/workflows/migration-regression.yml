@@ -44,6 +44,7 @@ jobs:
       - name: Run live optimizer eval
         env:
           DRIFTLESS_LIVE_EVAL: "1"
+          DRIFTLESS_REGRESSION_METRICS: .driftless/regression-metrics.jsonl
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PROVIDER: ${{ matrix.provider }}
@@ -62,7 +63,26 @@ jobs:
         if: success()
         env:
           PROVIDER: ${{ matrix.provider }}
-        run: python scripts/check_live_eval_metrics.py --provider "$PROVIDER"
+        run: |
+          metrics=".driftless/regression-metrics.jsonl"
+          if [ ! -f "$metrics" ]; then
+            echo "::warning::no metrics file — live eval was skipped or produced no runs"
+            exit 0
+          fi
+          python scripts/check_live_eval_metrics.py --provider "$PROVIDER" --require-all
+
+      - name: Summarize live eval metrics
+        if: always()
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: |
+          metrics=".driftless/regression-metrics.jsonl"
+          if [ -f "$metrics" ]; then
+            echo "## Live eval metrics ($PROVIDER)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 6 "$metrics" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload live eval metrics
         if: always()

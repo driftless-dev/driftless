@@ -1191,6 +1191,84 @@ def open_pr(
         )
 
 
+@app.command(name="judge-check")
+def judge_check(
+    workflow: str = typer.Option(..., "--workflow", "-w"),
+    contract_path: Path = typer.Option(None, "--contract", help="Path to driftless.yml."),
+    enforce: bool = typer.Option(
+        False,
+        "--enforce",
+        help="Apply eval.judge max_mae/min_correlation gates (same as migrate/compare).",
+    ),
+) -> None:
+    """Measure LLM-judge agreement against a human calibration set."""
+    from .judges import build_judge, judge_agreement, require_judge_agreement
+
+    try:
+        contract = load_contract(contract_path)
+        wf = contract.workflow(workflow)
+    except DriftlessError as exc:
+        _fail(exc)
+        return
+
+    if wf.eval.grading != "judge" or wf.eval.judge is None:
+        _fail(
+            DriftlessError(
+                f"{workflow!r} is not judge-graded",
+                hint="add eval.judge to the workflow in driftless.yml",
+            )
+        )
+        return
+
+    spec = wf.eval.judge
+    if not spec.calibration_path:
+        _fail(
+            DriftlessError(
+                "eval.judge.calibration_path is not set",
+                hint="add a human-scored JSONL file for judge agreement",
+            )
+        )
+        return
+
+    judge = build_judge(spec)
+    try:
+        agreement = (
+            require_judge_agreement(judge, spec)
+            if enforce
+            else judge_agreement(judge, spec)
+        )
+    except DriftlessError as exc:
+        _fail(exc)
+        return
+
+    if agreement is None:
+        _fail(DriftlessError("calibration set is empty or produced no scores"))
+        return
+
+    console.print(f"[bold]{workflow}[/] — judge calibration check\n")
+    console.print(f"  records: {agreement.n}")
+    console.print(f"  MAE: {agreement.mean_abs_error:.3f}")
+    corr = f"{agreement.correlation:.3f}" if agreement.correlation is not None else "n/a"
+    console.print(f"  correlation: {corr}")
+
+    gate_bits: list[str] = []
+    if spec.max_mae is not None:
+        ok = agreement.mean_abs_error <= spec.max_mae
+        gate_bits.append(f"max_mae={spec.max_mae:g} ({'ok' if ok else 'FAIL'})")
+    if spec.min_correlation is not None:
+        ok = agreement.correlation is not None and agreement.correlation >= spec.min_correlation
+        gate_bits.append(f"min_correlation={spec.min_correlation:g} ({'ok' if ok else 'FAIL'})")
+    if gate_bits:
+        console.print("  gates: " + ", ".join(gate_bits))
+
+    if enforce:
+        console.print(f"\n[green]gates passed[/] — {agreement.summary}")
+    else:
+        console.print(f"\n[dim]{agreement.summary}[/]")
+        if spec.max_mae is not None or spec.min_correlation is not None:
+            console.print("[dim]re-run with --enforce to apply contract gates[/]")
+
+
 @app.command()
 def report(
     workflow: str = typer.Option(None, "--workflow", "-w", help="Workflow to show (default: all)."),

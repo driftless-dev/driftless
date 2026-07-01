@@ -177,3 +177,84 @@ workflows:
     }
     assert "Creating" in result.output
     assert "PR created" in result.output
+
+
+def test_judge_check_reports_calibration_agreement(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "calib.jsonl").write_text(
+        json.dumps({"input": "q", "output": "good", "score": 1.0}) + "\n"
+    )
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: "python -c pass"
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: old
+      env_var: MODEL
+    eval:
+      judge:
+        rubric: "Award full marks if the summary says 'good'."
+        calibration_path: calib.jsonl
+        max_mae: 0.5
+""".lstrip()
+    )
+
+    class StubJudge:
+        def score(self, *, input_text, output_text):
+            from driftless.judges import JudgeResult
+
+            hit = "good" in (output_text or "")
+            return JudgeResult(1.0 if hit else 0.2, "ok" if hit else "miss")
+
+    monkeypatch.setattr("driftless.judges.build_judge", lambda spec: StubJudge())
+
+    result = runner.invoke(app, ["judge-check", "-w", "summarizer"])
+
+    assert result.exit_code == 0
+    assert "MAE:" in result.output
+    assert "max_mae=0.5 (ok)" in result.output
+    assert "--enforce" in result.output
+
+
+def test_judge_check_enforce_fails_when_gate_exceeded(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "calib.jsonl").write_text(
+        json.dumps({"input": "q", "output": "bad", "score": 1.0}) + "\n"
+    )
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: "python -c pass"
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: old
+      env_var: MODEL
+    eval:
+      judge:
+        rubric: "Award full marks if the summary says 'good'."
+        calibration_path: calib.jsonl
+        max_mae: 0.01
+""".lstrip()
+    )
+
+    class StubJudge:
+        def score(self, *, input_text, output_text):
+            from driftless.judges import JudgeResult
+
+            return JudgeResult(0.2, "miss")
+
+    monkeypatch.setattr("driftless.judges.build_judge", lambda spec: StubJudge())
+
+    result = runner.invoke(app, ["judge-check", "-w", "summarizer", "--enforce"])
+
+    assert result.exit_code == 1
+    assert "mean absolute error" in result.output.lower()

@@ -48,6 +48,8 @@ optimizes against it, with your team owning the definition of "good":
   precision/recall/F1 against the gold record.
 - **`eval.judge`** — an LLM judge grades each free-form output against a rubric
   (with an optional human-scored calibration set for a judge-agreement check).
+  Run `driftless judge-check -w <workflow>` before optimizing; set
+  `max_mae` / `min_correlation` in the contract to gate `migrate` / `compare`.
 
 ## CLI
 
@@ -66,6 +68,7 @@ optimizes against it, with your team owning the definition of "good":
 | `refine -w <w>` | Re-optimize the prompt for a changed eval dataset (model pinned). |
 | `poll [--act]` | Detect external eval-dataset changes and refine on a meaningful change. |
 | `validate -w <w>` | Check the contract parses and the harness runs. |
+| `judge-check -w <w>` | Measure judge↔human agreement on a calibration set (`--enforce` to gate). |
 | `report` | Render the latest migration report. |
 | `view` | Open the optimization run viewer (charts + attempt log). |
 | `open-pr -w <w>` | Open a PR (or issue) from the latest migration result. |
