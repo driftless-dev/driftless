@@ -213,7 +213,9 @@ In **Settings → Secrets and variables → Actions**, add:
 | `ANTHROPIC_API_KEY` | Live eval matrix job (`provider: anthropic`) |
 
 If a secret is missing, that provider job exits cleanly with a warning (CI stays
-green). When both are set, nightly runs append to
+green). On scheduled or manual runs, the **secrets-preflight** job writes a
+summary table to the workflow run so you can see which keys are configured.
+When both are set, nightly runs append to
 `.driftless/regression-metrics.jsonl` and check against
 `tests/fixtures/live_eval_baseline.json` with `--require-all`.
 

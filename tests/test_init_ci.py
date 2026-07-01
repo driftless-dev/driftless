@@ -293,6 +293,46 @@ def test_label_audit_helpers():
     assert label_audit_paths(contract) == ["labels.jsonl", "in.jsonl"]
 
 
+def test_init_ci_scaffolds_plan_workflow(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  smoke:
+    run:
+      command: echo ok
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: MODEL
+    eval:
+      labels_path: labels.jsonl
+""".lstrip()
+    )
+    out = tmp_path / "workflows"
+    result = runner.invoke(
+        app,
+        [
+            "init-ci",
+            "--out-dir",
+            str(out),
+            "--no-scan",
+            "--no-migrate",
+            "--no-refine",
+            "--no-audit-labels",
+            "--plan",
+        ],
+    )
+
+    assert result.exit_code == 0
+    plan = (out / "driftless-plan-act.yml").read_text()
+    assert "command: plan" in plan
+    assert "--act" in plan
+    assert "GH_TOKEN" in plan
+
+
 def test_rendered_workflows_use_action_ref():
     ref = "driftless-dev/driftless@v9.9.9"
     assert ref in render_migrate_workflow(ref)

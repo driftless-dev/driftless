@@ -1,0 +1,33 @@
+name: LLM plan (deprecation triage)
+
+# Scheduled policy triage: discover at-risk model dependencies and migrate +
+# open PRs/issues for every actionable trigger (plan --act).
+#
+# Requires a driftless.yml + optional .driftless/policy.yml in the consumer repo.
+# This repo dogfoods the composite Action; run `driftless init-ci --plan` to
+# scaffold the same workflow for your project.
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plan and act on migration triggers
+        uses: driftless-dev/driftless@v0.2.5
+        with:
+          command: plan
+          args: "--act"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}

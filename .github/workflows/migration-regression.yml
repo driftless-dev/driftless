@@ -13,6 +13,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  secrets-preflight:
+    name: live eval secrets
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Report configured provider keys
+        env:
+          HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+          HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          openai=$([ "$HAS_OPENAI" = "true" ] && echo configured || echo missing)
+          anthropic=$([ "$HAS_ANTHROPIC" = "true" ] && echo configured || echo missing)
+          {
+            echo "## Live eval secrets"
+            echo "| Provider | Status |"
+            echo "|---|---|"
+            echo "| openai | $openai |"
+            echo "| anthropic | $anthropic |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$openai" = "missing" ] && [ "$anthropic" = "missing" ]; then
+            echo "::notice title=Live eval skipped::Add OPENAI_API_KEY and/or ANTHROPIC_API_KEY in repo secrets. See docs/RELEASE.md § Maintainer: live optimizer eval."
+          fi
+
   deterministic:
     name: deterministic engine regression
     runs-on: ubuntu-latest
@@ -28,6 +51,7 @@ jobs:
   live-eval:
     name: live optimizer (${{ matrix.provider }})
     runs-on: ubuntu-latest
+    needs: secrets-preflight
     # Nondeterministic + costs tokens: only on schedule or manual dispatch.
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     strategy:
