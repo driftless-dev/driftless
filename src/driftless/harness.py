@@ -16,6 +16,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -198,6 +199,52 @@ def _read_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def _endpoint_post_record(
+    index: int,
+    rec: dict,
+    *,
+    endpoint: str,
+    model: str,
+    model_param: str,
+    headers: dict[str, str],
+    timeout: float,
+    id_field: str | None,
+) -> str:
+    """POST one input record and return the output JSONL line."""
+    body = dict(rec)
+    body[model_param] = model
+    try:
+        text = _http_post(
+            endpoint, json.dumps(body).encode("utf-8"), headers, timeout
+        )
+    except urllib.error.HTTPError as exc:
+        raise HarnessError(
+            f"endpoint returned HTTP {exc.code} on record {index}",
+            hint=_tail(exc.read().decode("utf-8", "replace")) if exc.fp else str(exc),
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise HarnessError(
+            f"endpoint request failed on record {index}: {endpoint}",
+            hint=str(getattr(exc, "reason", exc)),
+        ) from exc
+
+    try:
+        obj = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise HarnessError(
+            f"endpoint returned non-JSON on record {index}",
+            hint=_tail(text) or "expected a JSON object per record",
+        ) from exc
+    if not isinstance(obj, dict):
+        raise HarnessError(
+            f"endpoint response on record {index} must be a JSON object",
+            hint=f"got {type(obj).__name__}",
+        )
+    if id_field and id_field not in obj and id_field in rec:
+        obj[id_field] = rec[id_field]
+    return json.dumps(obj)
+
+
 def _run_endpoint(
     workflow: Workflow, model: str, *, cwd: Path, output_path: Path
 ) -> RunResult:
@@ -207,7 +254,8 @@ def _run_endpoint(
     ``run.model_param`` (default ``"model"``); the JSON response object is written
     as the corresponding output record. When ``eval.id_field`` is set and the
     response omits it, the input's id is copied through so output<->label
-    alignment still works.
+    alignment still works. Use ``run.endpoint_concurrency`` (>1) to POST in
+    parallel; output line order always matches the input file.
     """
     run = workflow.run
     input_path = (cwd / run.input_path).resolve()
@@ -225,48 +273,39 @@ def _run_endpoint(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    out_lines: list[str] = []
+    endpoint = run.endpoint
+    if endpoint is None:
+        raise HarnessError(
+            "no endpoint URL is configured",
+            hint="set run.endpoint in the contract",
+        )
+
+    concurrency = run.endpoint_concurrency
+    timeout = float(run.timeout_seconds)
     start = time.monotonic()
-    for i, rec in enumerate(records, start=1):
-        body = dict(rec)
-        body[model_param] = model
-        endpoint = run.endpoint
-        if endpoint is None:
-            raise HarnessError(
-                "no endpoint URL is configured",
-                hint="set run.endpoint in the contract",
-            )
-        try:
-            text = _http_post(
-                endpoint, json.dumps(body).encode("utf-8"), headers, run.timeout_seconds
-            )
-        except urllib.error.HTTPError as exc:
-            raise HarnessError(
-                f"endpoint returned HTTP {exc.code} on record {i}",
-                hint=_tail(exc.read().decode("utf-8", "replace")) if exc.fp else str(exc),
-            ) from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise HarnessError(
-                f"endpoint request failed on record {i}: {run.endpoint}",
-                hint=str(getattr(exc, "reason", exc)),
-            ) from exc
 
-        try:
-            obj = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise HarnessError(
-                f"endpoint returned non-JSON on record {i}",
-                hint=_tail(text) or "expected a JSON object per record",
-            ) from exc
-        if not isinstance(obj, dict):
-            raise HarnessError(
-                f"endpoint response on record {i} must be a JSON object",
-                hint=f"got {type(obj).__name__}",
-            )
-        if id_field and id_field not in obj and id_field in rec:
-            obj[id_field] = rec[id_field]
-        out_lines.append(json.dumps(obj))
+    def post_one(index: int, rec: dict) -> tuple[int, str]:
+        line = _endpoint_post_record(
+            index,
+            rec,
+            endpoint=endpoint,
+            model=model,
+            model_param=model_param,
+            headers=headers,
+            timeout=timeout,
+            id_field=id_field,
+        )
+        return index, line
 
+    if concurrency <= 1 or len(records) <= 1:
+        indexed_lines = [post_one(i, rec) for i, rec in enumerate(records, start=1)]
+    else:
+        workers = min(concurrency, len(records))
+        pairs = [(i, rec) for i, rec in enumerate(records, start=1)]
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            indexed_lines = list(pool.map(lambda pair: post_one(pair[0], pair[1]), pairs))
+
+    out_lines = [line for _, line in indexed_lines]
     duration = time.monotonic() - start
     output_path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
     return RunResult(
@@ -274,7 +313,7 @@ def _run_endpoint(
         output_path=output_path,
         returncode=0,
         duration_seconds=duration,
-        stdout=f"{len(out_lines)} records via {run.endpoint}",
+        stdout=f"{len(out_lines)} records via {endpoint} (concurrency={concurrency})",
         stderr="",
         env_overrides={},
     )

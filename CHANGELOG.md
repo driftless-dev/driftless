@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.9] - 2026-07-01
+
+### Added
+
+- **P5.2 endpoint concurrency** — optional `run.endpoint_concurrency` (1–32,
+  default 1) runs endpoint POSTs in parallel via `ThreadPoolExecutor`; output
+  line order always matches the input file.
+
+---
+
 ## [0.2.8] - 2026-07-01
 
 ### Added
@@ -164,9 +174,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.8...HEAD
-[0.2.8]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.8
-[0.2.7]: https://github.com/driftless-dev/driftless/compare/v0.2.7...v0.2.8
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.9
+[0.2.8]: https://github.com/driftless-dev/driftless/compare/v0.2.8...v0.2.9
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3

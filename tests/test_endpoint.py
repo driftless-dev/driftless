@@ -118,3 +118,48 @@ def test_run_rejects_both_command_and_endpoint():
         RunSpec.model_validate(
             {"command": "echo hi", "endpoint": "http://x", "input_path": "i", "output_path": "o"}
         )
+
+
+def test_endpoint_concurrency_must_be_in_range():
+    with pytest.raises(ValueError, match="endpoint_concurrency"):
+        RunSpec.model_validate(
+            {
+                "endpoint": "http://x",
+                "input_path": "i",
+                "output_path": "o",
+                "endpoint_concurrency": 0,
+            }
+        )
+
+
+def test_endpoint_concurrency_preserves_order_and_parallelizes(tmp_path, monkeypatch):
+    import threading
+    import time
+
+    records = [{"id": str(i), "text": "x"} for i in range(8)]
+    _write_inputs(tmp_path, records)
+    lock = threading.Lock()
+    in_flight = 0
+    max_in_flight = 0
+
+    def fake_post(url, payload, headers, timeout):
+        nonlocal in_flight, max_in_flight
+        body = json.loads(payload.decode("utf-8"))
+        with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        time.sleep(0.03)
+        with lock:
+            in_flight -= 1
+        return json.dumps({"id": body["id"], "label": "ok"})
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+    result = run_workflow(
+        _endpoint_workflow(endpoint_concurrency=4), "m1", cwd=tmp_path
+    )
+
+    assert result.ok
+    assert max_in_flight >= 3
+    rows = _read_out(result.output_path)
+    assert [r["id"] for r in rows] == [str(i) for i in range(8)]
+    assert "concurrency=4" in result.stdout

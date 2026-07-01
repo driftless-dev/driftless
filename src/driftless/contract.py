@@ -68,12 +68,22 @@ class RunSpec(StrictModel):
     # the shell runner, which uses ``{{ model }}`` substitution / env_var).
     model_param: str | None = None
     timeout_seconds: int = 1800
+    # For endpoints: max parallel POSTs (1 = sequential). Output order always
+    # matches input order regardless of completion order.
+    endpoint_concurrency: int = 1
 
     @field_validator("command", "endpoint")
     @classmethod
     def _not_blank(cls, v: str | None) -> str | None:
         if v is not None and not v.strip():
             raise ValueError("must not be blank")
+        return v
+
+    @field_validator("endpoint_concurrency")
+    @classmethod
+    def _endpoint_concurrency_range(cls, v: int) -> int:
+        if v < 1 or v > 32:
+            raise ValueError("run.endpoint_concurrency must be between 1 and 32")
         return v
 
     @model_validator(mode="after")
