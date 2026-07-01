@@ -11,7 +11,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 
-from regression_metrics import MetricsDegradationError, check_baseline, metrics_path  # noqa: E402
+from regression_metrics import (  # noqa: E402
+    MetricsDegradationError,
+    check_all_baselines,
+    check_baseline,
+    metrics_path,
+)
 
 
 def main() -> int:
@@ -19,8 +24,8 @@ def main() -> int:
     parser.add_argument("--provider", required=True, choices=["openai", "anthropic"])
     parser.add_argument(
         "--scenario",
-        default="ticket_classifier",
-        help="Scenario name recorded in regression-metrics.jsonl",
+        default=None,
+        help="Scenario name recorded in regression-metrics.jsonl (default: all in baseline)",
     )
     parser.add_argument(
         "--baseline",
@@ -33,22 +38,36 @@ def main() -> int:
         default=None,
         help="Metrics JSONL path (default: DRIFTLESS_REGRESSION_METRICS or .driftless/...)",
     )
+    parser.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Fail when any baseline scenario has no recorded metrics",
+    )
     args = parser.parse_args()
 
     baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
     path = args.metrics or metrics_path()
     try:
-        check_baseline(
-            baseline,
-            scenario=args.scenario,
-            provider=args.provider,
-            path=path,
-        )
+        if args.scenario:
+            check_baseline(
+                baseline,
+                scenario=args.scenario,
+                provider=args.provider,
+                path=path,
+            )
+            print(f"live-eval ok: {args.scenario}/{args.provider} within baseline")
+        else:
+            check_all_baselines(
+                baseline,
+                provider=args.provider,
+                path=path,
+                require_all=args.require_all,
+            )
+            print(f"live-eval ok: all recorded scenarios for {args.provider} within baseline")
     except MetricsDegradationError as exc:
         print(f"live-eval degradation: {exc}", file=sys.stderr)
         return 1
 
-    print(f"live-eval ok: {args.scenario}/{args.provider} within baseline")
     return 0
 
 

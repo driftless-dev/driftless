@@ -737,3 +737,77 @@ class ExtractionRepair:
         )
         return [Patch(files={self.PATH: new}, rationale="extraction: priority rubric", kind="scripted")]
 
+
+# --------------------------------------------------------------------------- #
+# Score-graded scenario: customer-supplied per-record scores (non-classification).
+# --------------------------------------------------------------------------- #
+
+SCORE_APP_PY = '''\
+import json, pathlib
+
+prompt = pathlib.Path("prompts/system.txt").read_text(encoding="utf-8").lower()
+strict = "be strict" in prompt
+lines = [l for l in pathlib.Path("inputs.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+out = []
+for line in lines:
+    rec = json.loads(line)
+    if strict:
+        score = 1.0
+    else:
+        score = 0.2 if rec.get("hard") else 0.6
+    out.append(json.dumps({"id": rec["id"], "score": score}))
+pathlib.Path("out.jsonl").write_text("\\n".join(out) + "\\n", encoding="utf-8")
+'''
+
+SCORE_INITIAL_PROMPT = "Answer the user's question.\n"
+
+
+def build_score_scenario(tmp_path: Path, *, current: str = "old-model") -> Workflow:
+    """Free-form QA graded by a customer score field in the workflow output."""
+    (tmp_path / "app.py").write_text(SCORE_APP_PY, encoding="utf-8")
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "system.txt").write_text(SCORE_INITIAL_PROMPT, encoding="utf-8")
+    inputs = [{"id": f"q{i:02d}", "hard": i % 2 == 0} for i in range(12)]
+    (tmp_path / "inputs.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in inputs) + "\n", encoding="utf-8"
+    )
+    return Workflow.model_validate(
+        {
+            "description": "Free-form QA graded by a customer scorer.",
+            "run": {
+                "command": f"{sys.executable} app.py",
+                "input_path": "inputs.jsonl",
+                "output_path": "out.jsonl",
+            },
+            "model": {
+                "current": current,
+                "env_var": "MODEL",
+                "target_candidates": ["new-model"],
+            },
+            "files": {"editable": ["prompts/system.txt"], "readonly": ["app.py"]},
+            "eval": {"score_field": "score", "split": {"tuning": "60%", "holdout": "40%"}},
+            "thresholds": {"min_score": 0.9},
+            "migration": {"max_iterations": 4, "holdout_required": True},
+        }
+    )
+
+
+class ScoreRepair:
+    """React to low-score clusters by tightening the editable prompt."""
+
+    PATH = "prompts/system.txt"
+
+    def generate(self, context):
+        if not any(c.kind == "low_score" for c in context.clusters):
+            return []
+        content = context.editable_files[self.PATH]
+        if "be strict" in content.lower():
+            return []
+        return [
+            Patch(
+                files={self.PATH: content + "Be strict and precise.\n"},
+                rationale="score: raise low-scoring rows",
+                kind="scripted",
+            )
+        ]
+

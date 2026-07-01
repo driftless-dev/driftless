@@ -161,3 +161,24 @@ def test_extraction_migration_recovers_priority_field(tmp_path: Path):
     assert result.final.f1 is not None and result.final.f1 >= 0.9
     committed = (tmp_path / "prompts" / "system.txt").read_text(encoding="utf-8").lower()
     assert "high priority" in committed
+
+
+def test_score_graded_migration_is_repaired_to_pass(tmp_path: Path):
+    from scenarios import ScoreRepair, build_score_scenario
+
+    wf = build_score_scenario(tmp_path)
+    blocked = run_migration("qa_scorer", wf, "new-model", cwd=tmp_path, seed=1)
+    assert blocked.status == MigrationStatus.BLOCKED
+
+    result = run_migration(
+        "qa_scorer",
+        wf,
+        "new-model",
+        generator=ScoreRepair(),
+        cwd=tmp_path,
+        seed=1,
+    )
+    assert result.status == MigrationStatus.PASS, result.message
+    assert result.final.score is not None and result.final.score >= 0.9
+    assert result.final.f1 is None
+    assert "be strict" in (tmp_path / "prompts" / "system.txt").read_text().lower()

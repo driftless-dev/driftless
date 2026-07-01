@@ -22,8 +22,10 @@ def record_live_eval(
     provider: str,
     status: str,
     iterations: int,
-    final_f1: float | None,
+    final_f1: float | None = None,
     baseline_f1: float | None = None,
+    final_score: float | None = None,
+    baseline_score: float | None = None,
     schema_error_rate: float | None = None,
     extra: dict[str, Any] | None = None,
 ) -> Path:
@@ -36,6 +38,8 @@ def record_live_eval(
         "iterations": iterations,
         "final_f1": final_f1,
         "baseline_f1": baseline_f1,
+        "final_score": final_score,
+        "baseline_score": baseline_score,
         "schema_error_rate": schema_error_rate,
     }
     if extra:
@@ -98,6 +102,11 @@ def check_baseline(
     if min_f1 is not None and (final_f1 is None or final_f1 < min_f1):
         issues.append(f"final_f1 {final_f1} below floor {min_f1}")
 
+    min_score = spec.get("min_final_score")
+    final_score = entry.get("final_score")
+    if min_score is not None and (final_score is None or final_score < min_score):
+        issues.append(f"final_score {final_score} below floor {min_score}")
+
     max_iterations = spec.get("max_iterations")
     iterations = entry.get("iterations")
     if max_iterations is not None and iterations is not None and iterations > max_iterations:
@@ -105,3 +114,28 @@ def check_baseline(
 
     if issues:
         raise MetricsDegradationError("; ".join(issues))
+
+
+def check_all_baselines(
+    baseline: dict[str, Any],
+    *,
+    provider: str,
+    path: Path | None = None,
+    require_all: bool = False,
+) -> None:
+    """Check every scenario in ``baseline`` for ``provider``."""
+    errors: list[str] = []
+    for scenario, providers in baseline.items():
+        if provider not in providers:
+            continue
+        entry = latest_metric(path, scenario=scenario, provider=provider)
+        if entry is None:
+            if require_all:
+                errors.append(f"no metrics recorded for {scenario}/{provider}")
+            continue
+        try:
+            check_baseline(baseline, scenario=scenario, provider=provider, path=path)
+        except MetricsDegradationError as exc:
+            errors.append(str(exc))
+    if errors:
+        raise MetricsDegradationError("; ".join(errors))
