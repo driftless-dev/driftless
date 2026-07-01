@@ -157,6 +157,18 @@ class JudgeSpec(StrictModel):
     # Optional path to human-scored records (carrying a numeric ``score``) for a
     # judge-reliability agreement check.
     calibration_path: str | None = None
+    # Optional gates (require ``calibration_path``). When set, ``migrate`` /
+    # ``compare`` / ``refine`` refuse to optimize against an untrusted judge.
+    max_mae: float | None = None
+    min_correlation: float | None = None
+
+    @model_validator(mode="after")
+    def _gates_need_calibration(self) -> "JudgeSpec":
+        if (self.max_mae is not None or self.min_correlation is not None) and not self.calibration_path:
+            raise ValueError(
+                "eval.judge.max_mae/min_correlation require calibration_path"
+            )
+        return self
 
     @field_validator("rubric")
     @classmethod

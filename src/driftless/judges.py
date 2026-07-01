@@ -183,3 +183,55 @@ def judge_agreement(
         return None
     mae = sum(abs(m - h) for m, h in zip(model, human)) / len(human)
     return JudgeAgreement(n=len(human), mean_abs_error=mae, correlation=_pearson(model, human))
+
+
+def require_judge_agreement(
+    judge: Judge, spec: JudgeSpec, *, cwd: Path | None = None
+) -> JudgeAgreement | None:
+    """Run ``judge_agreement`` and enforce optional ``max_mae`` / ``min_correlation`` gates."""
+    agreement = judge_agreement(judge, spec, cwd=cwd)
+    if spec.max_mae is None and spec.min_correlation is None:
+        return agreement
+    if agreement is None:
+        raise DriftlessError(
+            "judge agreement gate requires a non-empty calibration set",
+            hint=f"add human-scored records to {spec.calibration_path}",
+        )
+    if spec.max_mae is not None and agreement.mean_abs_error > spec.max_mae:
+        raise DriftlessError(
+            f"judge mean absolute error {agreement.mean_abs_error:.3f} exceeds "
+            f"max_mae={spec.max_mae:g}",
+            hint=agreement.summary,
+        )
+    if spec.min_correlation is not None:
+        if agreement.correlation is None:
+            raise DriftlessError(
+                f"judge correlation is undefined on {agreement.n} calibration records; "
+                f"need min_correlation={spec.min_correlation:g}",
+                hint=agreement.summary,
+            )
+        if agreement.correlation < spec.min_correlation:
+            raise DriftlessError(
+                f"judge correlation {agreement.correlation:.3f} below "
+                f"min_correlation={spec.min_correlation:g}",
+                hint=agreement.summary,
+            )
+    return agreement
+
+
+def judge_evidence_samples(
+    rows: list[Any], *, max_samples: int = 5
+) -> list[dict[str, Any]]:
+    """Lowest-scoring judge-graded rows with rationale for PR reports."""
+    low = [r for r in rows if getattr(r, "is_low_score", False) and getattr(r, "rationale", None)]
+    low.sort(key=lambda r: getattr(r, "score", 0.0) or 0.0)
+    out: list[dict[str, Any]] = []
+    for row in low[:max_samples]:
+        out.append(
+            {
+                "index": row.index,
+                "score": row.score,
+                "rationale": row.rationale,
+            }
+        )
+    return out

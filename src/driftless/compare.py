@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import cast
 
 from .contract import ThresholdsSpec, Workflow
 from .errors import DriftlessError
@@ -194,6 +195,11 @@ def compare_models(
                 hint="add a judge block to driftless.yml",
             )
         judge = build_judge(judge_spec)
+
+    if judge is not None and workflow.eval.judge is not None:
+        from .judges import Judge, require_judge_agreement
+
+        require_judge_agreement(cast(Judge, judge), workflow.eval.judge, cwd=cwd)
 
     progress_log(f"compare: baseline run ({current})...")
     baseline_run = run_workflow(workflow, current, cwd=cwd)

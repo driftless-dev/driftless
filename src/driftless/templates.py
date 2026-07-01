@@ -85,6 +85,8 @@ workflows:
       #   # input_field: text     # optional: which input field to show the judge
       #   # output_field: summary # optional: judge a field of JSON output (else raw text)
       #   # calibration_path: evals/judge_calibration.jsonl  # human scores -> agreement check
+      #   # max_mae: 0.15          # optional gate: refuse run when judge MAE exceeds this (0..1)
+      #   # min_correlation: 0.80  # optional gate: refuse run when Pearson r is below this
       #
       # Eval dataset lives OUTSIDE the repo? Let `driftless poll` refresh it on a
       # schedule before checking for changes (in-repo data needs none of this --

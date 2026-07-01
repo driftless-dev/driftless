@@ -391,6 +391,31 @@ def _trajectory_section(result: MigrationResult) -> list[str]:
     return parts
 
 
+def _judge_section(result: MigrationResult) -> list[str]:
+    """Judge reliability + per-record rationale for free-form workflows."""
+    parts: list[str] = []
+    agreement = result.judge_agreement
+    if agreement is not None:
+        summary = getattr(agreement, "summary", None) or str(agreement)
+        parts.append("## Judge Reliability\n")
+        parts.append(f"- {summary}")
+        parts.append("")
+    if result.judge_evidence:
+        parts.append("## Judge Scoring Evidence\n")
+        parts.append("Lowest-scoring records from the final eval (judge rationale):\n")
+        parts.append("| Index | Score | Rationale |")
+        parts.append("|---:|---:|---|")
+        for row in result.judge_evidence:
+            rat = str(row.get("rationale", "")).replace("|", "\\|").replace("\n", " ")
+            if len(rat) > 160:
+                rat = rat[:160] + "..."
+            score = row.get("score")
+            score_s = f"{score:.3f}" if isinstance(score, (int, float)) else "n/a"
+            parts.append(f"| {row.get('index', '?')} | {score_s} | {rat} |")
+        parts.append("")
+    return parts
+
+
 def _suggested_thresholds_section(result: MigrationResult) -> list[str]:
     """Emit a ready-to-paste ``thresholds:`` block derived from holdout metrics.
 
@@ -443,6 +468,8 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
     parts.append(_metrics_table(result) + "\n")
 
     parts.extend(_per_field_section(result))
+
+    parts.extend(_judge_section(result))
 
     parts.extend(_suggested_thresholds_section(result))
 
@@ -541,6 +568,8 @@ def result_to_dict(result: MigrationResult) -> dict:
         "experiment_log": [asdict(a) for a in result.experiment_log],
         "cluster_trajectory": cluster_trajectories(result.cluster_history),
         "warnings": result.warnings,
+        "judge_agreement": asdict(result.judge_agreement) if result.judge_agreement else None,
+        "judge_evidence": result.judge_evidence,
         "suggested_thresholds": result.suggested_thresholds,
         "original_editable_files": result.original_editable_files,
         "message": result.message,

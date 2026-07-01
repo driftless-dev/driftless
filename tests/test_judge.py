@@ -136,3 +136,66 @@ def test_judge_agreement_against_calibration(tmp_path: Path):
 def test_judge_agreement_none_without_calibration(tmp_path: Path):
     spec = JudgeSpec(rubric="x")
     assert judge_agreement(KeywordJudge(), spec, cwd=tmp_path) is None
+
+
+def test_require_judge_agreement_passes_when_within_gate(tmp_path: Path):
+    from driftless.judges import require_judge_agreement
+
+    spec = JudgeSpec(
+        rubric="award full marks for 'good'",
+        calibration_path="calib.jsonl",
+        max_mae=0.2,
+    )
+    (tmp_path / "calib.jsonl").write_text(
+        json.dumps({"input": "q1", "output": "good", "score": 1.0}) + "\n"
+    )
+    agreement = require_judge_agreement(KeywordJudge(), spec, cwd=tmp_path)
+    assert agreement is not None
+    assert agreement.mean_abs_error == 0.0
+
+
+def test_require_judge_agreement_blocks_high_mae(tmp_path: Path):
+    from driftless.errors import DriftlessError
+    from driftless.judges import require_judge_agreement
+
+    spec = JudgeSpec(
+        rubric="award full marks for 'good'",
+        calibration_path="calib.jsonl",
+        max_mae=0.01,
+    )
+    (tmp_path / "calib.jsonl").write_text(
+        json.dumps({"input": "q1", "output": "bad", "score": 1.0}) + "\n"
+    )
+    with pytest.raises(DriftlessError, match="mean absolute error"):
+        require_judge_agreement(KeywordJudge(), spec, cwd=tmp_path)
+
+
+def test_judge_gates_require_calibration_path():
+    with pytest.raises(ValueError, match="calibration_path"):
+        JudgeSpec(rubric="x", max_mae=0.1)
+
+
+def test_judge_evidence_samples_prefers_lowest_scores():
+    from driftless.evaluation import RecordRow
+    from driftless.judges import judge_evidence_samples
+
+    rows = [
+        RecordRow(
+            index=0, parse_ok=True, schema_ok=True, predicted=0.2, gold=None,
+            is_refusal=False, is_schema_error=False, is_correct=None,
+            is_low_score=True, score=0.2, rationale="low",
+        ),
+        RecordRow(
+            index=1, parse_ok=True, schema_ok=True, predicted=0.5, gold=None,
+            is_refusal=False, is_schema_error=False, is_correct=None,
+            is_low_score=True, score=0.5, rationale="mid",
+        ),
+        RecordRow(
+            index=2, parse_ok=True, schema_ok=True, predicted=1.0, gold=None,
+            is_refusal=False, is_schema_error=False, is_correct=True,
+            is_low_score=False, score=1.0, rationale="high",
+        ),
+    ]
+    samples = judge_evidence_samples(rows, max_samples=2)
+    assert [s["index"] for s in samples] == [0, 1]
+    assert samples[0]["rationale"] == "low"

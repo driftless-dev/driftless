@@ -10,6 +10,7 @@ from driftless.engine import (
     MigrationStatus,
 )
 from driftless.evaluation import Metrics
+from driftless.judges import JudgeAgreement
 from driftless.report import render_markdown, result_to_dict, save_report
 
 
@@ -260,3 +261,25 @@ def test_alternates_section_lists_rejected_candidates():
     assert "## Other Attempts Considered" in md
     assert "weak try" in md
     assert "Best tuning F1 by iteration" in md
+
+
+def test_render_includes_judge_reliability_and_evidence():
+    agreement = JudgeAgreement(n=5, mean_abs_error=0.04, correlation=0.95)
+    result = _result(
+        MigrationStatus.PASS,
+        final=_metrics(score=0.88, f1=None),
+        judge_agreement=agreement,
+        judge_evidence=[
+            {"index": 2, "score": 0.2, "rationale": "missing keyword"},
+            {"index": 5, "score": 0.2, "rationale": "no good token"},
+        ],
+    )
+    md = render_markdown(result)
+    assert "## Judge Reliability" in md
+    assert "MAE=0.040" in md
+    assert "## Judge Scoring Evidence" in md
+    assert "missing keyword" in md
+
+    payload = result_to_dict(result)
+    assert payload["judge_agreement"]["n"] == 5
+    assert len(payload["judge_evidence"]) == 2

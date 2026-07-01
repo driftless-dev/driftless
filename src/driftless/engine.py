@@ -327,6 +327,9 @@ class MigrationResult:
     experiment_log: list[AttemptRecord] = field(default_factory=list)
     cluster_history: list[list[FailureCluster]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Judge-graded workflows: calibration agreement + low-score rationales for reviewers.
+    judge_agreement: Any | None = None
+    judge_evidence: list[dict[str, Any]] = field(default_factory=list)
     # refine-only: thresholds derived from the achieved holdout metrics, for the
     # customer to accept/edit (the old dataset's thresholds are stale).
     suggested_thresholds: dict[str, float] = field(default_factory=dict)
@@ -478,6 +481,27 @@ def run_migration(
             )
         judge = build_judge(judge_spec)
 
+    judge_agreement_info = None
+    if judge is not None and workflow.eval.judge is not None:
+        from .judges import require_judge_agreement
+
+        try:
+            judge_agreement_info = require_judge_agreement(
+                judge, workflow.eval.judge, cwd=cwd
+            )
+        except DriftlessError as exc:
+            return MigrationResult(
+                workflow=workflow_name,
+                current_model=current,
+                target_model=target_model,
+                status=MigrationStatus.BLOCKED,
+                iterations=0,
+                baseline=Metrics(n=0, schema_error_rate=None, refusal_rate=0.0),
+                naive_target=Metrics(n=0, schema_error_rate=None, refusal_rate=0.0),
+                final=Metrics(n=0, schema_error_rate=None, refusal_rate=0.0),
+                message=str(exc),
+            )
+
     if not workflow.model.has_override():
         return MigrationResult(
             workflow=workflow_name,
@@ -499,6 +523,13 @@ def run_migration(
     )
 
     use_ids = bool(workflow.eval.id_field) and split.gold is not None
+
+    def _judge_evidence(rows: list[RecordRow]) -> list[dict[str, Any]]:
+        if workflow.eval.grading != "judge":
+            return []
+        from .judges import judge_evidence_samples
+
+        return judge_evidence_samples(rows)
 
     def evaluate_on(
         model: str, idx: list[int], files: dict[str, str] | None = None
@@ -566,6 +597,8 @@ def run_migration(
                 holdout_checks=holdout_checks,
                 tuning_checks=naive_checks,
                 warnings=size_warnings,
+                judge_agreement=judge_agreement_info,
+                judge_evidence=_judge_evidence(naive_analysis.rows),
                 message="naive model swap passes thresholds; only the model ID changes",
             )
 
@@ -753,6 +786,8 @@ def run_migration(
                     experiment_log=experiment_log,
                     cluster_history=cluster_history,
                     warnings=size_warnings,
+                    judge_agreement=judge_agreement_info,
+                    judge_evidence=_judge_evidence(best_analysis.rows),
                     original_editable_files=original_editable,
                     message="migration passed tuning and holdout thresholds",
                 )
@@ -821,6 +856,8 @@ def run_migration(
             cluster_history=cluster_history,
             warnings=size_warnings,
             suggested_thresholds=suggested,
+            judge_agreement=judge_agreement_info,
+            judge_evidence=_judge_evidence(best_analysis.rows),
             original_editable_files=original_editable,
             message=message,
         )
@@ -850,6 +887,8 @@ def run_migration(
         experiment_log=experiment_log,
         cluster_history=cluster_history,
         warnings=size_warnings,
+        judge_agreement=judge_agreement_info,
+        judge_evidence=_judge_evidence(best_analysis.rows),
         original_editable_files=original_editable,
         message=message,
     )
