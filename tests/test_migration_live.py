@@ -29,8 +29,11 @@ from driftless.engine import MigrationResult, MigrationStatus, run_migration
 from regression_metrics import record_live_eval
 from scenarios import (
     build_extraction_scenario,
+    build_hallucination_scenario,
+    build_judge_scenario,
     build_scenario,
     build_score_scenario,
+    build_verbosity_scenario,
 )
 
 
@@ -80,6 +83,27 @@ LIVE_SCENARIOS = [
         name="qa_scorer",
         workflow="qa_scorer",
         build=build_score_scenario,
+        target_model="new-model",
+        min_score=0.9,
+    ),
+    LiveScenario(
+        name="verbosity_drift",
+        workflow="ticket_classifier",
+        build=build_verbosity_scenario,
+        target_model="new-model",
+        min_f1=0.9,
+    ),
+    LiveScenario(
+        name="label_hallucination",
+        workflow="ticket_classifier",
+        build=build_hallucination_scenario,
+        target_model="new-model",
+        min_f1=0.9,
+    ),
+    LiveScenario(
+        name="summarizer_judge",
+        workflow="summarizer",
+        build=build_judge_scenario,
         target_model="new-model",
         min_score=0.9,
     ),

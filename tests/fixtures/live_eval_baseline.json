@@ -34,5 +34,41 @@
       "min_final_score": 0.85,
       "max_iterations": 8
     }
+  },
+  "verbosity_drift": {
+    "openai": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    },
+    "anthropic": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    }
+  },
+  "label_hallucination": {
+    "openai": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    },
+    "anthropic": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    }
+  },
+  "summarizer_judge": {
+    "openai": {
+      "require_status": "pass",
+      "min_final_score": 0.85,
+      "max_iterations": 8
+    },
+    "anthropic": {
+      "require_status": "pass",
+      "min_final_score": 0.85,
+      "max_iterations": 8
+    }
   }
 }
