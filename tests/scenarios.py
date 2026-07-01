@@ -501,3 +501,239 @@ class VerbosityRepair:
         new = content + "Respond with JSON only; no preamble or prose before the object.\n"
         return [Patch(files={self.PATH: new}, rationale="verbosity: forbid preamble", kind="scripted")]
 
+
+# --------------------------------------------------------------------------- #
+# Label-hallucination scenario: target model invents out-of-enum labels.
+# --------------------------------------------------------------------------- #
+
+HALLUCINATION_TICKETS = VERBOSITY_TICKETS
+
+HALLUCINATION_INITIAL_PROMPT = (
+    "You classify support tickets.\n"
+    'Return raw JSON only, for example {"label": "billing"}.\n'
+)
+
+HALLUCINATION_APP_PY = '''\
+import json, os, pathlib
+
+KEYWORDS = [
+    ("refund", ["refund", "money back", "money-back", "reimburse", "chargeback"]),
+    ("technical", ["error", "crash", "bug", "broken", "slow", "login", "outage"]),
+    ("account", ["password", "account", "profile", "email", "username", "2fa"]),
+    ("billing", ["invoice", "charged", "billing", "payment", "subscription", "price"]),
+]
+
+
+def base(text):
+    t = text.lower()
+    for cat, kws in KEYWORDS:
+        if any(k in t for k in kws):
+            return cat
+    return "technical"
+
+
+model = os.environ["MODEL"]
+prompt = pathlib.Path("prompts/system.txt").read_text(encoding="utf-8").lower()
+is_target = model.startswith("new")
+closed_ok = "only these labels" in prompt or "closed set" in prompt
+
+lines = [l for l in pathlib.Path("inputs.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+out_lines = []
+for line in lines:
+    rec = json.loads(line)
+    cat = base(rec["text"])
+    if is_target and not closed_ok:
+        cat = "general"  # hallucinated label -> schema enum violation
+    out_lines.append(json.dumps({"id": rec["id"], "label": cat}))
+pathlib.Path("out.jsonl").write_text("\\n".join(out_lines) + "\\n", encoding="utf-8")
+'''
+
+
+def build_hallucination_scenario(tmp_path: Path, *, current: str = "old-model") -> Workflow:
+    """Target model emits labels outside the schema enum until the prompt forbids it."""
+    (tmp_path / "app.py").write_text(HALLUCINATION_APP_PY, encoding="utf-8")
+    (tmp_path / "schema.json").write_text(json.dumps(SCHEMA, indent=2), encoding="utf-8")
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "system.txt").write_text(HALLUCINATION_INITIAL_PROMPT, encoding="utf-8")
+
+    inputs = [{"id": f"h{i:02d}", "text": t} for i, t in enumerate(HALLUCINATION_TICKETS)]
+    (tmp_path / "inputs.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in inputs) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "labels.jsonl").write_text(
+        "\n".join(json.dumps({"id": x["id"], "label": base_category(x["text"])}) for x in inputs)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return Workflow.model_validate(
+        {
+            "description": "Support ticket classifier (label-hallucination scenario).",
+            "run": {
+                "command": f"{sys.executable} app.py",
+                "input_path": "inputs.jsonl",
+                "output_path": "out.jsonl",
+            },
+            "model": {
+                "current": current,
+                "env_var": "MODEL",
+                "target_candidates": ["new-model"],
+            },
+            "files": {
+                "editable": ["prompts/system.txt"],
+                "readonly": ["app.py", "schema.json"],
+            },
+            "eval": {
+                "labels_path": "labels.jsonl",
+                "schema_path": "schema.json",
+                "label_field": "label",
+                "id_field": "id",
+                "split": {"tuning": "60%", "holdout": "40%"},
+            },
+            "thresholds": {"min_f1": 0.9, "max_schema_error_rate": 0.02},
+            "migration": {"max_iterations": 4, "holdout_required": True},
+        }
+    )
+
+
+class HallucinationRepair:
+    """Constrain the label space so the model stops inventing enum values."""
+
+    PATH = "prompts/system.txt"
+
+    def generate(self, context):
+        content = context.editable_files[self.PATH]
+        if "only these labels" in content.lower():
+            return []
+        if not any(c.kind == "schema_error" for c in context.clusters):
+            return []
+        new = content + (
+            "Use ONLY these labels (closed set): billing, technical, account, refund. "
+            "Never invent labels like general or support.\n"
+        )
+        return [
+            Patch(files={self.PATH: new}, rationale="hallucination: closed label set", kind="scripted")
+        ]
+
+
+# --------------------------------------------------------------------------- #
+# Multi-field extraction scenario: category + priority slot filling.
+# --------------------------------------------------------------------------- #
+
+EXTRACTION_ROWS = [
+    ("My invoice this month is wrong", "billing", "high"),
+    ("I was charged twice for the same thing", "billing", "high"),
+    ("The app throws an error on startup", "technical", "low"),
+    ("It crashes every time I open it", "technical", "low"),
+    ("I forgot my password", "account", "low"),
+    ("How do I update my profile", "account", "low"),
+    ("I want a refund for this order", "refund", "high"),
+    ("Please give me my money back", "refund", "high"),
+]
+
+EXTRACTION_INITIAL_PROMPT = (
+    "Extract support ticket category and priority.\n"
+    'Return raw JSON with keys "category" and "priority".\n'
+)
+
+EXTRACTION_APP_PY = '''\
+import json, os, pathlib
+
+BILLING = ["invoice", "charged", "billing", "payment", "subscription", "price"]
+TECHNICAL = ["error", "crash", "bug", "broken", "slow", "login", "outage"]
+ACCOUNT = ["password", "account", "profile", "email", "username", "2fa"]
+REFUND = ["refund", "money back", "money-back", "reimburse", "chargeback"]
+
+prompt = pathlib.Path("prompts/system.txt").read_text(encoding="utf-8").lower()
+is_target = os.environ["MODEL"].startswith("new")
+priority_ok = "refund" in prompt and "high priority" in prompt
+
+lines = [l for l in pathlib.Path("inputs.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+out_lines = []
+for line in lines:
+    rec = json.loads(line)
+    t = rec["text"].lower()
+    if any(k in t for k in REFUND):
+        category = "refund"
+    elif any(k in t for k in BILLING):
+        category = "billing"
+    elif any(k in t for k in ACCOUNT):
+        category = "account"
+    else:
+        category = "technical"
+    if is_target and not priority_ok:
+        priority = "low"
+    elif category in ("refund", "billing"):
+        priority = "high"
+    else:
+        priority = "low"
+    out_lines.append(json.dumps({"id": rec["id"], "category": category, "priority": priority}))
+pathlib.Path("out.jsonl").write_text("\\n".join(out_lines) + "\\n", encoding="utf-8")
+'''
+
+
+def build_extraction_scenario(tmp_path: Path, *, current: str = "old-model") -> Workflow:
+    """Multi-field extraction migration: target model under-assigns priority."""
+    (tmp_path / "app.py").write_text(EXTRACTION_APP_PY, encoding="utf-8")
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "system.txt").write_text(EXTRACTION_INITIAL_PROMPT, encoding="utf-8")
+
+    inputs = [{"id": f"e{i:02d}", "text": text} for i, (text, _, _) in enumerate(EXTRACTION_ROWS)]
+    (tmp_path / "inputs.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in inputs) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "labels.jsonl").write_text(
+        "\n".join(
+            json.dumps({"id": f"e{i:02d}", "category": cat, "priority": pri})
+            for i, (_, cat, pri) in enumerate(EXTRACTION_ROWS)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return Workflow.model_validate(
+        {
+            "description": "Ticket extraction (category + priority).",
+            "run": {
+                "command": f"{sys.executable} app.py",
+                "input_path": "inputs.jsonl",
+                "output_path": "out.jsonl",
+            },
+            "model": {
+                "current": current,
+                "env_var": "MODEL",
+                "target_candidates": ["new-model"],
+            },
+            "files": {
+                "editable": ["prompts/system.txt"],
+                "readonly": ["app.py"],
+            },
+            "eval": {
+                "labels_path": "labels.jsonl",
+                "id_field": "id",
+                "fields": ["category", "priority"],
+                "split": {"tuning": "60%", "holdout": "40%"},
+            },
+            "thresholds": {"min_f1": 0.9},
+            "migration": {"max_iterations": 4, "holdout_required": True},
+        }
+    )
+
+
+class ExtractionRepair:
+    """Encode the priority rubric the target model lost on migration."""
+
+    PATH = "prompts/system.txt"
+
+    def generate(self, context):
+        content = context.editable_files[self.PATH]
+        if "high priority" in content.lower():
+            return []
+        if not any("priority" in c.key for c in context.clusters):
+            return []
+        new = content + (
+            "Refund and billing tickets are high priority; technical and account "
+            "tickets are low priority.\n"
+        )
+        return [Patch(files={self.PATH: new}, rationale="extraction: priority rubric", kind="scripted")]
+

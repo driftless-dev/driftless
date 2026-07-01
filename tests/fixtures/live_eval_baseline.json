@@ -1,0 +1,14 @@
+{
+  "ticket_classifier": {
+    "openai": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    },
+    "anthropic": {
+      "require_status": "pass",
+      "min_final_f1": 0.85,
+      "max_iterations": 8
+    }
+  }
+}

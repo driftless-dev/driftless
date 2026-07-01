@@ -119,3 +119,45 @@ def test_verbosity_drift_is_repaired_to_pass(tmp_path: Path):
     assert result.final.f1 is not None and result.final.f1 >= 0.9
     committed = (tmp_path / "prompts" / "system.txt").read_text(encoding="utf-8").lower()
     assert "no preamble" in committed
+
+
+def test_label_hallucination_is_repaired_to_pass(tmp_path: Path):
+    from scenarios import HallucinationRepair, build_hallucination_scenario
+
+    wf = build_hallucination_scenario(tmp_path)
+    blocked = run_migration("ticket_classifier", wf, "new-model", cwd=tmp_path, seed=1)
+    assert blocked.status == MigrationStatus.BLOCKED
+
+    result = run_migration(
+        "ticket_classifier",
+        wf,
+        "new-model",
+        generator=HallucinationRepair(),
+        cwd=tmp_path,
+        seed=1,
+    )
+    assert result.status == MigrationStatus.PASS, result.message
+    assert result.final.f1 is not None and result.final.f1 >= 0.9
+    committed = (tmp_path / "prompts" / "system.txt").read_text(encoding="utf-8").lower()
+    assert "only these labels" in committed
+
+
+def test_extraction_migration_recovers_priority_field(tmp_path: Path):
+    from scenarios import ExtractionRepair, build_extraction_scenario
+
+    wf = build_extraction_scenario(tmp_path)
+    blocked = run_migration("ticket_extractor", wf, "new-model", cwd=tmp_path, seed=1)
+    assert blocked.status == MigrationStatus.BLOCKED
+
+    result = run_migration(
+        "ticket_extractor",
+        wf,
+        "new-model",
+        generator=ExtractionRepair(),
+        cwd=tmp_path,
+        seed=1,
+    )
+    assert result.status == MigrationStatus.PASS, result.message
+    assert result.final.f1 is not None and result.final.f1 >= 0.9
+    committed = (tmp_path / "prompts" / "system.txt").read_text(encoding="utf-8").lower()
+    assert "high priority" in committed

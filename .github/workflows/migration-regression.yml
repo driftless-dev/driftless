@@ -58,6 +58,12 @@ jobs:
           fi
           pytest tests/test_migration_live.py -v --no-cov -k "$PROVIDER"
 
+      - name: Check live eval against baseline
+        if: success()
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: python scripts/check_live_eval_metrics.py --provider "$PROVIDER"
+
       - name: Upload live eval metrics
         if: always()
         uses: actions/upload-artifact@v4
