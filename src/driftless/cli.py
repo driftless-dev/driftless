@@ -105,6 +105,62 @@ def init_policy(
     )
 
 
+@app.command(name="init-ci")
+def init_ci(
+    contract_path: Path = typer.Option(
+        None, "--contract", help="Path to driftless.yml."
+    ),
+    out_dir: Path = typer.Option(
+        Path(".github/workflows"),
+        "--out-dir",
+        help="Directory for generated workflow YAML files.",
+    ),
+    action_ref: str = typer.Option(
+        None,
+        "--action-ref",
+        help="Composite Action ref (default: driftless-dev/driftless@v<version>).",
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing workflows."),
+    scan: bool = typer.Option(True, "--scan/--no-scan", help="Scaffold model scan workflow."),
+    migrate: bool = typer.Option(
+        True, "--migrate/--no-migrate", help="Scaffold model migrate workflow."
+    ),
+    refine: bool = typer.Option(
+        True, "--refine/--no-refine", help="Scaffold dataset refine workflow(s)."
+    ),
+    poll: bool | None = typer.Option(
+        None,
+        "--poll/--no-poll",
+        help="Scaffold external poll workflow (default: on if data_source is set).",
+    ),
+    plan: bool = typer.Option(
+        False, "--plan/--no-plan", help="Scaffold scheduled plan --act workflow."
+    ),
+) -> None:
+    """Scaffold GitHub Actions workflows wired to the driftless composite Action."""
+    from .init_ci import CHECKLIST, scaffold_ci_from_path
+
+    try:
+        written = scaffold_ci_from_path(
+            contract_path,
+            out_dir=out_dir,
+            action_ref=action_ref,
+            force=force,
+            include_scan=scan,
+            include_migrate=migrate,
+            include_refine=refine,
+            include_poll=poll,
+            include_plan=plan,
+        )
+    except DriftlessError as exc:
+        _fail(exc)
+        return
+
+    for path in written:
+        console.print(f"[green]created[/] {path}")
+    console.print(CHECKLIST)
+
+
 @app.command()
 def validate(
     workflow: str = typer.Option(
@@ -403,7 +459,13 @@ def calibrate(
         if wf.eval.grading == "judge":
             from .judges import build_judge
 
-            judge = build_judge(wf.eval.judge)
+            judge_spec = wf.eval.judge
+            if judge_spec is None:
+                raise DriftlessError(
+                    "judge grading requires eval.judge in the contract",
+                    hint="add a judge block to driftless.yml",
+                )
+            judge = build_judge(judge_spec)
         run = run_workflow(wf, wf.model.current, cwd=Path.cwd())
         metrics = evaluate(wf, run, judge=judge, cwd=Path.cwd())
     except DriftlessError as exc:
@@ -635,6 +697,7 @@ def plan(
             # Prefer measured cost; fall back to a catalog-pricing estimate so
             # cost decisions are actionable even without per-record cost data.
             bc, tc = comparison.baseline.total_cost, comparison.target.total_cost
+            cost_change: float | None
             if bc and tc and bc > 0:
                 cost_change = (tc - bc) / bc
             else:
@@ -764,7 +827,11 @@ def migrate(
             model=generator_model,
             num_candidates=candidates,
         )
-        gen_desc = "no-op" if gen is None else f"llm ({gen.provider}:{gen.model})"
+        gen_desc = (
+            "no-op"
+            if gen is None
+            else f"llm ({getattr(gen, 'provider', 'unknown')}:{getattr(gen, 'model', 'unknown')})"
+        )
         progress_log(
             f"migrate: {workflow} {wf.model.current} -> {to} "
             f"(max {wf.migration.max_iterations} iterations, repair={gen_desc})"
@@ -872,7 +939,11 @@ def refine(
             model=generator_model,
             num_candidates=candidates,
         )
-        gen_desc = "no-op" if gen is None else f"llm ({gen.provider}:{gen.model})"
+        gen_desc = (
+            "no-op"
+            if gen is None
+            else f"llm ({getattr(gen, 'provider', 'unknown')}:{getattr(gen, 'model', 'unknown')})"
+        )
         progress_log(
             f"refine: {workflow} (model pinned to {wf.model.current}, "
             f"max {wf.migration.max_iterations} iterations, repair={gen_desc})"

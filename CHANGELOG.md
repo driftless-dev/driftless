@@ -17,6 +17,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-07-01
+
+### Added
+
+- **`driftless init-ci`** — scaffold GitHub Actions workflows (scan, migrate,
+  refine, optional poll/plan) wired to the published composite Action.
+- **CI hygiene** — `mypy` lint job and a **78%** pytest coverage gate.
+- **Site** — updated landing page and docs.
+
+### Changed
+
+- In-repo workflows dogfood `uses: driftless-dev/driftless@v0.2.0` (composite
+  Action at repo root; no `/action` path segment).
+- Composite Action default `version` input pins `==0.2.0`; documents `poll` and
+  `plan` commands.
+
+---
+
 ## [0.1.1] - 2026-06-27
 
 Patch release to validate PyPI Trusted Publishing from GitHub Releases.
@@ -53,6 +71,7 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.0
 [0.1.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.1
 [0.1.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.0

@@ -24,6 +24,8 @@ pip install -e ".[dev]"
 
 ```bash
 driftless init            # scaffold a driftless.yml
+driftless init-policy     # scaffold .driftless/policy.yml
+driftless init-ci         # scaffold GitHub Actions workflows
 driftless validate -w support_classifier   # contract parses + harness runs
 ```
 
@@ -53,6 +55,7 @@ optimizes against it, with your team owning the definition of "good":
 |---|---|
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
+| `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, and poll. |
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
 | `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |
@@ -86,7 +89,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan and a
 manually-triggered migration that opens a PR (or an issue when blocked).
 
 ```yaml
-- uses: driftless/action@v1
+- uses: driftless-dev/driftless@v0.2.0
   with:
     command: scan
 ```
