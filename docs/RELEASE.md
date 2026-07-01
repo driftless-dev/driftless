@@ -153,7 +153,7 @@ After a release, users can pin the composite Action by release tag
 (`action.yml` lives at the repo root — no `/action` path segment):
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.9
+- uses: driftless-dev/driftless@v0.2.10
   with:
     command: scan
 ```
@@ -161,9 +161,9 @@ After a release, users can pin the composite Action by release tag
 Or pin the PyPI package in the Action input:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.9
+- uses: driftless-dev/driftless@v0.2.10
   with:
-    version: "==0.2.9"
+    version: "==0.2.10"
     command: migrate
 ```
 
@@ -171,7 +171,7 @@ Optionally maintain a floating **`v1`** tag on the latest stable minor release
 (point it at the current release tag after each publish):
 
 ```bash
-git tag -f v1 v0.2.9 && git push origin v1 --force
+git tag -f v1 v0.2.10 && git push origin v1 --force
 ```
 
 Update [`action.yml`](../action.yml) default `version` input when cutting releases.

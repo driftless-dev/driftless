@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Plan and act on migration triggers
-        uses: driftless-dev/driftless@v0.2.9
+        uses: driftless-dev/driftless@v0.2.10
         with:
           command: plan
           args: "--act"

@@ -163,3 +163,72 @@ def test_endpoint_concurrency_preserves_order_and_parallelizes(tmp_path, monkeyp
     rows = _read_out(result.output_path)
     assert [r["id"] for r in rows] == [str(i) for i in range(8)]
     assert "concurrency=4" in result.stdout
+    assert "retries=0" in result.stdout
+
+
+def test_endpoint_retries_transient_http_errors(tmp_path, monkeypatch):
+    import urllib.error
+
+    _write_inputs(tmp_path, [{"id": "a", "text": "x"}])
+    attempts = {"n": 0}
+    sleeps: list[float] = []
+
+    def fake_post(*args, **kwargs):
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise urllib.error.HTTPError(
+                url="http://x", code=503, msg="unavailable", hdrs={}, fp=None
+            )
+        return json.dumps({"id": "a", "label": "ok"})
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+    monkeypatch.setattr(harness.time, "sleep", lambda s: sleeps.append(s))
+
+    result = run_workflow(
+        _endpoint_workflow(endpoint_retries=2, endpoint_retry_backoff_seconds=0.5),
+        "m1",
+        cwd=tmp_path,
+    )
+
+    assert result.ok
+    assert attempts["n"] == 3
+    assert sleeps == [0.5, 1.0]
+
+
+def test_endpoint_does_not_retry_client_errors(tmp_path, monkeypatch):
+    import urllib.error
+
+    _write_inputs(tmp_path, [{"id": "a", "text": "x"}])
+    attempts = {"n": 0}
+
+    def fake_post(*args, **kwargs):
+        attempts["n"] += 1
+        raise urllib.error.HTTPError(
+            url="http://x", code=400, msg="bad request", hdrs={}, fp=None
+        )
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+
+    with pytest.raises(HarnessError, match="HTTP 400"):
+        run_workflow(_endpoint_workflow(endpoint_retries=3), "m1", cwd=tmp_path)
+    assert attempts["n"] == 1
+
+
+def test_endpoint_retries_network_errors(tmp_path, monkeypatch):
+    import urllib.error
+
+    _write_inputs(tmp_path, [{"id": "a", "text": "x"}])
+    attempts = {"n": 0}
+
+    def fake_post(*args, **kwargs):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise urllib.error.URLError("connection reset")
+        return json.dumps({"id": "a", "label": "ok"})
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+    monkeypatch.setattr(harness.time, "sleep", lambda _s: None)
+
+    result = run_workflow(_endpoint_workflow(endpoint_retries=1), "m1", cwd=tmp_path)
+    assert result.ok
+    assert attempts["n"] == 2

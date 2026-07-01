@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.10] - 2026-07-01
+
+### Added
+
+- **P5.2 endpoint retry/backoff** — `run.endpoint_retries` (0–10) and
+  `run.endpoint_retry_backoff_seconds` retry transient HTTP (429/502/503/504)
+  and network errors with exponential backoff per input record.
+
+---
+
 ## [0.2.9] - 2026-07-01
 
 ### Added
@@ -174,9 +184,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.9...HEAD
-[0.2.9]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.9
-[0.2.8]: https://github.com/driftless-dev/driftless/compare/v0.2.8...v0.2.9
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.10...HEAD
+[0.2.10]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.10
+[0.2.9]: https://github.com/driftless-dev/driftless/compare/v0.2.9...v0.2.10
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3

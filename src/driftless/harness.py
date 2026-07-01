@@ -199,6 +199,10 @@ def _read_jsonl(path: Path) -> list[dict]:
     return records
 
 
+def _retryable_http_status(code: int) -> bool:
+    return code in {429, 502, 503, 504}
+
+
 def _endpoint_post_record(
     index: int,
     rec: dict,
@@ -209,24 +213,40 @@ def _endpoint_post_record(
     headers: dict[str, str],
     timeout: float,
     id_field: str | None,
+    retries: int = 0,
+    retry_backoff: float = 1.0,
 ) -> str:
     """POST one input record and return the output JSONL line."""
     body = dict(rec)
     body[model_param] = model
-    try:
-        text = _http_post(
-            endpoint, json.dumps(body).encode("utf-8"), headers, timeout
-        )
-    except urllib.error.HTTPError as exc:
-        raise HarnessError(
-            f"endpoint returned HTTP {exc.code} on record {index}",
-            hint=_tail(exc.read().decode("utf-8", "replace")) if exc.fp else str(exc),
-        ) from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise HarnessError(
-            f"endpoint request failed on record {index}: {endpoint}",
-            hint=str(getattr(exc, "reason", exc)),
-        ) from exc
+    payload = json.dumps(body).encode("utf-8")
+    max_attempts = 1 + retries
+    text: str | None = None
+
+    for attempt in range(max_attempts):
+        try:
+            text = _http_post(endpoint, payload, headers, timeout)
+            break
+        except urllib.error.HTTPError as exc:
+            if attempt < max_attempts - 1 and _retryable_http_status(exc.code):
+                if exc.fp:
+                    exc.read()
+                time.sleep(retry_backoff * (2**attempt))
+                continue
+            raise HarnessError(
+                f"endpoint returned HTTP {exc.code} on record {index}",
+                hint=_tail(exc.read().decode("utf-8", "replace")) if exc.fp else str(exc),
+            ) from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt < max_attempts - 1:
+                time.sleep(retry_backoff * (2**attempt))
+                continue
+            raise HarnessError(
+                f"endpoint request failed on record {index}: {endpoint}",
+                hint=str(getattr(exc, "reason", exc)),
+            ) from exc
+
+    assert text is not None
 
     try:
         obj = json.loads(text)
@@ -255,7 +275,9 @@ def _run_endpoint(
     as the corresponding output record. When ``eval.id_field`` is set and the
     response omits it, the input's id is copied through so output<->label
     alignment still works. Use ``run.endpoint_concurrency`` (>1) to POST in
-    parallel; output line order always matches the input file.
+    parallel; output line order always matches the input file. Transient HTTP
+    (429/502/503/504) and network errors honor ``run.endpoint_retries`` with
+    exponential backoff from ``run.endpoint_retry_backoff_seconds``.
     """
     run = workflow.run
     input_path = (cwd / run.input_path).resolve()
@@ -282,6 +304,8 @@ def _run_endpoint(
 
     concurrency = run.endpoint_concurrency
     timeout = float(run.timeout_seconds)
+    retries = run.endpoint_retries
+    retry_backoff = run.endpoint_retry_backoff_seconds
     start = time.monotonic()
 
     def post_one(index: int, rec: dict) -> tuple[int, str]:
@@ -294,6 +318,8 @@ def _run_endpoint(
             headers=headers,
             timeout=timeout,
             id_field=id_field,
+            retries=retries,
+            retry_backoff=retry_backoff,
         )
         return index, line
 
@@ -313,7 +339,8 @@ def _run_endpoint(
         output_path=output_path,
         returncode=0,
         duration_seconds=duration,
-        stdout=f"{len(out_lines)} records via {endpoint} (concurrency={concurrency})",
+        stdout=f"{len(out_lines)} records via {endpoint} "
+        f"(concurrency={concurrency}, retries={retries})",
         stderr="",
         env_overrides={},
     )

@@ -71,6 +71,11 @@ class RunSpec(StrictModel):
     # For endpoints: max parallel POSTs (1 = sequential). Output order always
     # matches input order regardless of completion order.
     endpoint_concurrency: int = 1
+    # For endpoints: extra attempts after a transient failure (429/502/503/504 or
+    # network/timeout). 0 = fail on first error.
+    endpoint_retries: int = 0
+    # Base seconds for exponential backoff between endpoint retries (doubled each attempt).
+    endpoint_retry_backoff_seconds: float = 1.0
 
     @field_validator("command", "endpoint")
     @classmethod
@@ -84,6 +89,20 @@ class RunSpec(StrictModel):
     def _endpoint_concurrency_range(cls, v: int) -> int:
         if v < 1 or v > 32:
             raise ValueError("run.endpoint_concurrency must be between 1 and 32")
+        return v
+
+    @field_validator("endpoint_retries")
+    @classmethod
+    def _endpoint_retries_range(cls, v: int) -> int:
+        if v < 0 or v > 10:
+            raise ValueError("run.endpoint_retries must be between 0 and 10")
+        return v
+
+    @field_validator("endpoint_retry_backoff_seconds")
+    @classmethod
+    def _endpoint_retry_backoff_range(cls, v: float) -> float:
+        if v < 0 or v > 60:
+            raise ValueError("run.endpoint_retry_backoff_seconds must be between 0 and 60")
         return v
 
     @model_validator(mode="after")
