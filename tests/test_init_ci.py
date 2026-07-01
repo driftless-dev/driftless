@@ -4,6 +4,7 @@ from typer.testing import CliRunner
 
 from driftless.cli import app
 from driftless.init_ci import (
+    STRICT_LABEL_AUDIT_ARGS,
     dataset_paths,
     default_action_ref,
     judge_check_targets,
@@ -51,6 +52,10 @@ workflows:
     assert "data/labels.jsonl" in audit
     assert "audit-labels" in audit
     assert '--fail' in audit or '"--fail"' in audit
+    migrate = (out / "driftless-model-migrate.yml").read_text()
+    assert "audit-labels" in migrate
+    assert "--strict-label-audit" in migrate
+    assert "--strict-label-audit" in refine
     assert default_action_ref() in refine
     assert "OPENAI_API_KEY" in result.output
 
@@ -336,9 +341,15 @@ workflows:
 def test_rendered_workflows_use_action_ref():
     ref = "driftless-dev/driftless@v9.9.9"
     assert ref in render_migrate_workflow(ref)
-    assert "support_classifier" in render_refine_workflow(
+    migrate = render_migrate_workflow(ref)
+    assert "audit-labels" in migrate
+    assert STRICT_LABEL_AUDIT_ARGS in migrate
+    refine = render_refine_workflow(
         ref, "support_classifier", ["data/labels.jsonl"]
     )
+    assert "support_classifier" in refine
+    assert "audit-labels" in refine
+    assert STRICT_LABEL_AUDIT_ARGS in refine
     audit = render_audit_labels_workflow(ref, ["support_classifier"], ["data/labels.jsonl"])
     assert ref in audit
     assert "audit-labels" in audit

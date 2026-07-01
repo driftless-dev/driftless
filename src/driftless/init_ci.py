@@ -43,6 +43,21 @@ def _provider_env_block(indent: str = "          ") -> str:
     )
 
 
+def _audit_labels_step(action_ref: str, workflow: str, *, indent: str = "      ") -> str:
+    """Pre-flight gold-label audit (no provider keys required)."""
+    return f"""\
+{indent}- name: Audit gold labels
+{indent}  uses: {action_ref}
+{indent}  with:
+{indent}    command: audit-labels
+{indent}    workflow: {workflow}
+{indent}    args: "--fail"
+"""
+
+
+STRICT_LABEL_AUDIT_ARGS = "--strict-label-audit"
+
+
 def render_scan_workflow(action_ref: str) -> str:
     return f"""\
 name: driftless model scan
@@ -93,12 +108,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+{_audit_labels_step(action_ref, "${{{{ github.event.inputs.workflow }}}}")}\
       - name: Attempt migration
         uses: {action_ref}
         with:
           command: migrate
           workflow: ${{{{ github.event.inputs.workflow }}}}
           to: ${{{{ github.event.inputs.to }}}}
+          args: "{STRICT_LABEL_AUDIT_ARGS}"
         env:
 {_provider_env_block()}\
       - name: Open migration PR (or issue)
@@ -146,11 +163,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+{_audit_labels_step(action_ref, "${{{{ env.WORKFLOW }}}}")}\
       - name: Refine prompt toward the updated dataset
         uses: {action_ref}
         with:
           command: refine
           workflow: ${{{{ env.WORKFLOW }}}}
+          args: "{STRICT_LABEL_AUDIT_ARGS}"
         env:
 {_provider_env_block()}\
       - name: Open refine PR
@@ -564,7 +583,7 @@ Next steps:
   2. For poll workflows: DRIFTLESS_DATASOURCE_TOKEN if eval.data_source URLs need auth.
   3. Confirm workflow path filters match your eval dataset paths in driftless.yml.
   4. Run driftless validate -w <workflow> locally before enabling scheduled jobs.
-  5. Run driftless audit-labels -w <workflow> locally; CI uses --fail on label conflicts.
+  5. Run driftless audit-labels -w <workflow> locally; migrate/refine CI runs audit-labels --fail first, then --strict-label-audit.
   6. For judge-graded workflows: driftless judge-check -w <workflow> --enforce when gates are set.
   7. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
 """

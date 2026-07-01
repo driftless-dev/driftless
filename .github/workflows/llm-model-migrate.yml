@@ -24,18 +24,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Audit gold labels
+        uses: driftless-dev/driftless@v0.2.12
+        with:
+          command: audit-labels
+          workflow: ${{ github.event.inputs.workflow }}
+          args: "--fail"
+
       - name: Attempt migration
-        uses: driftless-dev/driftless@v0.2.11
+        uses: driftless-dev/driftless@v0.2.12
         with:
           command: migrate
           workflow: ${{ github.event.inputs.workflow }}
           to: ${{ github.event.inputs.to }}
+          args: "--strict-label-audit"
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Open migration PR (or issue)
-        uses: driftless-dev/driftless@v0.2.11
+        uses: driftless-dev/driftless@v0.2.12
         with:
           command: open-pr
           workflow: ${{ github.event.inputs.workflow }}
