@@ -96,6 +96,39 @@ class Metrics:
     scored: int = 0
 
 
+def average_metrics(items: list[Metrics]) -> Metrics:
+    """Mean of headline metrics across multiple eval runs (multi-seed tuning)."""
+    if not items:
+        raise ValueError("average_metrics requires at least one Metrics")
+    if len(items) == 1:
+        return items[0]
+
+    def _mean(vals: list[float | None]) -> float | None:
+        nums = [v for v in vals if v is not None]
+        return sum(nums) / len(nums) if nums else None
+
+    def _mean_int(vals: list[int]) -> int:
+        return int(round(sum(vals) / len(vals)))
+
+    costs = [m.total_cost for m in items if m.total_cost is not None]
+    return Metrics(
+        n=items[0].n,
+        schema_error_rate=_mean([m.schema_error_rate for m in items]),
+        refusal_rate=_mean([m.refusal_rate for m in items]) or 0.0,
+        accuracy=_mean([m.accuracy for m in items]),
+        precision=_mean([m.precision for m in items]),
+        recall=_mean([m.recall for m in items]),
+        f1=_mean([m.f1 for m in items]),
+        avg_latency_ms=_mean([m.avg_latency_ms for m in items]),
+        total_cost=sum(costs) if costs else None,
+        score=_mean([m.score for m in items]),
+        schema_errors=_mean_int([m.schema_errors for m in items]),
+        refusals=_mean_int([m.refusals for m in items]),
+        labeled=items[0].labeled,
+        scored=items[0].scored,
+    )
+
+
 def load_jsonl(path: Path) -> list[OutputRecord]:
     records: list[OutputRecord] = []
     with path.open(encoding="utf-8") as fh:

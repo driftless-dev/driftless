@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.6] - 2026-07-01
+
+### Added
+
+- **P0.3 multi-seed tuning selection** — optional `migration.split_seed_count`
+  (1–5) averages tuning-split metrics across shuffle seeds when scoring repair
+  candidates; holdout validation still uses the primary `--seed` only.
+
+---
+
 ## [0.2.5] - 2026-07-01
 
 ### Added
@@ -132,8 +142,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.5...HEAD
-[0.2.5]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.5
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.6
+[0.2.5]: https://github.com/driftless-dev/driftless/compare/v0.2.5...v0.2.6
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3

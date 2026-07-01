@@ -207,3 +207,13 @@ def test_cluster_failures():
     assert kinds["refusal"].count == 1
     assert kinds["misclassification"].count == 2  # billing<-technical pair
     assert kinds["misclassification"].key == "billing -> technical"
+
+
+def test_multi_seed_tuning_still_passes(tmp_path: Path):
+    wf = _make_workflow(tmp_path)
+    wf.migration.split_seed_count = 2
+    result = run_migration("demo", wf, "weak", generator=StrictGen(), cwd=tmp_path, seed=1)
+
+    assert result.status == MigrationStatus.PASS
+    assert result.split_seeds_used == [1, 2]
+    assert any("Multi-seed tuning" in w for w in result.warnings)

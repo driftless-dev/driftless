@@ -568,6 +568,7 @@ def result_to_dict(result: MigrationResult) -> dict:
         "experiment_log": [asdict(a) for a in result.experiment_log],
         "cluster_trajectory": cluster_trajectories(result.cluster_history),
         "warnings": result.warnings,
+        "split_seeds_used": result.split_seeds_used,
         "judge_agreement": asdict(result.judge_agreement) if result.judge_agreement else None,
         "judge_evidence": result.judge_evidence,
         "suggested_thresholds": result.suggested_thresholds,

@@ -30,10 +30,10 @@ from .calibrate import suggest_thresholds
 from .compare import ThresholdCheck, check_thresholds
 from .contract import ThresholdsSpec, Workflow
 from .errors import DriftlessError
-from .evaluation import Metrics, RecordRow, RunAnalysis, analyze
+from .evaluation import Metrics, RecordRow, RunAnalysis, analyze, average_metrics
 from .harness import run_workflow
 from .progress import log as progress_log
-from .splits import make_splits, materialize_inputs
+from .splits import Split, make_splits, materialize_inputs
 
 
 # --------------------------------------------------------------------------- #
@@ -336,6 +336,8 @@ class MigrationResult:
     message: str = ""
     # Frozen editable files at loop start — baseline for per-candidate diffs in reports/UI.
     original_editable_files: dict[str, str] = field(default_factory=dict)
+    # Shuffle seeds used for tuning (primary ``seed`` only when split_seed_count==1).
+    split_seeds_used: list[int] = field(default_factory=list)
 
     @property
     def succeeded(self) -> bool:
@@ -516,11 +518,19 @@ def run_migration(
         )
 
     split = make_splits(workflow, cwd=cwd, seed=seed)
+    split_seeds_used = list(range(seed, seed + mig.split_seed_count))
     size_warnings = assess_split_sizes(
         len(split.input_lines),
         len(split.holdout_idx),
         holdout_required=mig.holdout_required,
     )
+    if mig.split_seed_count > 1:
+        size_warnings.append(
+            f"Multi-seed tuning: candidate selection averages metrics across "
+            f"{mig.split_seed_count} shuffle seeds ({split_seeds_used[0]}.."
+            f"{split_seeds_used[-1]}); each candidate scoring multiplies tuning "
+            "workflow runs."
+        )
 
     use_ids = bool(workflow.eval.id_field) and split.gold is not None
 
@@ -532,18 +542,23 @@ def run_migration(
         return judge_evidence_samples(rows)
 
     def evaluate_on(
-        model: str, idx: list[int], files: dict[str, str] | None = None
+        model: str,
+        idx: list[int],
+        files: dict[str, str] | None = None,
+        *,
+        split_ref: Split | None = None,
     ) -> RunAnalysis:
+        sp = split_ref or split
         file_ctx = apply_files(files, cwd=cwd) if files else nullcontext()
-        idx_lines = split.lines_for(idx)
+        idx_lines = sp.lines_for(idx)
         with materialize_inputs(workflow, idx_lines, cwd=cwd):
             with file_ctx:
                 run = run_workflow(workflow, model, cwd=cwd)
-                if use_ids:
+                if use_ids and sp.gold_ids is not None:
                     return analyze(
                         workflow,
                         run,
-                        gold_by_id=split.gold_by_id_for(idx),
+                        gold_by_id=sp.gold_by_id_for(idx),
                         inputs=idx_lines,
                         judge=judge,
                         cwd=cwd,
@@ -551,11 +566,26 @@ def run_migration(
                 return analyze(
                     workflow,
                     run,
-                    gold_labels=split.gold_for(idx),
+                    gold_labels=sp.gold_for(idx),
                     inputs=idx_lines,
                     judge=judge,
                     cwd=cwd,
                 )
+
+    def evaluate_tuning(
+        model: str, files: dict[str, str] | None = None
+    ) -> RunAnalysis:
+        """Score on the tuning split; average across seeds when configured."""
+        if mig.split_seed_count <= 1:
+            return evaluate_on(model, split.tuning_idx, files)
+        tuning_splits = [make_splits(workflow, cwd=cwd, seed=s) for s in split_seeds_used]
+        analyses = [
+            evaluate_on(model, sp.tuning_idx, files, split_ref=sp) for sp in tuning_splits
+        ]
+        return RunAnalysis(
+            metrics=average_metrics([a.metrics for a in analyses]),
+            rows=analyses[0].rows,
+        )
 
     progress_log(
         f"migration: phase 1/3 — initial eval "
@@ -597,6 +627,7 @@ def run_migration(
                 holdout_checks=holdout_checks,
                 tuning_checks=naive_checks,
                 warnings=size_warnings,
+                split_seeds_used=split_seeds_used,
                 judge_agreement=judge_agreement_info,
                 judge_evidence=_judge_evidence(naive_analysis.rows),
                 message="naive model swap passes thresholds; only the model ID changes",
@@ -691,7 +722,7 @@ def run_migration(
             cand_size = _patch_diff_size(patch.files, original_editable)
             try:
                 validate_patch_scope(patch, workflow, cwd)
-                analysis = evaluate_on(target_model, split.tuning_idx, files=patch.files)
+                analysis = evaluate_tuning(target_model, files=patch.files)
             except DriftlessError as exc:
                 experiment_log.append(
                     AttemptRecord(
@@ -786,6 +817,7 @@ def run_migration(
                     experiment_log=experiment_log,
                     cluster_history=cluster_history,
                     warnings=size_warnings,
+                split_seeds_used=split_seeds_used,
                     judge_agreement=judge_agreement_info,
                     judge_evidence=_judge_evidence(best_analysis.rows),
                     original_editable_files=original_editable,
@@ -855,6 +887,7 @@ def run_migration(
             experiment_log=experiment_log,
             cluster_history=cluster_history,
             warnings=size_warnings,
+            split_seeds_used=split_seeds_used,
             suggested_thresholds=suggested,
             judge_agreement=judge_agreement_info,
             judge_evidence=_judge_evidence(best_analysis.rows),
@@ -887,6 +920,7 @@ def run_migration(
         experiment_log=experiment_log,
         cluster_history=cluster_history,
         warnings=size_warnings,
+        split_seeds_used=split_seeds_used,
         judge_agreement=judge_agreement_info,
         judge_evidence=_judge_evidence(best_analysis.rows),
         original_editable_files=original_editable,

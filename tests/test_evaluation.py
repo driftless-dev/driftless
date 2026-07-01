@@ -316,3 +316,14 @@ def test_load_labels_by_id_rejects_duplicates(tmp_path: Path):
     p.write_text('{"id":"a","label":"x"}\n{"id":"a","label":"y"}\n')
     with pytest.raises(Exception):
         load_labels_by_id(p, "id", "label")
+
+
+def test_average_metrics_means_headline_fields():
+    from driftless.evaluation import Metrics, average_metrics
+
+    a = Metrics(n=10, schema_error_rate=0.2, refusal_rate=0.1, f1=0.8)
+    b = Metrics(n=10, schema_error_rate=0.0, refusal_rate=0.0, f1=1.0)
+    avg = average_metrics([a, b])
+    assert avg.f1 == pytest.approx(0.9)
+    assert avg.schema_error_rate == pytest.approx(0.1)
+    assert avg.refusal_rate == pytest.approx(0.05)

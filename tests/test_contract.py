@@ -63,6 +63,17 @@ def test_workflow_not_found():
         contract.workflow("missing")
 
 
+def test_split_seed_count_must_be_in_range():
+    with pytest.raises(Exception):
+        Workflow.model_validate(
+            {
+                "run": {"command": "true", "input_path": "i", "output_path": "o"},
+                "model": {"current": "m", "env_var": "M"},
+                "migration": {"split_seed_count": 0},
+            }
+        )
+
+
 def test_load_missing_contract(tmp_path: Path):
     with pytest.raises(ContractError):
         load_contract(tmp_path / "nope.yml")

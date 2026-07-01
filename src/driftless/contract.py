@@ -324,6 +324,16 @@ class MigrationSpec(StrictModel):
     allow_business_logic_edits: bool = False
     max_iterations: int = 8
     holdout_required: bool = True
+    # When >1, average tuning-split metrics across this many shuffle seeds
+    # (seed, seed+1, …) when scoring repair candidates. Holdout uses ``seed`` only.
+    split_seed_count: int = 1
+
+    @field_validator("split_seed_count")
+    @classmethod
+    def _split_seed_count_range(cls, v: int) -> int:
+        if v < 1 or v > 5:
+            raise ValueError("migration.split_seed_count must be between 1 and 5")
+        return v
 
 
 class RepairSpec(StrictModel):
