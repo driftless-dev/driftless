@@ -149,3 +149,35 @@ def test_cli_audit_labels_fail_exit_code(tmp_path: Path, monkeypatch):
         app, ["audit-labels", "-w", "ticket_classifier", "--fail"]
     )
     assert failed.exit_code == 1
+
+
+def test_migrate_strict_label_audit_blocks_before_engine(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write_classification_workflow(tmp_path)
+    Path("driftless.yml").write_text(
+        Path("driftless.yml").read_text()
+        + """
+    thresholds:
+      min_f1: 0.9
+    migration:
+      max_iterations: 1
+      holdout_required: false
+""",
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app,
+        [
+            "migrate",
+            "-w",
+            "ticket_classifier",
+            "--to",
+            "new-model",
+            "--generator",
+            "none",
+            "--strict-label-audit",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Exact duplicates" in result.output
+    assert "Migrating" not in result.output

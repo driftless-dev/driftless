@@ -355,6 +355,30 @@ def _preflight(wf: Workflow, target_model: str) -> None:
         err_console.print(f"[yellow]warning:[/] {pf.warning}")
 
 
+def _label_audit_preflight(
+    workflow_name: str,
+    wf: Workflow,
+    *,
+    skip: bool,
+    strict: bool,
+) -> None:
+    """Warn or block when duplicate inputs carry disagreeing gold labels."""
+    if skip or wf.eval.grading != "label" or not wf.eval.labels_path:
+        return
+    from .label_audit import audit_labels, format_audit_report
+
+    report = audit_labels(workflow_name, wf, cwd=Path.cwd())
+    if not report.has_conflicts:
+        return
+    text = format_audit_report(report)
+    if strict:
+        err_console.print(text)
+        raise typer.Exit(code=1)
+    err_console.print(f"[yellow]Label audit warning[/] — {report.conflict_groups[0].kind} conflicts detected")
+    err_console.print(f"[dim]{text}[/]")
+    err_console.print("[dim]re-run with --strict-label-audit to block, or --skip-label-audit to silence[/]")
+
+
 def _fmt(value: float | None, *, pct: bool = False) -> str:
     if value is None:
         return "[dim]n/a[/]"
@@ -812,6 +836,14 @@ def migrate(
         2, "--candidates", help="Candidate patches to propose per iteration "
         "(widened automatically when an iteration stalls).",
     ),
+    skip_label_audit: bool = typer.Option(
+        False, "--skip-label-audit", help="Skip duplicate-label preflight check."
+    ),
+    strict_label_audit: bool = typer.Option(
+        False,
+        "--strict-label-audit",
+        help="Block when duplicate/near-duplicate inputs disagree on gold labels.",
+    ),
 ) -> None:
     """Attempt a migration: repair editable files, validate on holdout, report."""
     from .engine import MigrationStatus, run_migration
@@ -820,6 +852,9 @@ def migrate(
     try:
         contract = load_contract(contract_path)
         wf = contract.workflow(workflow)
+        _label_audit_preflight(
+            workflow, wf, skip=skip_label_audit, strict=strict_label_audit
+        )
         _preflight(wf, to)
         gen = build_generator(
             generator,
@@ -916,6 +951,14 @@ def refine(
         2, "--candidates", help="Candidate patches to propose per iteration "
         "(widened automatically when an iteration stalls).",
     ),
+    skip_label_audit: bool = typer.Option(
+        False, "--skip-label-audit", help="Skip duplicate-label preflight check."
+    ),
+    strict_label_audit: bool = typer.Option(
+        False,
+        "--strict-label-audit",
+        help="Block when duplicate/near-duplicate inputs disagree on gold labels.",
+    ),
 ) -> None:
     """Re-optimize a prompt for a changed eval dataset (model stays pinned).
 
@@ -933,6 +976,9 @@ def refine(
     try:
         contract = load_contract(contract_path)
         wf = contract.workflow(workflow)
+        _label_audit_preflight(
+            workflow, wf, skip=skip_label_audit, strict=strict_label_audit
+        )
         gen = build_generator(
             generator,
             provider=generator_provider,

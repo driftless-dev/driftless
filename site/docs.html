@@ -308,8 +308,11 @@ driftless open-pr -w support_classifier --create</code></pre>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
             <tr><td><code>configure &lt;workflow&gt;</code></td><td>Turn a detected workflow into a migration-ready contract.</td></tr>
             <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check the contract parses and the harness runs.</td></tr>
+            <tr><td><code>audit-labels -w &lt;w&gt;</code></td><td>Find duplicate inputs with disagreeing gold labels (<code>--fail</code> for CI).</td></tr>
+            <tr><td><code>judge-check -w &lt;w&gt;</code></td><td>Measure judge↔human agreement on a calibration set (<code>--enforce</code> to gate).</td></tr>
             <tr><td><code>compare -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Baseline vs. target scorecard + threshold checks.</td></tr>
             <tr><td><code>migrate -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Repair + validate + produce migrated files.</td></tr>
+            <tr><td><code>refine -w &lt;w&gt;</code></td><td>Re-optimize the prompt for a changed dataset (model pinned).</td></tr>
             <tr><td><code>report [-w &lt;w&gt;]</code></td><td>Render the latest migration report(s).</td></tr>
             <tr><td><code>open-pr -w &lt;w&gt;</code></td><td>Open a PR (or issue) whose body is the evidence report: summary, scorecard, unified diffs, attempt log, holdout checks.</td></tr>
           </tbody>
@@ -318,6 +321,7 @@ driftless open-pr -w support_classifier --create</code></pre>
         <ul>
           <li><code class="inline">--generator llm|none</code> — the repair strategy (LLM-backed by default; <code class="inline">none</code> turns the loop into a dry analysis).</li>
           <li><code class="inline">--to &lt;model&gt;</code> — the target model to migrate to (otherwise the contract's candidates are used).</li>
+          <li><code class="inline">--strict-label-audit</code> — block when duplicate/near-duplicate inputs disagree on gold labels (warns by default).</li>
         </ul>
       </section>
 
@@ -424,7 +428,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.2.1
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.2.2
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>

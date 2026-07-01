@@ -9,17 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`driftless judge-check`** — measure judge↔human agreement on a calibration set;
-  `--enforce` applies the same gates as `migrate` / `compare`.
-- **`driftless audit-labels`** — find duplicate/near-duplicate inputs with disagreeing
-  gold labels before ``refine`` / ``migrate`` stall on label noise.
-- Live eval CI: `--require-all` baseline check, metrics job summary, explicit metrics path.
-
 ### Changed
 
 ### Fixed
 
 ### Removed
+
+---
+
+## [0.2.2] - 2026-07-01
+
+### Added
+
+- **`driftless judge-check`** — measure judge↔human agreement on a calibration set;
+  `--enforce` applies the same gates as `migrate` / `compare`.
+- **`driftless audit-labels`** — find duplicate/near-duplicate inputs with disagreeing
+  gold labels; `--fail` for CI.
+- **Judge trust hardening** — optional `max_mae` / `min_correlation` gates on
+  judge-graded workflows; judge reliability and scoring evidence in migration reports.
+- **P0.1 expansion** — judge-graded regression scenario; live eval CI baseline
+  checks with `--require-all` and job summaries.
+- **`open-pr --create` integration tests** — mocked git/gh execution path coverage.
+- **`migrate` / `refine` label-audit preflight** — warn on label conflicts by default;
+  `--strict-label-audit` blocks; `--skip-label-audit` to silence.
+
+### Changed
+
+- Live eval workflow sets `DRIFTLESS_REGRESSION_METRICS` explicitly.
 
 ---
 
@@ -86,8 +102,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.2
 [0.2.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.1
-[0.2.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.0
+[0.2.0]: https://github.com/driftless-dev/driftless/compare/v0.2.0...v0.2.1
 [0.1.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.1
 [0.1.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.0

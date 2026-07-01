@@ -65,6 +65,7 @@ optimizes against it, with your team owning the definition of "good":
 | `calibrate -w <w>` | Measure the baseline and suggest starting thresholds. |
 | `compare -w <w> --to <model>` | Baseline vs target scorecard. |
 | `migrate -w <w> --to <model>` | Repair + validate + produce migrated files. |
+| | `--strict-label-audit` warns/blocks on duplicate-label conflicts. |
 | `refine -w <w>` | Re-optimize the prompt for a changed eval dataset (model pinned). |
 | `poll [--act]` | Detect external eval-dataset changes and refine on a meaningful change. |
 | `validate -w <w>` | Check the contract parses and the harness runs. |
@@ -93,7 +94,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan and a
 manually-triggered migration that opens a PR (or an issue when blocked).
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.1
+- uses: driftless-dev/driftless@v0.2.2
   with:
     command: scan
 ```
