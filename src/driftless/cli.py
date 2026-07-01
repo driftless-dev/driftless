@@ -141,6 +141,11 @@ def init_ci(
         "--audit-labels/--no-audit-labels",
         help="Scaffold label-audit CI workflow (default: on if labels_path is set).",
     ),
+    judge_check: bool | None = typer.Option(
+        None,
+        "--judge-check/--no-judge-check",
+        help="Scaffold judge-calibration CI workflow (default: on if calibration_path is set).",
+    ),
 ) -> None:
     """Scaffold GitHub Actions workflows wired to the driftless composite Action."""
     from .init_ci import CHECKLIST, scaffold_ci_from_path
@@ -157,6 +162,7 @@ def init_ci(
             include_poll=poll,
             include_plan=plan,
             include_audit_labels=audit_labels,
+            include_judge_check=judge_check,
         )
     except DriftlessError as exc:
         _fail(exc)

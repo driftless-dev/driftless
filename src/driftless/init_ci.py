@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import __version__
@@ -290,6 +291,117 @@ jobs:
 """
 
 
+@dataclass(frozen=True)
+class JudgeCheckTarget:
+    name: str
+    calibration_path: str
+    enforce: bool
+
+
+def judge_check_targets(contract: Contract) -> list[JudgeCheckTarget]:
+    """Judge-graded workflows with a human calibration set configured."""
+    targets: list[JudgeCheckTarget] = []
+    for name, wf in contract.workflows.items():
+        if wf.eval.grading != "judge" or wf.eval.judge is None:
+            continue
+        spec = wf.eval.judge
+        if not spec.calibration_path:
+            continue
+        enforce = spec.max_mae is not None or spec.min_correlation is not None
+        targets.append(
+            JudgeCheckTarget(
+                name=name,
+                calibration_path=spec.calibration_path,
+                enforce=enforce,
+            )
+        )
+    return targets
+
+
+def judge_check_paths(contract: Contract) -> list[str]:
+    paths: list[str] = []
+    for target in judge_check_targets(contract):
+        if target.calibration_path not in paths:
+            paths.append(target.calibration_path)
+    return paths
+
+
+def render_judge_check_workflow(
+    action_ref: str,
+    targets: list[JudgeCheckTarget],
+    paths: list[str],
+) -> str:
+    if not targets:
+        raise ValueError("targets must not be empty")
+    title = (
+        f"driftless judge check ({targets[0].name})"
+        if len(targets) == 1
+        else "driftless judge check"
+    )
+    if len(targets) == 1:
+        target = targets[0]
+        matrix_block = ""
+        args = '"--enforce"' if target.enforce else '""'
+        workflow_step = f"""\
+      - name: Judge calibration check ({target.name})
+        uses: {action_ref}
+        with:
+          command: judge-check
+          workflow: {target.name}
+          args: {args}
+        env:
+{_provider_env_block()}\
+"""
+    else:
+        include_lines: list[str] = []
+        for target in targets:
+            args = '"--enforce"' if target.enforce else '""'
+            include_lines.append(
+                f"          - workflow: {target.name!r}\n"
+                f"            args: {args}"
+            )
+        matrix_block = (
+            "    strategy:\n"
+            "      fail-fast: false\n"
+            "      matrix:\n"
+            "        include:\n"
+            + "\n".join(include_lines)
+            + "\n\n"
+        )
+        workflow_step = f"""\
+      - name: Judge calibration check (${{{{ matrix.workflow }}}})
+        uses: {action_ref}
+        with:
+          command: judge-check
+          workflow: ${{{{ matrix.workflow }}}}
+          args: ${{{{ matrix.args }}}}
+        env:
+{_provider_env_block()}\
+"""
+    return f"""\
+name: {title}
+
+# Measure LLM-judge agreement against human-scored calibration records.
+on:
+  pull_request:
+    paths:
+{_path_filter_block(paths)}\
+  push:
+    branches: [main]
+    paths:
+{_path_filter_block(paths)}\
+  workflow_dispatch:
+
+jobs:
+  judge-check:
+    runs-on: ubuntu-latest
+{matrix_block}\
+    steps:
+      - uses: actions/checkout@v4
+{workflow_step}\
+"""
+
+
 def render_plan_workflow(action_ref: str) -> str:
     return f"""\
 name: driftless plan (deprecation triage)
@@ -339,6 +451,7 @@ def scaffold_ci(
     include_poll: bool | None = None,
     include_plan: bool = False,
     include_audit_labels: bool | None = None,
+    include_judge_check: bool | None = None,
 ) -> list[Path]:
     """Write GitHub workflow YAML files under ``out_dir``."""
     action_ref = action_ref or default_action_ref()
@@ -402,10 +515,31 @@ def scaffold_ci(
             render_audit_labels_workflow(action_ref, audit_names, audit_paths),
         )
 
+    judge_targets = judge_check_targets(contract)
+    judge_needed = include_judge_check
+    if judge_needed is None:
+        judge_needed = bool(judge_targets)
+    if judge_needed:
+        if not judge_targets:
+            raise DriftlessError(
+                "judge-check workflow requires eval.judge.calibration_path",
+                hint="add a human-scored calibration set or pass --no-judge-check",
+            )
+        judge_paths = judge_check_paths(contract)
+        fname = (
+            "driftless-judge-check.yml"
+            if len(judge_targets) == 1
+            else "driftless-judge-check-all.yml"
+        )
+        write(
+            out_dir / fname,
+            render_judge_check_workflow(action_ref, judge_targets, judge_paths),
+        )
+
     if not written:
         raise DriftlessError(
             "nothing to scaffold",
-            hint="enable at least one of scan, migrate, refine, poll, plan, or audit-labels",
+            hint="enable at least one of scan, migrate, refine, poll, plan, audit-labels, or judge-check",
         )
     return written
 
@@ -431,5 +565,6 @@ Next steps:
   3. Confirm workflow path filters match your eval dataset paths in driftless.yml.
   4. Run driftless validate -w <workflow> locally before enabling scheduled jobs.
   5. Run driftless audit-labels -w <workflow> locally; CI uses --fail on label conflicts.
-  6. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
+  6. For judge-graded workflows: driftless judge-check -w <workflow> --enforce when gates are set.
+  7. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
 """

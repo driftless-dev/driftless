@@ -57,7 +57,7 @@ optimizes against it, with your team owning the definition of "good":
 |---|---|
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
-| `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, and label audit. |
+| `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, label audit, and judge check. |
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
 | `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |
@@ -94,7 +94,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan and a
 manually-triggered migration that opens a PR (or an issue when blocked).
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.4
+- uses: driftless-dev/driftless@v0.2.5
   with:
     command: scan
 ```

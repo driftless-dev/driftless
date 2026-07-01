@@ -6,9 +6,11 @@ from driftless.cli import app
 from driftless.init_ci import (
     dataset_paths,
     default_action_ref,
+    judge_check_targets,
     label_audit_paths,
     label_audit_workflows,
     render_audit_labels_workflow,
+    render_judge_check_workflow,
     render_migrate_workflow,
     render_refine_workflow,
 )
@@ -196,6 +198,69 @@ workflows:
     assert "data/b-labels.jsonl" in audit
 
 
+def test_init_ci_judge_check_when_calibration_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: echo ok
+      input_path: data/in.jsonl
+      output_path: data/out.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: MODEL
+    eval:
+      judge:
+        rubric: "Score summary quality."
+        calibration_path: data/calib.jsonl
+        max_mae: 0.15
+""".lstrip()
+    )
+    out = tmp_path / "workflows"
+    result = runner.invoke(
+        app, ["init-ci", "--out-dir", str(out), "--no-scan", "--no-migrate", "--no-refine"]
+    )
+
+    assert result.exit_code == 0
+    judge = (out / "driftless-judge-check.yml").read_text()
+    assert "judge-check" in judge
+    assert "data/calib.jsonl" in judge
+    assert "--enforce" in judge
+    assert "OPENAI_API_KEY" in judge
+
+
+def test_init_ci_skips_judge_check_without_calibration(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: echo ok
+      input_path: data/in.jsonl
+      output_path: data/out.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: MODEL
+    eval:
+      judge:
+        rubric: "Score summary quality."
+""".lstrip()
+    )
+    out = tmp_path / "workflows"
+    result = runner.invoke(
+        app,
+        ["init-ci", "--out-dir", str(out), "--no-scan", "--no-migrate", "--no-refine", "--no-audit-labels"],
+    )
+
+    assert result.exit_code == 1
+    assert "nothing to scaffold" in result.output
+
+
 def test_label_audit_helpers():
     from driftless.contract import Contract
 
@@ -238,3 +303,12 @@ def test_rendered_workflows_use_action_ref():
     assert ref in audit
     assert "audit-labels" in audit
     assert "--fail" in audit
+    from driftless.init_ci import JudgeCheckTarget
+
+    judge = render_judge_check_workflow(
+        ref,
+        [JudgeCheckTarget("summarizer", "data/calib.jsonl", True)],
+        ["data/calib.jsonl"],
+    )
+    assert "judge-check" in judge
+    assert "--enforce" in judge
