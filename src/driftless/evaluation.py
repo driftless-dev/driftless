@@ -74,6 +74,33 @@ class ClassMetrics:
     f1: float
 
 
+# Warn when macro-F1 aggregates classes with very few gold examples on a split.
+MIN_CLASS_SUPPORT = 5
+
+
+def assess_class_support(
+    metrics: Metrics,
+    *,
+    context: str,
+    min_support: int = MIN_CLASS_SUPPORT,
+) -> list[str]:
+    """Low-confidence warnings for rare classes in classification metrics."""
+    if metrics.f1 is None or not metrics.per_class or min_support <= 0:
+        return []
+    low = [
+        (name, cm.support)
+        for name, cm in sorted(metrics.per_class.items())
+        if 0 < cm.support < min_support
+    ]
+    if not low:
+        return []
+    bits = ", ".join(f"{name} ({n})" for name, n in low)
+    return [
+        f"Low per-class support on {context}: {bits} — each below {min_support} gold "
+        "examples. Macro-F1 may not reflect rare-class performance."
+    ]
+
+
 @dataclass
 class Metrics:
     n: int

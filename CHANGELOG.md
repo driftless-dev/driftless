@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.7] - 2026-07-01
+
+### Added
+
+- **P0.3 per-class support floors** — warn when any class has fewer than five gold
+  examples on a split (`assess_class_support`); surfaced on `migrate` (tuning +
+  holdout), `compare` (baseline + target), CLI "Confidence caveats", and saved
+  compare JSON.
+
+---
+
 ## [0.2.6] - 2026-07-01
 
 ### Added
@@ -142,9 +153,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.6...HEAD
-[0.2.6]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.6
-[0.2.5]: https://github.com/driftless-dev/driftless/compare/v0.2.5...v0.2.6
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.7
+[0.2.6]: https://github.com/driftless-dev/driftless/compare/v0.2.6...v0.2.7
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3

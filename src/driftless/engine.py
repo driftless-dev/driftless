@@ -30,7 +30,7 @@ from .calibrate import suggest_thresholds
 from .compare import ThresholdCheck, check_thresholds
 from .contract import ThresholdsSpec, Workflow
 from .errors import DriftlessError
-from .evaluation import Metrics, RecordRow, RunAnalysis, analyze, average_metrics
+from .evaluation import Metrics, RecordRow, RunAnalysis, analyze, average_metrics, assess_class_support
 from .harness import run_workflow
 from .progress import log as progress_log
 from .splits import Split, make_splits, materialize_inputs
@@ -593,6 +593,7 @@ def run_migration(
     )
     progress_log("migration: phase 1/3 — baseline prompt on tuning split...")
     baseline_tuning = evaluate_on(current, split.tuning_idx).metrics
+    size_warnings.extend(assess_class_support(baseline_tuning, context="tuning split"))
     progress_log(f"migration: phase 1/3 — baseline F1={_fmt_f1(baseline_tuning.f1)}")
     progress_log("migration: phase 1/3 — current prompt on tuning split...")
     naive_analysis = evaluate_on(target_model, split.tuning_idx)
@@ -605,7 +606,14 @@ def run_migration(
         baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
         holdout_metrics = evaluate_on(target_model, split.holdout_idx, files=files).metrics
         checks = check_thresholds(thresholds, baseline_holdout, holdout_metrics)
+        append_holdout_class_warnings(holdout_metrics)
         return all(c.passed for c in checks), holdout_metrics, checks
+
+    def append_holdout_class_warnings(holdout_metrics: Metrics | None) -> None:
+        if holdout_metrics is not None:
+            size_warnings.extend(
+                assess_class_support(holdout_metrics, context="holdout split")
+            )
 
     # Step: naive target already good? (migrate only -- in refine the model is
     # pinned, so the "naive target" is just the current prompt and there's no
@@ -858,6 +866,7 @@ def run_migration(
             refine_holdout_checks = check_thresholds(
                 ThresholdsSpec(), baseline_holdout, refine_holdout_metrics
             )
+            append_holdout_class_warnings(refine_holdout_metrics)
         basis = refine_holdout_metrics if refine_holdout_metrics is not None else best_metrics
         suggested = suggest_thresholds(basis)
 

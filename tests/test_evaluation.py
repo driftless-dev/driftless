@@ -309,6 +309,25 @@ def test_id_alignment_duplicate_output_id_raises(tmp_path: Path):
         evaluate(wf, run, cwd=tmp_path)
 
 
+def test_assess_class_support_flags_rare_classes():
+    from driftless.evaluation import ClassMetrics, Metrics, assess_class_support
+
+    metrics = Metrics(
+        n=12,
+        schema_error_rate=0.0,
+        refusal_rate=0.0,
+        f1=0.9,
+        per_class={
+            "billing": ClassMetrics(4, 1.0, 1.0, 1.0),
+            "technical": ClassMetrics(8, 0.9, 0.9, 0.9),
+        },
+    )
+    warnings = assess_class_support(metrics, context="tuning split")
+    assert len(warnings) == 1
+    assert "billing (4)" in warnings[0]
+    assert "tuning split" in warnings[0]
+
+
 def test_load_labels_by_id_rejects_duplicates(tmp_path: Path):
     from driftless.evaluation import load_labels_by_id
 

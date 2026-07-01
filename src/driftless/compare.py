@@ -15,7 +15,7 @@ from typing import cast
 
 from .contract import ThresholdsSpec, Workflow
 from .errors import DriftlessError
-from .evaluation import Metrics, evaluate
+from .evaluation import Metrics, assess_class_support, evaluate
 from .harness import run_workflow
 from .progress import log as progress_log
 
@@ -35,6 +35,7 @@ class Comparison:
     baseline: Metrics
     target: Metrics
     checks: list[ThresholdCheck] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -218,6 +219,14 @@ def compare_models(
     )
 
     checks = check_thresholds(workflow.thresholds, baseline_metrics, target_metrics)
+    warnings: list[str] = []
+    for metrics, label in (
+        (baseline_metrics, "baseline"),
+        (target_metrics, "target"),
+    ):
+        for w in assess_class_support(metrics, context=f"{label} eval"):
+            if w not in warnings:
+                warnings.append(w)
 
     return Comparison(
         workflow=workflow_name,
@@ -226,6 +235,7 @@ def compare_models(
         baseline=baseline_metrics,
         target=target_metrics,
         checks=checks,
+        warnings=warnings,
     )
 
 
@@ -241,6 +251,7 @@ def save_comparison(comparison: Comparison, cwd: Path | None = None) -> Path:
         "baseline": asdict(comparison.baseline),
         "target": asdict(comparison.target),
         "checks": [asdict(c) for c in comparison.checks],
+        "warnings": comparison.warnings,
         "passed": comparison.passed,
     }
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

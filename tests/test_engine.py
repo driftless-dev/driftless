@@ -191,6 +191,7 @@ def test_small_dataset_run_carries_warning(tmp_path: Path):
     wf = _make_workflow(tmp_path)  # 6 examples -> below the min thresholds
     result = run_migration("demo", wf, "weak", generator=StrictGen(), cwd=tmp_path, seed=1)
     assert any("Small dataset" in w for w in result.warnings)
+    assert any("Low per-class support" in w for w in result.warnings)
 
 
 def test_cluster_failures():

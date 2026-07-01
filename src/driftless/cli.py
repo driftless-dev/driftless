@@ -446,6 +446,11 @@ def compare(
 
     console.print(_scorecard(comparison))
 
+    if comparison.warnings:
+        console.print("\n[bold yellow]Confidence caveats[/]:")
+        for w in comparison.warnings:
+            console.print(f"  • {w}")
+
     console.print("\n[bold]Thresholds[/] (target vs contract):")
     if not comparison.checks:
         console.print("  [dim]no thresholds configured[/]")
