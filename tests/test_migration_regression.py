@@ -182,3 +182,33 @@ def test_score_graded_migration_is_repaired_to_pass(tmp_path: Path):
     assert result.final.score is not None and result.final.score >= 0.9
     assert result.final.f1 is None
     assert "be strict" in (tmp_path / "prompts" / "system.txt").read_text().lower()
+
+
+def test_judge_graded_migration_is_repaired_to_pass(tmp_path: Path):
+    from driftless.judges import JudgeResult
+    from scenarios import JudgeKeywordRepair, build_judge_scenario
+
+    class KeywordJudge:
+        def score(self, *, input_text, output_text):
+            hit = "good" in (output_text or "")
+            return JudgeResult(1.0 if hit else 0.2, "ok" if hit else "no keyword")
+
+    wf = build_judge_scenario(tmp_path)
+    blocked = run_migration(
+        "summarizer", wf, "new-model", judge=KeywordJudge(), cwd=tmp_path, seed=1
+    )
+    assert blocked.status == MigrationStatus.BLOCKED
+
+    result = run_migration(
+        "summarizer",
+        wf,
+        "new-model",
+        generator=JudgeKeywordRepair(),
+        judge=KeywordJudge(),
+        cwd=tmp_path,
+        seed=1,
+    )
+    assert result.status == MigrationStatus.PASS, result.message
+    assert result.final.score is not None and result.final.score >= 0.9
+    assert result.final.f1 is None
+    assert "say good" in (tmp_path / "prompts" / "sys.txt").read_text().lower()

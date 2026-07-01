@@ -811,3 +811,70 @@ class ScoreRepair:
             )
         ]
 
+
+# --------------------------------------------------------------------------- #
+# Judge-graded scenario: free-form text, no gold labels.
+# --------------------------------------------------------------------------- #
+
+JUDGE_APP_PY = '''\
+import os, pathlib
+
+prompt = pathlib.Path("prompts/sys.txt").read_text(encoding="utf-8").lower()
+comply = "say good" in prompt
+lines = [l for l in pathlib.Path("in.jsonl").read_text().splitlines() if l.strip()]
+out = []
+for i, _ in enumerate(lines):
+    out.append("summary is good" if comply else "summary here")
+pathlib.Path("out.jsonl").write_text("\\n".join(out) + "\\n", encoding="utf-8")
+'''
+
+
+def build_judge_scenario(tmp_path: Path, *, current: str = "old-model") -> Workflow:
+    """Free-form summarizer graded by an injected judge (no labels file)."""
+    (tmp_path / "app.py").write_text(JUDGE_APP_PY, encoding="utf-8")
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "sys.txt").write_text("Summarize the input.\n", encoding="utf-8")
+    (tmp_path / "in.jsonl").write_text(
+        "\n".join('{"id": "t%d"}' % i for i in range(10)) + "\n", encoding="utf-8"
+    )
+    return Workflow.model_validate(
+        {
+            "description": "Judge-graded free-form summarizer.",
+            "run": {
+                "command": f"{sys.executable} app.py",
+                "input_path": "in.jsonl",
+                "output_path": "out.jsonl",
+            },
+            "model": {
+                "current": current,
+                "env_var": "MODEL",
+                "target_candidates": ["new-model"],
+            },
+            "files": {"editable": ["prompts/sys.txt"], "readonly": ["app.py"]},
+            "eval": {
+                "judge": {"rubric": "Award full marks if the summary says 'good'."},
+                "split": {"tuning": "60%", "holdout": "40%"},
+            },
+            "thresholds": {"min_score": 0.9},
+            "migration": {"max_iterations": 4, "holdout_required": True},
+        }
+    )
+
+
+class JudgeKeywordRepair:
+    """Scripted generator: add the instruction the judge rewards."""
+
+    PATH = "prompts/sys.txt"
+
+    def generate(self, context):
+        content = context.editable_files[self.PATH]
+        if "say good" in content.lower():
+            return []
+        return [
+            Patch(
+                files={self.PATH: content + "\nAlways say good.\n"},
+                rationale="judge: comply with rubric",
+                kind="scripted",
+            )
+        ]
+
