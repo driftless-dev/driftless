@@ -1,10 +1,17 @@
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from driftless import github
 from driftless.cli import app
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(text: str) -> str:
+    return _ANSI.sub("", text)
 
 
 runner = CliRunner()
@@ -216,10 +223,10 @@ workflows:
     result = runner.invoke(app, ["judge-check", "-w", "summarizer"])
 
     assert result.exit_code == 0
-    assert "MAE:" in result.output
-    assert "gates:" in result.output
-    assert "max_mae" in result.output and "(ok)" in result.output
-    assert "--enforce" in result.output
+    out = _plain(result.output)
+    assert "MAE:" in out
+    assert "max_mae=0.5 (ok)" in out
+    assert "--enforce" in out
 
 
 def test_judge_check_enforce_fails_when_gate_exceeded(tmp_path, monkeypatch):

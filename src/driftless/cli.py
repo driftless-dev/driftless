@@ -1305,7 +1305,9 @@ def judge_check(
         ok = agreement.correlation is not None and agreement.correlation >= spec.min_correlation
         gate_bits.append(f"min_correlation={spec.min_correlation:g} ({'ok' if ok else 'FAIL'})")
     if gate_bits:
-        console.print("  gates: " + ", ".join(gate_bits), markup=False)
+        # Plain stdout — Rich highlight/markup breaks publish CI assertions on the
+        # gate status line when GITHUB_ACTIONS forces a TTY console.
+        typer.echo("  gates: " + ", ".join(gate_bits))
 
     if enforce:
         console.print(f"\n[green]gates passed[/] — {agreement.summary}")

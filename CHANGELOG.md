@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.4] - 2026-07-01
+
+### Fixed
+
+- **`judge-check` gate output under CI** — emit gate status via plain stdout so Rich
+  TTY highlighting (when `GITHUB_ACTIONS=true`) does not break publish workflow tests.
+
+---
+
 ## [0.2.3] - 2026-07-01
 
 ### Fixed
@@ -111,8 +120,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.3...HEAD
-[0.2.3]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.3
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.4
+[0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
 [0.2.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.1
 [0.2.0]: https://github.com/driftless-dev/driftless/compare/v0.2.0...v0.2.1

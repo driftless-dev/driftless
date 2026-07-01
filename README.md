@@ -94,7 +94,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan and a
 manually-triggered migration that opens a PR (or an issue when blocked).
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.3
+- uses: driftless-dev/driftless@v0.2.4
   with:
     command: scan
 ```

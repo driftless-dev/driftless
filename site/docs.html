@@ -428,7 +428,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.2.3
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.2.4
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>
