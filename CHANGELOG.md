@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.13] - 2026-07-01
+
+### Added
+
+- **P1.1 catalog deprecation refresh** — `tools/fetch_provider_deprecations.py`
+  scrapes provider deprecation pages and diffs `/models` listings to suggest
+  lifecycle updates for existing catalog entries; the scheduled
+  `refresh-catalog.yml` job merges these alongside model discoveries and pricing.
+
+### Changed
+
+- **`llm-plan-act.yml`** — scheduled runs stay dry-run; manual dispatch can opt
+  in to `--create` for real PRs/issues.
+
+---
+
 ## [0.2.12] - 2026-07-01
 
 ### Changed
@@ -205,7 +221,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.12...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.13...HEAD
+[0.2.13]: https://github.com/driftless-dev/driftless/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.12
 [0.2.11]: https://github.com/driftless-dev/driftless/compare/v0.2.11...v0.2.12
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5

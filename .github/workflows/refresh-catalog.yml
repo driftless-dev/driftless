@@ -36,7 +36,7 @@ jobs:
           import json
           from pathlib import Path
           parts = []
-          for name in ("model_updates.json", "pricing_updates.json"):
+          for name in ("model_updates.json", "pricing_updates.json", "deprecation_updates.json"):
               p = Path(name)
               if p.is_file():
                   parts.extend(json.loads(p.read_text(encoding="utf-8") or "[]"))
@@ -58,6 +58,10 @@ jobs:
               --provider openai --provider anthropic \
               --catalog src/driftless/data/model_lifecycle.json \
               -o pricing_updates.json || echo '[]' > pricing_updates.json
+            python tools/fetch_provider_deprecations.py \
+              --provider openai --provider anthropic \
+              --catalog src/driftless/data/model_lifecycle.json \
+              -o deprecation_updates.json || echo '[]' > deprecation_updates.json
             merge_updates
           fi
           if python -c "import json; raise SystemExit(0 if json.load(open('updates.json')) else 1)"; then
