@@ -203,6 +203,93 @@ jobs:
 """
 
 
+def label_audit_workflows(contract: Contract) -> list[str]:
+    """Workflow names eligible for gold-label auditing (classification + labels_path)."""
+    names: list[str] = []
+    for name, wf in contract.workflows.items():
+        if wf.eval.grading != "label":
+            continue
+        if not wf.eval.labels_path:
+            continue
+        names.append(name)
+    return names
+
+
+def label_audit_paths(contract: Contract) -> list[str]:
+    """Union of dataset paths for workflows included in label audit."""
+    paths: list[str] = []
+    for name in label_audit_workflows(contract):
+        for path in dataset_paths(contract.workflows[name]):
+            if path not in paths:
+                paths.append(path)
+    return paths
+
+
+def render_audit_labels_workflow(
+    action_ref: str,
+    workflow_names: list[str],
+    paths: list[str],
+) -> str:
+    if not workflow_names:
+        raise ValueError("workflow_names must not be empty")
+    title = (
+        f"driftless label audit ({workflow_names[0]})"
+        if len(workflow_names) == 1
+        else "driftless label audit"
+    )
+    if len(workflow_names) == 1:
+        matrix_block = ""
+        workflow_arg = workflow_names[0]
+        workflow_step = f"""\
+      - name: Audit gold labels ({workflow_names[0]})
+        uses: {action_ref}
+        with:
+          command: audit-labels
+          workflow: {workflow_arg}
+          args: "--fail"
+"""
+    else:
+        matrix_yaml = "\n".join(f"          - {name!r}" for name in workflow_names)
+        matrix_block = f"""\
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow:
+{matrix_yaml}
+
+"""
+        workflow_step = f"""\
+      - name: Audit gold labels (${{{{ matrix.workflow }}}})
+        uses: {action_ref}
+        with:
+          command: audit-labels
+          workflow: ${{{{ matrix.workflow }}}}
+          args: "--fail"
+"""
+    return f"""\
+name: {title}
+
+# Fail CI when duplicate/near-duplicate inputs carry disagreeing gold labels.
+on:
+  pull_request:
+    paths:
+{_path_filter_block(paths)}\
+  push:
+    branches: [main]
+    paths:
+{_path_filter_block(paths)}\
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+{matrix_block}\
+    steps:
+      - uses: actions/checkout@v4
+{workflow_step}\
+"""
+
+
 def render_plan_workflow(action_ref: str) -> str:
     return f"""\
 name: driftless plan (deprecation triage)
@@ -251,6 +338,7 @@ def scaffold_ci(
     include_refine: bool = True,
     include_poll: bool | None = None,
     include_plan: bool = False,
+    include_audit_labels: bool | None = None,
 ) -> list[Path]:
     """Write GitHub workflow YAML files under ``out_dir``."""
     action_ref = action_ref or default_action_ref()
@@ -293,10 +381,31 @@ def scaffold_ci(
     if include_plan:
         write(out_dir / "driftless-plan-act.yml", render_plan_workflow(action_ref))
 
+    audit_names = label_audit_workflows(contract)
+    audit_needed = include_audit_labels
+    if audit_needed is None:
+        audit_needed = bool(audit_names)
+    if audit_needed:
+        if not audit_names:
+            raise DriftlessError(
+                "label audit workflow requires a classification workflow with eval.labels_path",
+                hint="add labels_path to a workflow or pass --no-audit-labels",
+            )
+        audit_paths = label_audit_paths(contract)
+        fname = (
+            "driftless-label-audit.yml"
+            if len(audit_names) == 1
+            else "driftless-label-audit-all.yml"
+        )
+        write(
+            out_dir / fname,
+            render_audit_labels_workflow(action_ref, audit_names, audit_paths),
+        )
+
     if not written:
         raise DriftlessError(
             "nothing to scaffold",
-            hint="enable at least one of scan, migrate, refine, poll, or plan",
+            hint="enable at least one of scan, migrate, refine, poll, plan, or audit-labels",
         )
     return written
 
@@ -321,5 +430,6 @@ Next steps:
   2. For poll workflows: DRIFTLESS_DATASOURCE_TOKEN if eval.data_source URLs need auth.
   3. Confirm workflow path filters match your eval dataset paths in driftless.yml.
   4. Run driftless validate -w <workflow> locally before enabling scheduled jobs.
-  5. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
+  5. Run driftless audit-labels -w <workflow> locally; CI uses --fail on label conflicts.
+  6. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
 """

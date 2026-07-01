@@ -136,6 +136,11 @@ def init_ci(
     plan: bool = typer.Option(
         False, "--plan/--no-plan", help="Scaffold scheduled plan --act workflow."
     ),
+    audit_labels: bool | None = typer.Option(
+        None,
+        "--audit-labels/--no-audit-labels",
+        help="Scaffold label-audit CI workflow (default: on if labels_path is set).",
+    ),
 ) -> None:
     """Scaffold GitHub Actions workflows wired to the driftless composite Action."""
     from .init_ci import CHECKLIST, scaffold_ci_from_path
@@ -151,6 +156,7 @@ def init_ci(
             include_refine=refine,
             include_poll=poll,
             include_plan=plan,
+            include_audit_labels=audit_labels,
         )
     except DriftlessError as exc:
         _fail(exc)

@@ -57,7 +57,7 @@ optimizes against it, with your team owning the definition of "good":
 |---|---|
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
-| `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, and poll. |
+| `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, and label audit. |
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
 | `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |

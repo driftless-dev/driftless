@@ -6,7 +6,7 @@ branding:
 
 inputs:
   command:
-    description: "driftless subcommand to run (scan, plan, compare, migrate, refine, poll, validate, open-pr)."
+    description: "driftless subcommand to run (scan, plan, compare, migrate, refine, poll, validate, open-pr, audit-labels, judge-check)."
     required: false
     default: "scan"
   workflow:
