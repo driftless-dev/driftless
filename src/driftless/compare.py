@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .contract import ThresholdsSpec, Workflow
+from .errors import DriftlessError
 from .evaluation import Metrics, evaluate
 from .harness import run_workflow
 from .progress import log as progress_log
@@ -186,7 +187,13 @@ def compare_models(
     if judge is None and workflow.eval.grading == "judge":
         from .judges import build_judge
 
-        judge = build_judge(workflow.eval.judge)
+        judge_spec = workflow.eval.judge
+        if judge_spec is None:
+            raise DriftlessError(
+                "judge grading requires eval.judge in the contract",
+                hint="add a judge block to driftless.yml",
+            )
+        judge = build_judge(judge_spec)
 
     progress_log(f"compare: baseline run ({current})...")
     baseline_run = run_workflow(workflow, current, cwd=cwd)

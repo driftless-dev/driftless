@@ -23,6 +23,7 @@ venv/
 
 # Test / coverage artifacts
 .coverage
+htmlcov/
 
 # Internal planning docs (kept locally, not published)
 IMPLEMENTATION_PLAN.md

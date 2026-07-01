@@ -50,9 +50,10 @@ git checkout -b release/0.2.0
 3. **Verify locally:**
 
    ```bash
-   pip install -e ".[dev]"
-   ./scripts/release-check.sh
-   pytest
+  pip install -e ".[dev]"
+  ./scripts/release-check.sh
+  mypy
+  pytest
    python -m build
    twine check dist/*
    ```
@@ -148,10 +149,11 @@ Run before tagging. Fails if:
 
 ## GitHub Action consumers
 
-After a release, users can pin the composite Action by release tag:
+After a release, users can pin the composite Action by release tag
+(`action.yml` lives at the repo root — no `/action` path segment):
 
 ```yaml
-- uses: driftless-dev/driftless/action@v0.2.0
+- uses: driftless-dev/driftless@v0.2.0
   with:
     command: scan
 ```
@@ -159,14 +161,14 @@ After a release, users can pin the composite Action by release tag:
 Or pin the PyPI package in the Action input:
 
 ```yaml
-- uses: driftless-dev/driftless/action@v0.2.0
+- uses: driftless-dev/driftless@v0.2.0
   with:
     version: "==0.2.0"
     command: migrate
 ```
 
-Update [`action.yml`](../action.yml) default `version` input when cutting
-releases if you want `@v1` / floating tags — optional.
+Optionally maintain a floating **`v1`** tag on the latest stable minor release.
+Update [`action.yml`](../action.yml) default `version` input when cutting releases.
 
 ---
 

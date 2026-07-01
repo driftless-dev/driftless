@@ -328,9 +328,10 @@ def build_user_prompt(
 
 def _substitute(template: str, variables: dict[str, str]) -> str:
     """Replace ``{{key}}`` placeholders; unknown placeholders are left intact."""
-    def repl(match: re.Match) -> str:
+    def repl(match: re.Match[str]) -> str:
         key = match.group(1).strip()
-        return variables.get(key, match.group(0))
+        fallback = match.group(0)
+        return variables.get(key, fallback)
 
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", repl, template)
 

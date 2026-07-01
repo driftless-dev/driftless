@@ -9,7 +9,7 @@
     toggle.addEventListener("click", function () {
       nav.classList.toggle("open");
     });
-    nav.querySelectorAll(".nav-links a").forEach(function (a) {
+    nav.querySelectorAll(".nav-links a, .landing-links a").forEach(function (a) {
       a.addEventListener("click", function () {
         nav.classList.remove("open");
       });

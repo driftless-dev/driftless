@@ -136,7 +136,7 @@ def _pearson(xs: list[float], ys: list[float]) -> float | None:
     dy = sum((y - my) ** 2 for y in ys) ** 0.5
     if dx == 0 or dy == 0:
         return None
-    return num / (dx * dy)
+    return float(num / (dx * dy))
 
 
 def judge_agreement(

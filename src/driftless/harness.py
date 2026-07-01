@@ -89,6 +89,11 @@ def run_workflow(
         )
 
     command = run.command
+    if command is None:
+        raise HarnessError(
+            "no workflow command is configured",
+            hint="set run.command or run.endpoint in the contract",
+        )
     if substitute_cli_arg and "{{ model }}" in command:
         command = command.replace("{{ model }}", shlex.quote(model))
 
@@ -157,7 +162,8 @@ def _http_post(url: str, payload: bytes, headers: dict[str, str], timeout: float
     """
     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read().decode("utf-8")
+        body: bytes = resp.read()
+        return str(body.decode("utf-8"))
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -209,9 +215,15 @@ def _run_endpoint(
     for i, rec in enumerate(records, start=1):
         body = dict(rec)
         body[model_param] = model
+        endpoint = run.endpoint
+        if endpoint is None:
+            raise HarnessError(
+                "no endpoint URL is configured",
+                hint="set run.endpoint in the contract",
+            )
         try:
             text = _http_post(
-                run.endpoint, json.dumps(body).encode("utf-8"), headers, run.timeout_seconds
+                endpoint, json.dumps(body).encode("utf-8"), headers, run.timeout_seconds
             )
         except urllib.error.HTTPError as exc:
             raise HarnessError(

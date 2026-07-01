@@ -54,8 +54,8 @@ def _num(value: float | None, *, pct: bool = False, ndigits: int = 3) -> str:
     return f"{value * 100:.1f}%" if pct else f"{value:.{ndigits}f}"
 
 
-def _metric_rows(result: MigrationResult) -> list[tuple[str, bool]]:
-    """(attr, is_pct) pairs to render, dropping rows that are entirely n/a."""
+def _metric_rows(result: MigrationResult) -> list[tuple[str, str, bool]]:
+    """(label, attr, is_pct) rows to render, dropping rows that are entirely n/a."""
     candidates = [
         ("F1", "f1", False),
         ("Precision", "precision", False),

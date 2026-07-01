@@ -3,386 +3,358 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>driftless — Dependabot for LLM models</title>
-<meta name="description" content="Detect deprecated, risky, or expensive LLM model dependencies. Test replacements through your real workflow, repair prompts and configs, and open migration PRs backed by evidence." />
+<title>Driftless - prompt migrations with evidence</title>
+<meta name="description" content="Driftless runs your real eval workflow, repairs scoped prompt files, validates on holdout, and opens pull requests with migration evidence." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="assets/styles.css" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ea8fe'/%3E%3Cstop offset='.5' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%2343e0c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%230a0b0f'/%3E%3Cpath d='M9 21V11l7 6 7-6v10' fill='none' stroke='url(%23g)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="assets/landing.css?v=confident7" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Cpath d='M8 10h10M8 16h16M8 22h11' stroke='%23071318' stroke-width='2.3' stroke-linecap='round'/%3E%3Cpath d='M20 8l5 5-5 5' fill='none' stroke='%230074ff' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
-<body>
+<body class="landing">
 
-<!-- NAV -->
-<header class="nav" id="nav">
-  <div class="container nav-inner">
-    <a class="brand" href="index.html">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#6ea8fe"/><stop offset=".5" stop-color="#8b7bff"/><stop offset="1" stop-color="#43e0c4"/>
-        </linearGradient></defs>
-        <rect width="32" height="32" rx="8" fill="#11141f"/>
-        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<div class="launch-strip">
+  <a href="docs.html#quickstart">
+    Driftless preview: eval-backed prompt migrations are ready to test
+    <span aria-hidden="true">></span>
+  </a>
+</div>
+
+<header class="landing-nav" id="nav">
+  <a class="landing-brand" href="index.html" aria-label="Driftless home">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none">
+        <path d="M5 9h10M5 14h18M5 19h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M18 7l5 5-5 5" stroke="#0074ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      driftless
-    </a>
-    <nav class="nav-links">
-      <a href="#dependencies">Concept</a>
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="#evidence">Evidence</a>
-      <a href="docs.html">Docs</a>
-      <a href="runs.html">Run viewer</a>
-    </nav>
-    <div class="nav-cta">
-      <a class="btn btn-ghost" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
-      <a class="btn btn-primary" href="docs.html#quickstart">Get started</a>
-    </div>
-    <button class="nav-toggle" aria-label="Toggle menu" id="navToggle">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
-    </button>
+    </span>
+    <span>Driftless</span>
+  </a>
+
+  <nav class="landing-links" aria-label="Primary navigation">
+    <a href="#platform">Platform</a>
+    <a href="#workflow">Workflow</a>
+    <a href="#evidence">Evidence</a>
+    <a href="docs.html">Docs</a>
+    <a href="runs.html">Run viewer</a>
+  </nav>
+
+  <div class="landing-actions">
+    <a class="text-link" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
+    <a class="nav-button ghost-nav" href="docs.html">Read docs <span class="button-arrow" aria-hidden="true">↗</span></a>
+    <a class="nav-button" href="docs.html#quickstart">Try now <span class="button-arrow" aria-hidden="true">↗</span></a>
   </div>
+
+  <button class="landing-menu" aria-label="Toggle menu" id="navToggle">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/>
+    </svg>
+  </button>
 </header>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="container hero-grid">
-    <div>
-      <span class="badge"><span class="dot"></span> Poetry-style lock regen · Dependabot-style PRs</span>
-      <h1>Your prompts have <span class="gradient-text">dependencies</span>. Keep them in sync.</h1>
-      <p class="lede">A prompt is pinned to its <strong>model</strong> and its <strong>eval data</strong> — like <code>pyproject.toml</code> declares deps and <code>poetry.lock</code> pins what actually works. When either dependency moves, the prompt goes stale; driftless regenerates it, validates on holdout, and opens a PR with the evidence.</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="docs.html#quickstart">
-          Get started
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<main>
+  <section class="hero" aria-label="Driftless introduction">
+    <div class="hero-inner">
+      <a class="announcement" href="docs.html#quickstart">
+        <span></span>
+        Introducing migration PRs for model-dependent prompts
+      </a>
+
+      <h1>Prompt migrations for teams that can’t afford regressions.</h1>
+      <p class="hero-lede">Turn model deprecations and eval-data changes into scoped prompt repairs, holdout validation, and evidence-backed pull requests before quality drifts in production.</p>
+
+      <div class="hero-buttons">
+        <a class="secondary-button hero-outline" href="docs.html">
+          Read the docs
         </a>
-        <a class="btn btn-ghost" href="#how">See how it works</a>
+        <a class="primary-button" href="docs.html#quickstart">
+          Try now for free
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
       </div>
-      <div class="hero-meta">
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Validates on held-out data</span>
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Only edits files you allow</span>
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Provider-neutral</span>
-      </div>
-    </div>
 
-    <div class="terminal has-copy">
-      <div class="term-bar">
-        <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
-        <span class="term-title">~/support-classifier-svc</span>
+      <div class="hero-tabs" aria-label="Core Driftless modes">
+        <span class="active">Evaluations</span>
+        <span>Migration PRs</span>
+        <span>Data drift</span>
       </div>
-      <div class="term-body" id="heroTerm"><span class="l"><span class="comment"># 1. find at-risk models in your repo</span></span>
-<span class="l"><span class="prompt">$</span> <span class="cmd">driftless scan</span></span>
-<span class="l"><span class="warn">!</span> gpt-3.5-turbo  <span class="warn">deprecated</span>  retires in 41d  <span class="arrow">→</span> gpt-4o-mini</span>
-<span class="l"></span>
-<span class="l"><span class="comment"># 2. test the replacement on your real eval</span></span>
-<span class="l"><span class="prompt">$</span> <span class="cmd">driftless compare -w support_classifier --to gpt-4o-mini</span></span>
-<span class="l">  baseline  F1 <span class="ok">1.00</span>   schema-err <span class="ok">0%</span></span>
-<span class="l">  target    F1 <span class="bad">0.00</span>   schema-err <span class="bad">100%</span>   <span class="bad">REGRESSION</span></span>
-<span class="l"></span>
-<span class="l"><span class="comment"># 3. auto-repair the prompt, then validate on holdout</span></span>
-<span class="l"><span class="prompt">$</span> <span class="cmd">driftless migrate -w support_classifier --to gpt-4o-mini</span></span>
-<span class="l">  iter 1  <span class="arrow">+</span>raw-JSON rule   schema-err <span class="ok">100% → 0%</span></span>
-<span class="l">  iter 2  <span class="arrow">+</span>refund rule     F1 <span class="ok">0.78 → 1.00</span></span>
-<span class="l">  holdout <span class="ok">✓ passed</span>   status <span class="ok">PASS</span></span>
-<span class="l"></span>
-<span class="l"><span class="prompt">$</span> <span class="cmd">driftless open-pr -w support_classifier --create</span></span>
-<span class="l"><span class="ok">✓</span> opened PR <span class="key">#128</span> — migrate gpt-3.5-turbo → gpt-4o-mini</span></div>
-    </div>
-  </div>
-</section>
 
-<!-- TWO DEPENDENCIES -->
-<section id="dependencies">
-  <div class="container">
-    <div class="section-head center">
-      <span class="eyebrow">The core idea</span>
-      <h2>A prompt has two dependencies — and both go stale.</h2>
-      <p>One drifts from the outside, one from the inside. Either way, the same automatable job keeps your prompt in sync.</p>
-    </div>
-    <div class="dep-grid">
-      <div class="dep-card">
-        <span class="dep-tag external">External drift</span>
-        <h3>The model</h3>
-        <p>Providers deprecate and retire models on their own schedule. A deadline you don't control forces a migration before things break.</p>
-        <div class="dep-trigger">trigger: <code>deprecation</code></div>
-      </div>
-      <div class="dep-card">
-        <span class="dep-tag internal">Internal drift</span>
-        <h3>The eval dataset</h3>
-        <p>Your team adds new labeled data — say, from customer feedback — and what counts as "correct" shifts. The prompt needs re-tuning to match.</p>
-        <div class="dep-trigger">trigger: <code>data_change</code></div>
-      </div>
-    </div>
-    <p class="dep-foot muted">Either way it's the same job: <strong>re-tune the prompt, validate on held-out data, open a PR with the evidence.</strong></p>
-
-    <div class="section-head center" style="margin-top: 56px;">
-      <span class="eyebrow">Two familiar patterns</span>
-      <h2>Poetry explains <em>why</em>. Dependabot explains <em>how</em>.</h2>
-      <p class="muted">driftless is both: lock regeneration when dependencies change, delivered as an automated, evidence-backed PR.</p>
-    </div>
-    <div class="dep-grid" style="margin-top: 28px;">
-      <div class="dep-card">
-        <span class="dep-tag internal">Poetry</span>
-        <h3>The lockfile problem</h3>
-        <p>You can bump versions in <code>pyproject.toml</code>, but until you run <code>poetry lock</code> the lockfile is stale — install may not match reality. Same here: swap the model or update labels and the prompt is out of sync with what "correct" means.</p>
-        <div class="dep-trigger"><code>driftless.yml</code> = declared deps · <code>prompts/</code> = lock</div>
-      </div>
-      <div class="dep-card">
-        <span class="dep-tag external">Dependabot</span>
-        <h3>The automation problem</h3>
-        <p>Poetry doesn't auto-regenerate the lock for you — you run it yourself. Dependabot watches upstream, tests the change, and opens a PR. driftless watches model lifecycle and dataset drift, runs your eval, repairs the prompt, and opens a PR with metrics attached.</p>
-        <div class="dep-trigger">trigger → <code>migrate</code> / <code>refine</code> → <code>open-pr</code></div>
-      </div>
-    </div>
-    <p class="dep-foot muted">Unlike Poetry's resolver, prompt "locking" is <strong>empirical</strong> — behavior isn't declared, it's measured on your eval. That's the loop driftless automates.</p>
-  </div>
-</section>
-
-<!-- PROBLEM -->
-<section id="problem">
-  <div class="container">
-    <div class="problem">
-      <div class="problem-grid">
-        <div>
-          <span class="eyebrow">The problem</span>
-          <h2>A model swap is never just a model swap.</h2>
-          <p class="muted">When a provider retires a model, every workflow that depends on it breaks or silently degrades. Changing the model ID is the easy part — the new model behaves differently, so prompts, format instructions, and few-shot examples often need to change too. And before you ship, you need <b>proof</b> the replacement still meets your quality bar.</p>
+      <div class="product-stage" aria-label="Driftless run dashboard preview">
+        <div class="product-shell">
+          <div class="product-topbar">
+            <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+            <strong>support-classifier / gpt-4o-mini</strong>
+            <span class="live-pill">holdout passed</span>
+          </div>
+          <div class="product-grid">
+            <aside class="trace-panel">
+              <span class="panel-kicker">Test runs</span>
+              <div class="trace-item current"><span></span>baseline eval</div>
+              <div class="trace-item"><span></span>target model eval</div>
+              <div class="trace-item"><span></span>failure clustering</div>
+              <div class="trace-item"><span></span>prompt repair</div>
+              <div class="trace-item pass"><span></span>holdout validation</div>
+            </aside>
+            <div class="dashboard-panel">
+              <img class="ambient-asset" src="assets/hero-workflow.png" alt="Abstract dashboard illustration of Driftless workflow evidence" />
+              <div class="app-board" aria-label="Driftless evaluation dashboard preview">
+                <div class="board-toolbar">
+                  <div>
+                    <span class="crumb">Eval runs</span>
+                    <strong>Test Runs</strong>
+                  </div>
+                  <button type="button">Run eval</button>
+                </div>
+                <div class="board-filter">
+                  <span>All cases</span>
+                  <span>Failed</span>
+                  <span>Holdout</span>
+                  <span>Cost</span>
+                </div>
+                <div class="chart-panel">
+                  <div class="chart-head">
+                    <strong>Migration performance</strong>
+                    <span>F1 +7.1 pts</span>
+                  </div>
+                  <svg class="line-chart" viewBox="0 0 560 150" aria-hidden="true" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="chartLineA" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stop-color="#760eff"/>
+                        <stop offset="1" stop-color="#009dff"/>
+                      </linearGradient>
+                      <linearGradient id="chartLineB" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stop-color="#e70074"/>
+                        <stop offset="1" stop-color="#e8ff01"/>
+                      </linearGradient>
+                    </defs>
+                    <path class="grid-line" d="M0 26H560M0 68H560M0 110H560" />
+                    <path class="chart-line primary" d="M0 118L44 106L88 114L132 72L176 86L220 58L264 62L308 42L352 50L396 34L440 45L484 30L560 36" />
+                    <path class="chart-line secondary" d="M0 92L44 82L88 96L132 90L176 72L220 98L264 80L308 78L352 92L396 70L440 88L484 64L560 74" />
+                    <circle cx="352" cy="50" r="5" />
+                    <circle cx="440" cy="88" r="5" />
+                  </svg>
+                  <span class="chart-note qa">Sarah, QA Lead</span>
+                  <span class="chart-note pm">Priya, PM</span>
+                  <span class="chart-note eng">Marcus, Eng</span>
+                </div>
+                <div class="metric-row">
+                  <article>
+                    <span>F1 score</span>
+                    <strong>0.99</strong>
+                    <small>+7.1 pts</small>
+                  </article>
+                  <article>
+                    <span>Schema errors</span>
+                    <strong>0.0%</strong>
+                    <small>cleared</small>
+                  </article>
+                  <article>
+                    <span>Editable files</span>
+                    <strong>2</strong>
+                    <small>scoped</small>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <aside class="report-card">
+              <span class="panel-kicker">Quality alert</span>
+              <h2>Regression repaired</h2>
+              <p>The repaired prompt cleared every gate on the holdout split.</p>
+              <div class="mini-diff">
+                <span>+ Return JSON only.</span>
+                <span>+ Billing unless charge was valid.</span>
+                <span>- Markdown fences allowed.</span>
+              </div>
+            </aside>
+          </div>
         </div>
-        <ul>
-          <li><span class="x-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></span><span><b>Deprecation deadlines</b> arrive faster than teams can react.</span></li>
-          <li><span class="x-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></span><span><b>Silent quality regressions</b> slip into production after a swap.</span></li>
-          <li><span class="x-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></span><span><b>Prompt rewrites</b> are manual, slow, and easy to get wrong.</span></li>
-          <li><span class="x-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/></svg></span><span><b>No evidence</b> means risky merges and nervous reviewers.</span></li>
-        </ul>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- HOW IT WORKS -->
-<section id="how">
-  <div class="container">
-    <div class="section-head center">
-      <span class="eyebrow">How it works</span>
-      <h2>You describe your workflow once. We orchestrate the migration.</h2>
-      <p>Declare how to run your eval, how to override the model, which files may be edited, and what quality bar must hold — in a single <code class="inline">driftless.yml</code>. The tool drives the rest.</p>
-    </div>
-
-    <div class="pipeline">
-      <div class="pipe-step"><span class="n">01</span><h4>scan</h4><p>Find probable LLM usage and flag at-risk models.</p></div>
-      <div class="pipe-step"><span class="n">02</span><h4>configure</h4><p>Scaffold a migration-ready contract from the scan.</p></div>
-      <div class="pipe-step"><span class="n">03</span><h4>compare</h4><p>Score baseline vs. target on your real eval.</p></div>
-      <div class="pipe-step"><span class="n">04</span><h4>migrate</h4><p>Repair prompts/configs, iterate, validate on holdout.</p></div>
-      <div class="pipe-step"><span class="n">05</span><h4>report</h4><p>Produce an evidence-backed markdown scorecard.</p></div>
-      <div class="pipe-step"><span class="n">06</span><h4>open-pr</h4><p>Open a PR — or an issue when blocked.</p></div>
-    </div>
-
-    <p class="muted" style="text-align:center;margin-top:22px;font-size:.95rem;">
-      <strong>The customer owns the workflow. The tool orchestrates it.</strong>
-      We shell out to <em>your</em> eval command with the model overridden — we never reimplement your pre/post-processing.
-    </p>
-  </div>
-</section>
-
-<!-- FEATURES -->
-<section id="features">
-  <div class="container">
-    <div class="section-head">
-      <span class="eyebrow">Why teams trust it</span>
-      <h2>Built so an automated change is safe to merge.</h2>
-    </div>
-    <div class="feature-grid">
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linejoin="round"/></svg></div>
-        <h3>Safety by construction</h3>
-        <p>The engine only edits files you declare <code class="inline">editable</code>, applies edits in a sandbox, and never commits a change that fails on a holdout split it never tuned on.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-6m3 6V7m3 10v-3M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-linejoin="round"/></svg></div>
-        <h3>Evaluated on your real workflow</h3>
-        <p>No synthetic benchmarks. Replacements are scored through your actual eval command, with F1, schema-error rate, refusals, latency, and cost.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M9 13h6 M9 17h6" stroke-linejoin="round"/></svg></div>
-        <h3>Evidence-backed PRs</h3>
-        <p>Every migration ships a scorecard: current vs. naive vs. migrated, the exact edits made, unmet thresholds, and holdout validation — straight into the PR body.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m0-10l2.83 2.83m4.48 4.48l2.83 2.83" stroke-linecap="round"/></svg></div>
-        <h3>Pluggable repair</h3>
-        <p>An LLM-backed generator fixes prompts by default — provider-neutral across OpenAI and Anthropic. Customize the prompt, or plug in your own deterministic generator.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18 M7 14l4-4 4 4 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>Policy-driven triggers</h3>
-        <p>Decide <em>when</em> to migrate — deprecation deadlines, cost savings, quality gains, or new models — with per-trigger thresholds and a snooze list.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6m8 14h8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <h3>CLI-first, GitHub-native</h3>
-        <p>The CLI <em>is</em> the engine — testable locally before any CI is involved. A composite GitHub Action runs the same commands on a schedule.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- EVIDENCE -->
-<section id="evidence">
-  <div class="container">
-    <div class="evidence-grid">
+  <section class="proof-strip" aria-label="Driftless proof points">
+    <div class="wrap proof-grid">
       <div>
-        <span class="eyebrow">Evidence, not vibes</span>
-        <h2>Every migration is a reviewable scorecard.</h2>
-        <p class="muted">driftless produces a markdown report that becomes the PR body. Reviewers see exactly what changed, why, and the measured impact on held-out data — so approving an automated migration feels like reviewing a teammate's PR.</p>
-        <ul class="checklist">
-          <li><span class="check-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Current / naive-swap / migrated metrics side by side</li>
-          <li><span class="check-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span> The exact prompt/config edits the loop applied</li>
-          <li><span class="check-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Holdout validation — proof it generalizes</li>
-          <li><span class="check-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Blocked migrations still file an actionable issue</li>
-        </ul>
+        <span>Trust model</span>
+        <strong>Holdout or it does not merge</strong>
       </div>
+      <div>
+        <span>Signal</span>
+        <strong>Current, naive, final scores</strong>
+      </div>
+      <div>
+        <span>Control</span>
+        <strong>Only scoped files change</strong>
+      </div>
+      <div>
+        <span>Automation</span>
+        <strong>Same CLI locally and in CI</strong>
+      </div>
+    </div>
+  </section>
 
-      <div class="scorecard">
-        <div class="sc-head">
-          <span>migration · support_classifier</span>
-          <span class="status-pill pass">PASS</span>
+  <section class="section platform-section" id="platform">
+    <div class="wrap section-heading">
+      <p class="section-kicker">The ROI</p>
+      <h2>One eval standard. Enforced across every prompt migration.</h2>
+      <p>Driftless gives engineering, product, and reviewers the same source of truth: the command that evaluated behavior, the files allowed to change, and the evidence that proves the migration is safe.</p>
+    </div>
+
+    <div class="wrap stat-grid" aria-label="Driftless migration statistics">
+      <article>
+        <span>Manual prompt rewrite cycle</span>
+        <strong>days</strong>
+      </article>
+      <article>
+        <span>Driftless validation loop</span>
+        <strong>minutes</strong>
+      </article>
+      <article>
+        <span>Unscoped code edits</span>
+        <strong>0</strong>
+      </article>
+    </div>
+
+    <div class="wrap platform-grid">
+      <article>
+        <span class="feature-icon blue" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15l3-3 3 2 5-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <h3>Evaluate the real workflow</h3>
+        <p>Run the repo command your team already trusts, with model overrides and deterministic tuning and holdout splits.</p>
+      </article>
+      <article>
+        <span class="feature-icon green" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4z"/><path d="M9 12l2 2 4-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <h3>Repair only what is scoped</h3>
+        <p>Prompt, example, and config files can be edited. Schemas and product logic stay untouched unless you opt in.</p>
+      </article>
+      <article>
+        <span class="feature-icon amber" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01" stroke-linecap="round"/></svg>
+        </span>
+        <h3>Publish a reviewer packet</h3>
+        <p>Every pull request includes the attempt log, metric table, holdout decision, and diff rationale.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="roi-section" id="workflow">
+    <div class="wrap roi-grid">
+      <div class="roi-copy">
+        <p class="section-kicker">The workflow</p>
+        <h2>Deprecation notices become migration evidence.</h2>
+        <p>When a provider retires a model, Driftless compares the current and target behavior, clusters failures, repairs the prompt, and validates the result before opening a PR.</p>
+      </div>
+      <div class="timeline-card" aria-label="Migration timeline">
+        <div class="time-row">
+          <span>01</span>
+          <strong>Scan</strong>
+          <p>Find model IDs, owners, and affected workflows.</p>
         </div>
-        <table class="sc">
-          <thead>
-            <tr><th>Metric</th><th>Current</th><th>Naive swap</th><th>Migrated</th></tr>
-          </thead>
-          <tbody>
-            <tr><td class="metric">model</td><td class="num dim">3.5-turbo</td><td class="num dim">4o-mini</td><td class="num">4o-mini</td></tr>
-            <tr><td class="metric">F1</td><td class="num">1.00</td><td class="num delta-down">0.00</td><td class="num delta-up">1.00</td></tr>
-            <tr><td class="metric">schema err</td><td class="num">0%</td><td class="num delta-down">100%</td><td class="num delta-up">0%</td></tr>
-            <tr><td class="metric">refusals</td><td class="num">0%</td><td class="num">0%</td><td class="num delta-flat">0%</td></tr>
-            <tr><td class="metric">holdout</td><td class="num dim">—</td><td class="num dim">—</td><td class="num delta-up">✓ pass</td></tr>
-          </tbody>
-        </table>
+        <div class="time-row">
+          <span>02</span>
+          <strong>Compare</strong>
+          <p>Run baseline and target model through the same eval harness.</p>
+        </div>
+        <div class="time-row">
+          <span>03</span>
+          <strong>Repair</strong>
+          <p>Patch scoped prompt files against clustered failures.</p>
+        </div>
+        <div class="time-row">
+          <span>04</span>
+          <strong>Validate</strong>
+          <p>Accept only changes that pass holdout and thresholds.</p>
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- CODE EXAMPLES -->
-<section id="examples">
-  <div class="container">
-    <div class="section-head center">
-      <span class="eyebrow">In practice</span>
-      <h2>One contract. The whole lifecycle.</h2>
-    </div>
-
-    <div class="code-tabs">
-      <div class="tabs-bar" role="tablist">
-        <button class="tab active" data-tab="t-yml">driftless.yml</button>
-        <button class="tab" data-tab="t-plan">plan (CI triage)</button>
-        <button class="tab" data-tab="t-action">GitHub Action</button>
+  <section class="section evidence-section" id="evidence">
+    <div class="wrap evidence-grid">
+      <div class="report-preview" aria-label="Example Driftless migration report">
+        <div class="report-top">
+          <strong>Migration report</strong>
+          <span>PASS</span>
+        </div>
+        <div class="score-table">
+          <div class="score-row head"><span>Metric</span><span>Current</span><span>Naive</span><span>Final</span></div>
+          <div class="score-row"><span>F1</span><span>0.92</span><span>0.84</span><strong>0.99</strong></div>
+          <div class="score-row"><span>Refusals</span><span>1.8%</span><span>8.7%</span><strong>1.2%</strong></div>
+          <div class="score-row"><span>Schema errors</span><span>4.1%</span><span>12.0%</span><strong>0.0%</strong></div>
+          <div class="score-row"><span>Holdout</span><span>required</span><span>failed</span><strong>passed</strong></div>
+        </div>
+        <div class="evidence-footer">
+          <span>Attempt 4 accepted</span>
+          <span>2 files changed</span>
+          <span>37 cases reviewed</span>
+        </div>
       </div>
 
-      <div class="tab-panel active" id="t-yml">
-<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-k">workflows</span>:
-  <span class="tok-k">support_classifier</span>:
-    <span class="tok-k">run</span>:
-      <span class="tok-k">command</span>: <span class="tok-s">"python evals/run_eval.py"</span>
-      <span class="tok-k">input_path</span>: <span class="tok-s">evals/inputs.jsonl</span>
-      <span class="tok-k">output_path</span>: <span class="tok-s">evals/outputs.jsonl</span>
-    <span class="tok-k">model</span>:
-      <span class="tok-k">current</span>: <span class="tok-s">gpt-3.5-turbo</span>
-      <span class="tok-k">env_var</span>: <span class="tok-s">SUPPORT_CLASSIFIER_MODEL</span>
-    <span class="tok-k">files</span>:
-      <span class="tok-k">editable</span>: [<span class="tok-s">prompts/system.md</span>, <span class="tok-s">prompts/examples.yml</span>]
-    <span class="tok-k">eval</span>:
-      <span class="tok-k">labels_path</span>: <span class="tok-s">evals/labels.jsonl</span>
-      <span class="tok-k">schema_path</span>: <span class="tok-s">schemas/ticket.schema.json</span>
-    <span class="tok-k">thresholds</span>:
-      <span class="tok-k">min_f1</span>: <span class="tok-p">0.9</span>
-      <span class="tok-k">max_schema_error_rate</span>: <span class="tok-p">0.02</span></code></pre>
-      </div>
-
-      <div class="tab-panel" id="t-plan">
-<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># discover at-risk workflows + apply your policy — gates CI</span>
-$ driftless plan
-
-  Migration plan
-  ┌────────────────────┬──────────────────────┬─────────┬──────────┐
-  │ Workflow           │ Migrate              │ Retires │ Decision │
-  ├────────────────────┼──────────────────────┼─────────┼──────────┤
-  │ support_classifier │ 3.5-turbo → 4o-mini  │ 41d     │ <span class="tok-s">PR (high)</span> │
-  └────────────────────┴──────────────────────┴─────────┴──────────┘
-
-  <span class="tok-c"># exits non-zero when action is needed</span></code></pre>
-      </div>
-
-      <div class="tab-panel" id="t-action">
-<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/llm-model-scan.yml</span>
-<span class="tok-k">on</span>:
-  <span class="tok-k">schedule</span>: [{ <span class="tok-k">cron</span>: <span class="tok-s">"0 9 * * 1"</span> }]   <span class="tok-c"># every Monday</span>
-
-<span class="tok-k">jobs</span>:
-  <span class="tok-k">scan</span>:
-    <span class="tok-k">runs-on</span>: ubuntu-latest
-    <span class="tok-k">steps</span>:
-      - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless/action@v1
-        <span class="tok-k">with</span>:
-          <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
+      <div class="evidence-copy">
+        <p class="section-kicker">Reviewer trust</p>
+        <h2>Not just a better score. A reason to merge.</h2>
+        <p>Driftless shows what broke, what changed, how the candidate performed against the untouched holdout set, and where reviewers should look first.</p>
+        <div class="quote-card">
+          <p>"Treat prompt migrations like dependency upgrades: measurable, scoped, repeatable, and reviewable."</p>
+          <span>Driftless operating model</span>
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- PRINCIPLES -->
-<section id="principles">
-  <div class="container">
-    <div class="section-head">
-      <span class="eyebrow">Design principles</span>
-      <h2>Opinions that make the output trustworthy.</h2>
-    </div>
-    <div class="principles">
-      <div class="principle"><span class="pn">01</span><div><h3>The contract is the spine</h3><p>A single typed schema drives every command. Typos surface as errors, not silent misbehavior.</p></div></div>
-      <div class="principle"><span class="pn">02</span><div><h3>You own the workflow</h3><p>We orchestrate <em>your</em> eval with the model overridden — never reimplementing your logic.</p></div></div>
-      <div class="principle"><span class="pn">03</span><div><h3>Failure is a first-class output</h3><p>Every run emits pass / partial / blocked. A blocked migration still produces an actionable artifact.</p></div></div>
-      <div class="principle"><span class="pn">04</span><div><h3>Holdout or it didn't happen</h3><p>Nothing is committed unless it passes on data the repair loop never optimized against.</p></div></div>
-    </div>
-  </div>
-</section>
+  <section class="api-section">
+    <div class="wrap api-grid">
+      <div>
+        <p class="section-kicker">Automation</p>
+        <h2>Use the same CLI locally and in CI.</h2>
+        <p>Start with one workflow. Once the contract is stable, schedule scans for deprecated models or trigger refinements when eval labels change.</p>
+      </div>
+      <div class="code-card has-copy">
+        <button class="copy-btn" type="button">copy</button>
+        <pre><code>pip install "driftless @ git+https://github.com/driftless/driftless@main"
 
-<!-- CTA -->
-<section id="get-started">
-  <div class="container">
-    <div class="cta">
-      <span class="eyebrow" style="justify-content:center;">Get started</span>
-      <h2>Stop fearing the next deprecation email.</h2>
-      <p>Install the CLI, point it at your repo, and let evidence-backed migrations come to you as pull requests.</p>
-<pre class="has-copy" style="max-width:460px;margin:0 auto 24px;text-align:left;"><button class="copy-btn">copy</button><code>pipx install driftless
-driftless init
-driftless scan</code></pre>
-      <div class="cta-actions">
-        <a class="btn btn-primary" href="docs.html#quickstart">Read the quickstart</a>
-        <a class="btn btn-ghost" href="docs.html">Browse the docs</a>
+driftless scan
+driftless migrate -w support_classifier --to gpt-4o-mini
+driftless validate -w support_classifier</code></pre>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FOOTER -->
-<footer class="footer">
-  <div class="container footer-inner">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="8" fill="#11141f"/>
-        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <section class="final-cta">
+    <div class="wrap final-cta-inner">
+      <p class="section-kicker">Start with the workflow that scares you most</p>
+      <h2>Give reviewers the evidence before model drift reaches production.</h2>
+      <div class="final-actions">
+        <a class="primary-button" href="docs.html#quickstart">Open docs</a>
+        <a class="secondary-button" href="runs.html">View sample run</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="landing-footer">
+  <a class="landing-brand" href="index.html">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 28 28" fill="none">
+        <path d="M5 9h10M5 14h18M5 19h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M18 7l5 5-5 5" stroke="#0074ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      driftless
-    </div>
-    <div class="footer-links">
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="docs.html">Docs</a>
-      <a href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
-    </div>
-    <div class="dim">Dependabot for LLM models · MIT licensed</div>
-  </div>
+    </span>
+    <span>Driftless</span>
+  </a>
+  <nav aria-label="Footer navigation">
+    <a href="#platform">Platform</a>
+    <a href="#workflow">Workflow</a>
+    <a href="#evidence">Evidence</a>
+    <a href="docs.html">Docs</a>
+  </nav>
+  <span>MIT licensed</span>
 </footer>
 
 <script src="assets/app.js"></script>

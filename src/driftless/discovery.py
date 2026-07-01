@@ -231,51 +231,58 @@ def discover_opportunistic_triggers(
         picks: dict[TriggerKind, ModelInfo] = {}
 
         if enabled[TriggerKind.COST] and cur_blended:
-            qualifying = []
+            cost_qualifying: list[tuple[float, ModelInfo]] = []
             for m in pool:
                 b = _blended_cost(m.pricing)
                 if b is None or capability_rank(m.capability_tier) < cur_rank:
                     continue
                 savings = (cur_blended - b) / cur_blended
                 if savings >= policy.cost.min_savings_pct:
-                    qualifying.append((savings, m))
-            if qualifying:
-                picks[TriggerKind.COST] = max(qualifying, key=lambda t: t[0])[1]
+                    cost_qualifying.append((savings, m))
+            if cost_qualifying:
+                picks[TriggerKind.COST] = max(cost_qualifying, key=lambda t: t[0])[1]
 
         if enabled[TriggerKind.QUALITY]:
-            qualifying = [m for m in pool if capability_rank(m.capability_tier) > cur_rank]
-            if qualifying:
+            quality_qualifying = [
+                m for m in pool if capability_rank(m.capability_tier) > cur_rank
+            ]
+            if quality_qualifying:
                 picks[TriggerKind.QUALITY] = min(
-                    qualifying,
-                    key=lambda m: (-capability_rank(m.capability_tier), _blended_cost(m.pricing) or float("inf")),
+                    quality_qualifying,
+                    key=lambda m: (
+                        -capability_rank(m.capability_tier),
+                        _blended_cost(m.pricing) or float("inf"),
+                    ),
                 )
 
         if enabled[TriggerKind.NEW_MODEL] and cur_release is not None:
-            qualifying = [
+            new_model_qualifying = [
                 m
                 for m in pool
                 if capability_rank(m.capability_tier) >= cur_rank
-                and (_release_date(m) is not None and _release_date(m) > cur_release)
+                and (rd := _release_date(m)) is not None
+                and rd > cur_release
             ]
-            if qualifying:
+            if new_model_qualifying:
                 picks[TriggerKind.NEW_MODEL] = max(
-                    qualifying, key=lambda m: (_release_date(m), -(_blended_cost(m.pricing) or 0.0))
+                    new_model_qualifying,
+                    key=lambda m: (_release_date(m), -(_blended_cost(m.pricing) or 0.0)),
                 )
 
         # Dedupe across kinds by candidate, keeping the highest-priority kind.
         chosen: set[str] = set()
         for kind in (TriggerKind.COST, TriggerKind.QUALITY, TriggerKind.NEW_MODEL):
-            m = picks.get(kind)
-            if m is None or m.model in chosen:
+            candidate = picks.get(kind)
+            if candidate is None or candidate.model in chosen:
                 continue
-            chosen.add(m.model)
+            chosen.add(candidate.model)
             discovered.append(
                 DiscoveredTrigger(
                     workflow=name,
                     trigger=Trigger(
                         kind=kind,
                         current_model=wf.model.current,
-                        candidate_model=m.model,
+                        candidate_model=candidate.model,
                     ),
                     info=cur,
                 )

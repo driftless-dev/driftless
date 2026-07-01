@@ -45,7 +45,8 @@ def _http_get(url: str, timeout: float) -> bytes:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers, method="GET")
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read()
+        data: bytes = resp.read()
+        return data
 
 
 def _run_command(command: str, *, cwd: Path, timeout: int) -> None:

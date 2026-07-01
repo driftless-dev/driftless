@@ -419,14 +419,17 @@ def _generate_candidates(
     Generators that don't expose ``num_candidates`` (e.g. scripted test doubles)
     ignore ``width`` and behave exactly as before.
     """
-    if width is None or not isinstance(getattr(generator, "num_candidates", None), int):
+    if width is None:
         return generator.generate(context)
-    prev = generator.num_candidates
-    generator.num_candidates = width
+    num = getattr(generator, "num_candidates", None)
+    if not isinstance(num, int):
+        return generator.generate(context)
+    prev = num
+    setattr(generator, "num_candidates", width)
     try:
         return generator.generate(context)
     finally:
-        generator.num_candidates = prev
+        setattr(generator, "num_candidates", prev)
 
 
 def _fmt_f1(value: float | None) -> str:
@@ -467,7 +470,13 @@ def run_migration(
     if judge is None and workflow.eval.grading == "judge":
         from .judges import build_judge
 
-        judge = build_judge(workflow.eval.judge)
+        judge_spec = workflow.eval.judge
+        if judge_spec is None:
+            raise DriftlessError(
+                "judge grading requires eval.judge in the contract",
+                hint="add a judge block to driftless.yml",
+            )
+        judge = build_judge(judge_spec)
 
     if not workflow.model.has_override():
         return MigrationResult(
@@ -584,7 +593,11 @@ def run_migration(
     # on a stall. Only meaningful for generators that support multiple candidates.
     base_width = getattr(generator, "num_candidates", None)
     can_widen = isinstance(base_width, int) and base_width >= 1
-    escalated_width = max(base_width * 3, 5) if can_widen else None
+    if can_widen:
+        assert isinstance(base_width, int)
+        escalated_width: int | None = max(base_width * 3, 5)
+    else:
+        escalated_width = None
     widened = False
 
     progress_log(
@@ -665,16 +678,19 @@ def run_migration(
                 )
                 continue
             if objective is Objective.MAXIMIZE:
-                cand_key = _maximize_key(analysis.metrics)
-                best_key = _maximize_key(best_metrics)
+                maximize_cand = _maximize_key(analysis.metrics)
+                maximize_best = _maximize_key(best_metrics)
+                accepted = (
+                    maximize_cand > maximize_best
+                    or (maximize_cand == maximize_best and cand_size < best_size)
+                )
             else:
-                cand_key = _score_key(analysis.metrics, thresholds, baseline_tuning)
-                best_key = _score_key(best_metrics, thresholds, baseline_tuning)
-            # Strictly better score wins; on a tie, prefer the smaller edit -- a
-            # minimal change that does the same job is easier to review and lower
-            # risk. (Against the no-op baseline, best_size is 0, so a same-scoring
-            # patch is correctly rejected in favor of changing nothing.)
-            accepted = cand_key > best_key or (cand_key == best_key and cand_size < best_size)
+                score_cand = _score_key(analysis.metrics, thresholds, baseline_tuning)
+                score_best = _score_key(best_metrics, thresholds, baseline_tuning)
+                accepted = (
+                    score_cand > score_best
+                    or (score_cand == score_best and cand_size < best_size)
+                )
             cand_f1 = _fmt_f1(analysis.metrics.f1)
             if accepted:
                 progress_log(
@@ -759,23 +775,23 @@ def run_migration(
     # holdout, propose fresh thresholds from what it actually achieved, and commit
     # the improved prompt (the refined prompt *is* the deliverable here).
     if objective is Objective.MAXIMIZE:
-        holdout_metrics: Metrics | None = None
-        holdout_checks: list[ThresholdCheck] = []
+        refine_holdout_metrics: Metrics | None = None
+        refine_holdout_checks: list[ThresholdCheck] = []
         if mig.holdout_required and split.holdout_idx:
             progress_log(
                 f"migration: phase 3/3 — holdout validation "
                 f"({len(split.holdout_idx)} examples, model={current})..."
             )
             baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
-            holdout_metrics = evaluate_on(
+            refine_holdout_metrics = evaluate_on(
                 current, split.holdout_idx, files=best_files or None
             ).metrics
             # No absolute bar: report whether the refined prompt at least held the
             # line vs. the current prompt on data it never tuned against.
-            holdout_checks = check_thresholds(
-                ThresholdsSpec(), baseline_holdout, holdout_metrics
+            refine_holdout_checks = check_thresholds(
+                ThresholdsSpec(), baseline_holdout, refine_holdout_metrics
             )
-        basis = holdout_metrics if holdout_metrics is not None else best_metrics
+        basis = refine_holdout_metrics if refine_holdout_metrics is not None else best_metrics
         suggested = suggest_thresholds(basis)
 
         improved = bool(best_files) and _maximize_key(best_metrics) > _maximize_key(naive_tuning)
@@ -796,8 +812,8 @@ def run_migration(
             baseline=baseline_tuning,
             naive_target=naive_tuning,
             final=best_metrics,
-            holdout=holdout_metrics,
-            holdout_checks=holdout_checks,
+            holdout=refine_holdout_metrics,
+            holdout_checks=refine_holdout_checks,
             tuning_checks=[],
             remaining_clusters=cluster_failures(best_analysis.rows),
             edited_files=edited,

@@ -235,13 +235,18 @@ def _derive_cost_from_tokens(
     if pricing is None:
         return None
 
+    pt_field = spec.prompt_tokens_field
+    ct_field = spec.completion_tokens_field
+    if not pt_field or not ct_field:
+        return None
+
     total = 0.0
     saw_tokens = False
     for r in records:
         if not r.parsed:
             continue
-        pt = r.parsed.get(spec.prompt_tokens_field)
-        ct = r.parsed.get(spec.completion_tokens_field)
+        pt = r.parsed.get(pt_field)
+        ct = r.parsed.get(ct_field)
         if isinstance(pt, (int, float)) and isinstance(ct, (int, float)):
             total += pricing.cost_for(pt, ct)
             saw_tokens = True
@@ -288,10 +293,16 @@ def _record_grade(rec: OutputRecord, spec: EvalSpec, grading: str) -> float | No
     if rec.parsed is None:
         return None
     if grading == "score":
-        v = rec.parsed.get(spec.score_field)
+        score_field = spec.score_field
+        if score_field is None:
+            return None
+        v = rec.parsed.get(score_field)
         return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
     # pass mode
-    v = rec.parsed.get(spec.pass_field)
+    pass_field = spec.pass_field
+    if pass_field is None:
+        return None
+    v = rec.parsed.get(pass_field)
     if isinstance(v, bool):
         return 1.0 if v else 0.0
     if v in ("true", "True", 1):
@@ -431,7 +442,9 @@ def _present(value: Any) -> bool:
 
 
 def _resolve_gold_records(spec: EvalSpec, cwd: Path) -> dict[Any, dict]:
-    labels_path = (cwd / spec.labels_path).resolve()  # type: ignore[arg-type]
+    if spec.labels_path is None:
+        raise DriftlessError("labels_path is required for extraction grading")
+    labels_path = (cwd / spec.labels_path).resolve()
     if not labels_path.is_file():
         raise DriftlessError(f"labels file not found: {spec.labels_path}")
     return load_gold_records_by_id(labels_path, spec.id_field)  # type: ignore[arg-type]
@@ -453,6 +466,12 @@ def _analyze_extraction(
     """
     spec = workflow.eval
     fields = spec.fields
+    if not spec.id_field:
+        raise DriftlessError(
+            "extraction grading requires eval.id_field in the contract",
+            hint="add id_field to align outputs with gold labels",
+        )
+    id_field = spec.id_field
     gold_map = _resolve_gold_records(spec, cwd)
 
     # Guard against silent misalignment: any parseable output id must be known.
@@ -473,7 +492,7 @@ def _analyze_extraction(
     rows: list[RecordRow] = []
     matched_n = 0
     for i, rec in enumerate(records):
-        rec_id = rec.parsed.get(spec.id_field) if rec.parsed else None
+        rec_id = rec.parsed.get(id_field) if rec.parsed else None
         gold = gold_map.get(rec_id)
         matched = gold is not None
         if matched:
@@ -546,6 +565,11 @@ def _analyze_judge(
             hint="internal: build_judge() should have been called before analyze()",
         )
     jspec = spec.judge
+    if jspec is None:
+        raise DriftlessError(
+            "judge grading requires eval.judge in the contract",
+            hint="add a judge block to driftless.yml",
+        )
     rows: list[RecordRow] = []
     scores: list[float] = []
     for i, rec in enumerate(records):
@@ -656,7 +680,7 @@ def analyze(
 
     if spec.cost_field:
         costs = [
-            r.parsed.get(spec.cost_field)
+            float(r.parsed[spec.cost_field])
             for r in records
             if r.parsed and isinstance(r.parsed.get(spec.cost_field), (int, float))
         ]
@@ -674,7 +698,11 @@ def analyze(
 
     def input_for(i: int, rec: OutputRecord) -> str | None:
         if inputs_by_id is not None:
-            rec_id = rec.parsed.get(spec.id_field) if rec.parsed else None
+            if not spec.id_field or rec.parsed is None:
+                return None
+            rec_id = rec.parsed.get(spec.id_field)
+            if rec_id is None:
+                return None
             return inputs_by_id.get(rec_id)
         if inputs_by_pos is not None:
             return inputs_by_pos[i] if i < len(inputs_by_pos) else None
@@ -696,11 +724,15 @@ def analyze(
         valid = [g for g in grades if g is not None]
         mean = sum(valid) / len(valid) if valid else None
 
-        rows = []
-        for i, (rec, g) in enumerate(zip(records, grades)):
+        grade_rows: list[RecordRow] = []
+        for i, (record, g) in enumerate(zip(records, grades)):
             if inputs_by_id is not None:
-                rec_id = rec.parsed.get(spec.id_field) if rec.parsed else None
-                input_text = inputs_by_id.get(rec_id)
+                rec_id = (
+                    record.parsed.get(spec.id_field)
+                    if spec.id_field and record.parsed
+                    else None
+                )
+                input_text = inputs_by_id.get(rec_id) if rec_id is not None else None
             elif inputs_by_pos is not None:
                 input_text = inputs_by_pos[i] if i < len(inputs_by_pos) else None
             else:
@@ -710,17 +742,17 @@ def analyze(
             # fails if it did not pass.
             is_low = grading == "score" and g is not None and mean is not None and g < mean
             is_correct = (g >= 1.0) if (grading == "pass" and g is not None) else None
-            rows.append(
+            grade_rows.append(
                 RecordRow(
                     index=i,
-                    parse_ok=rec.parse_ok,
-                    schema_ok=rec.schema_ok,
+                    parse_ok=record.parse_ok,
+                    schema_ok=record.schema_ok,
                     predicted=g,
                     gold=None,
-                    is_refusal=_is_refusal(rec, spec, grading),
-                    is_schema_error=rec.schema_ok is False,
+                    is_refusal=_is_refusal(record, spec, grading),
+                    is_schema_error=record.schema_ok is False,
                     is_correct=is_correct,
-                    raw=rec.raw,
+                    raw=record.raw,
                     input_text=input_text,
                     score=g,
                     is_low_score=is_low,
@@ -729,7 +761,7 @@ def analyze(
         if valid:
             metrics.score = mean
             metrics.scored = len(valid)
-        return RunAnalysis(metrics=metrics, rows=rows)
+        return RunAnalysis(metrics=metrics, rows=grade_rows)
 
     # Align outputs to gold either by an explicit id field (robust to
     # reordering / skipped rows) or positionally (line N <-> label N).
@@ -746,11 +778,15 @@ def analyze(
 
     rows: list[RecordRow] = []
     pairs: list[tuple[Any, Any]] = []
-    for i, rec in enumerate(records):
-        predicted = _predicted_label(rec, spec)
-        is_refusal = _is_refusal(rec, spec)
-        is_schema_error = rec.schema_ok is False
-        rec_id = rec.parsed.get(spec.id_field) if (spec.id_field and rec.parsed) else None
+    for i, record in enumerate(records):
+        predicted = _predicted_label(record, spec)
+        is_refusal = _is_refusal(record, spec)
+        is_schema_error = record.schema_ok is False
+        rec_id = (
+            record.parsed.get(spec.id_field)
+            if (spec.id_field and record.parsed)
+            else None
+        )
 
         if gold_map is not None:
             matched = rec_id is not None and rec_id in gold_map
@@ -766,7 +802,7 @@ def analyze(
             is_correct = None
 
         if inputs_by_id is not None:
-            input_text = inputs_by_id.get(rec_id)
+            input_text = inputs_by_id.get(rec_id) if rec_id is not None else None
         elif inputs_by_pos is not None:
             input_text = inputs_by_pos[i] if i < len(inputs_by_pos) else None
         else:
@@ -775,14 +811,14 @@ def analyze(
         rows.append(
             RecordRow(
                 index=i,
-                parse_ok=rec.parse_ok,
-                schema_ok=rec.schema_ok,
+                parse_ok=record.parse_ok,
+                schema_ok=record.schema_ok,
                 predicted=predicted,
                 gold=gold_value,
                 is_refusal=is_refusal,
                 is_schema_error=is_schema_error,
                 is_correct=is_correct,
-                raw=rec.raw,
+                raw=record.raw,
                 input_text=input_text,
             )
         )
@@ -790,11 +826,11 @@ def analyze(
             pairs.append((gold_value, predicted))
 
     if have_gold:
-        acc, p, r, f1, per_class = _macro_prf(pairs)
-        metrics.accuracy = acc
-        metrics.precision = p
-        metrics.recall = r
-        metrics.f1 = f1
+        accuracy, macro_p, macro_r, macro_f1, per_class = _macro_prf(pairs)
+        metrics.accuracy = accuracy
+        metrics.precision = macro_p
+        metrics.recall = macro_r
+        metrics.f1 = macro_f1
         metrics.per_class = per_class
         metrics.labeled = len(pairs)
 

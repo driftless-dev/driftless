@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import webbrowser
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -90,9 +91,10 @@ class RunViewerHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def guess_type(self, path: str) -> str:
+    def guess_type(self, path: str | os.PathLike[str]) -> str:
         ctype = super().guess_type(path)
-        if ctype.startswith("text/") or path.endswith(".js"):
+        path_str = os.fspath(path)
+        if ctype.startswith("text/") or path_str.endswith(".js"):
             return ctype + "; charset=utf-8"
         return ctype
 
