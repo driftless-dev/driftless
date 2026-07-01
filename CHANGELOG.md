@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.3] - 2026-07-01
+
+### Fixed
+
+- **`judge-check` gate output** — print gate status with Rich markup disabled so
+  publish CI can assert on `max_mae` / `min_correlation` lines reliably.
+
+---
+
 ## [0.2.2] - 2026-07-01
 
 ### Added
@@ -102,8 +111,9 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.2...HEAD
-[0.2.2]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.2
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.3
+[0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
 [0.2.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.1
 [0.2.0]: https://github.com/driftless-dev/driftless/compare/v0.2.0...v0.2.1
 [0.1.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.1

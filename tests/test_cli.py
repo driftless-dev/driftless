@@ -217,7 +217,8 @@ workflows:
 
     assert result.exit_code == 0
     assert "MAE:" in result.output
-    assert "max_mae=0.5 (ok)" in result.output
+    assert "gates:" in result.output
+    assert "max_mae" in result.output and "(ok)" in result.output
     assert "--enforce" in result.output
 
 

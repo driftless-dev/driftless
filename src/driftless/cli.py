@@ -1305,7 +1305,7 @@ def judge_check(
         ok = agreement.correlation is not None and agreement.correlation >= spec.min_correlation
         gate_bits.append(f"min_correlation={spec.min_correlation:g} ({'ok' if ok else 'FAIL'})")
     if gate_bits:
-        console.print("  gates: " + ", ".join(gate_bits))
+        console.print("  gates: " + ", ".join(gate_bits), markup=False)
 
     if enforce:
         console.print(f"\n[green]gates passed[/] — {agreement.summary}")
