@@ -12,6 +12,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -114,7 +115,7 @@ def run_workflow(
             shell=True,
             cwd=cwd,
             env=env,
-            capture_output=not stream,
+            capture_output=True,
             text=True,
             timeout=run.timeout_seconds,
         )
@@ -125,13 +126,27 @@ def run_workflow(
         ) from exc
     duration = time.monotonic() - start
 
+    stdout = proc.stdout or ""
+    stderr = proc.stderr or ""
+    if stream:
+        if stdout:
+            sys.stdout.write(stdout)
+            if not stdout.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+        if stderr:
+            sys.stderr.write(stderr)
+            if not stderr.endswith("\n"):
+                sys.stderr.write("\n")
+            sys.stderr.flush()
+
     result = RunResult(
         model=model,
         output_path=output_path,
         returncode=proc.returncode,
         duration_seconds=duration,
-        stdout="" if stream else (proc.stdout or ""),
-        stderr="" if stream else (proc.stderr or ""),
+        stdout=stdout,
+        stderr=stderr,
         env_overrides=overrides,
     )
 

@@ -153,7 +153,7 @@ After a release, users can pin the composite Action by release tag
 (`action.yml` lives at the repo root — no `/action` path segment):
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.0
+- uses: driftless-dev/driftless@v0.2.1
   with:
     command: scan
 ```
@@ -161,9 +161,9 @@ After a release, users can pin the composite Action by release tag
 Or pin the PyPI package in the Action input:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.0
+- uses: driftless-dev/driftless@v0.2.1
   with:
-    version: "==0.2.0"
+    version: "==0.2.1"
     command: migrate
 ```
 
