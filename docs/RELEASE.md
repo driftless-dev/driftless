@@ -167,7 +167,13 @@ Or pin the PyPI package in the Action input:
     command: migrate
 ```
 
-Optionally maintain a floating **`v1`** tag on the latest stable minor release.
+Optionally maintain a floating **`v1`** tag on the latest stable minor release
+(point it at the current release tag after each publish):
+
+```bash
+git tag -f v1 v0.2.1 && git push origin v1 --force
+```
+
 Update [`action.yml`](../action.yml) default `version` input when cutting releases.
 
 ---

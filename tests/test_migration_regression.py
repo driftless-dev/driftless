@@ -98,3 +98,24 @@ def test_readonly_context_reaches_the_generator(tmp_path: Path):
     )
     assert "app.py" in seen
     assert "def base(" in seen["app.py"]
+
+
+def test_verbosity_drift_is_repaired_to_pass(tmp_path: Path):
+    from scenarios import VerbosityRepair, build_verbosity_scenario
+
+    wf = build_verbosity_scenario(tmp_path)
+    blocked = run_migration("ticket_classifier", wf, "new-model", cwd=tmp_path, seed=1)
+    assert blocked.status == MigrationStatus.BLOCKED
+
+    result = run_migration(
+        "ticket_classifier",
+        wf,
+        "new-model",
+        generator=VerbosityRepair(),
+        cwd=tmp_path,
+        seed=1,
+    )
+    assert result.status == MigrationStatus.PASS, result.message
+    assert result.final.f1 is not None and result.final.f1 >= 0.9
+    committed = (tmp_path / "prompts" / "system.txt").read_text(encoding="utf-8").lower()
+    assert "no preamble" in committed

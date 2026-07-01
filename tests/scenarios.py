@@ -385,3 +385,119 @@ class DataChangeRepair:
                 kind="scripted",
             )
         ]
+
+
+# --------------------------------------------------------------------------- #
+# Verbosity-drift scenario: the target model prefixes prose before JSON.
+# --------------------------------------------------------------------------- #
+
+VERBOSITY_TICKETS = TICKETS[:8]  # two per class — enough to grade, fast to run
+
+VERBOSITY_INITIAL_PROMPT = (
+    "You classify support tickets into one of: billing, technical, account, refund.\n"
+    'Return raw JSON only, for example {"label": "billing"}.\n'
+)
+
+VERBOSITY_APP_PY = '''\
+import json, os, pathlib
+
+KEYWORDS = [
+    ("refund", ["refund", "money back", "money-back", "reimburse", "chargeback"]),
+    ("technical", ["error", "crash", "bug", "broken", "slow", "login", "outage"]),
+    ("account", ["password", "account", "profile", "email", "username", "2fa"]),
+    ("billing", ["invoice", "charged", "billing", "payment", "subscription", "price"]),
+]
+
+
+def base(text):
+    t = text.lower()
+    for cat, kws in KEYWORDS:
+        if any(k in t for k in kws):
+            return cat
+    return "technical"
+
+
+model = os.environ["MODEL"]
+prompt = pathlib.Path("prompts/system.txt").read_text(encoding="utf-8").lower()
+is_target = model.startswith("new")
+preamble_ok = "no preamble" in prompt or "json only" in prompt and "no prose" in prompt
+
+lines = [l for l in pathlib.Path("inputs.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+out_lines = []
+for line in lines:
+    rec = json.loads(line)
+    cat = base(rec["text"])
+    raw = json.dumps({"label": cat})
+    if is_target and not preamble_ok:
+        raw = "Sure! Here is the classification: " + raw
+    try:
+        label = json.loads(raw)["label"]
+    except Exception:
+        label = None
+    out_lines.append(json.dumps({"id": rec["id"], "label": label}))
+pathlib.Path("out.jsonl").write_text("\\n".join(out_lines) + "\\n", encoding="utf-8")
+'''
+
+
+def build_verbosity_scenario(tmp_path: Path, *, current: str = "old-model") -> Workflow:
+    """Target model adds a prose preamble before JSON until the prompt forbids it."""
+    (tmp_path / "app.py").write_text(VERBOSITY_APP_PY, encoding="utf-8")
+    (tmp_path / "schema.json").write_text(json.dumps(SCHEMA, indent=2), encoding="utf-8")
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "system.txt").write_text(VERBOSITY_INITIAL_PROMPT, encoding="utf-8")
+
+    inputs = [{"id": f"v{i:02d}", "text": t} for i, t in enumerate(VERBOSITY_TICKETS)]
+    (tmp_path / "inputs.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in inputs) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "labels.jsonl").write_text(
+        "\n".join(json.dumps({"id": x["id"], "label": base_category(x["text"])}) for x in inputs)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return Workflow.model_validate(
+        {
+            "description": "Support ticket classifier (verbosity-drift scenario).",
+            "run": {
+                "command": f"{sys.executable} app.py",
+                "input_path": "inputs.jsonl",
+                "output_path": "out.jsonl",
+            },
+            "model": {
+                "current": current,
+                "env_var": "MODEL",
+                "target_candidates": ["new-model"],
+            },
+            "files": {
+                "editable": ["prompts/system.txt"],
+                "readonly": ["app.py", "schema.json"],
+            },
+            "eval": {
+                "labels_path": "labels.jsonl",
+                "schema_path": "schema.json",
+                "label_field": "label",
+                "id_field": "id",
+                "split": {"tuning": "60%", "holdout": "40%"},
+            },
+            "thresholds": {"min_f1": 0.9, "max_schema_error_rate": 0.02},
+            "migration": {"max_iterations": 4, "holdout_required": True},
+        }
+    )
+
+
+class VerbosityRepair:
+    """Fix prose-before-JSON drift by tightening output-format instructions."""
+
+    PATH = "prompts/system.txt"
+
+    def generate(self, context):
+        content = context.editable_files[self.PATH]
+        low = content.lower()
+        if "no preamble" in low:
+            return []
+        if not any(c.kind == "schema_error" for c in context.clusters):
+            return []
+        new = content + "Respond with JSON only; no preamble or prose before the object.\n"
+        return [Patch(files={self.PATH: new}, rationale="verbosity: forbid preamble", kind="scripted")]
+

@@ -26,19 +26,42 @@ jobs:
         run: pytest tests/test_migration_regression.py -v --no-cov
 
   live-eval:
-    name: live optimizer quality eval
+    name: live optimizer (${{ matrix.provider }})
     runs-on: ubuntu-latest
     # Nondeterministic + costs tokens: only on schedule or manual dispatch.
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openai, anthropic]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,llm]"
+
       - name: Run live optimizer eval
-        # Self-skips if the secret is absent, so this never hard-fails on forks.
         env:
-          MM_LIVE_EVAL: "1"
+          DRIFTLESS_LIVE_EVAL: "1"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: pytest tests/test_migration_live.py -v --no-cov
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PROVIDER: ${{ matrix.provider }}
+        run: |
+          if [ "$PROVIDER" = "openai" ] && [ -z "$OPENAI_API_KEY" ]; then
+            echo "::warning::OPENAI_API_KEY not configured — skipping OpenAI live eval"
+            exit 0
+          fi
+          if [ "$PROVIDER" = "anthropic" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY not configured — skipping Anthropic live eval"
+            exit 0
+          fi
+          pytest tests/test_migration_live.py -v --no-cov -k "$PROVIDER"
+
+      - name: Upload live eval metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-eval-metrics-${{ matrix.provider }}
+          path: .driftless/regression-metrics.jsonl
+          if-no-files-found: ignore
