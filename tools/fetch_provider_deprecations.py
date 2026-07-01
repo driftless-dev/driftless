@@ -48,6 +48,7 @@ OPENAI_DEPRECATIONS_URL = "https://developers.openai.com/api/docs/deprecations"
 ANTHROPIC_DEPRECATIONS_URL = (
     "https://docs.anthropic.com/en/docs/about-claude/model-deprecations"
 )
+GOOGLE_DEPRECATIONS_URL = "https://ai.google.dev/gemini-api/docs/changelog"
 
 _USER_AGENT = "driftless-catalog-refresh/1.0 (+https://github.com/driftless-dev/driftless)"
 _DATE_RE = re.compile(r"20\d{2}-\d{2}-\d{2}")
@@ -185,9 +186,16 @@ def discover_models_api_absence(
     return updates
 
 
+def _active_replacement(model_id: str, catalog_by_id: dict[str, dict[str, Any]]) -> bool:
+    row = catalog_by_id.get(model_id)
+    return isinstance(row, dict) and row.get("status") == "active"
+
+
 def _merge_hint_fields(
     current: dict[str, Any],
     hint: dict[str, Any],
+    *,
+    catalog_by_id: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
     """Return a catalog update entry if ``hint`` would change ``current``."""
     out: dict[str, Any] = {
@@ -206,8 +214,11 @@ def _merge_hint_fields(
     for field in ("retirement_date", "recommended_replacement"):
         if field not in hint:
             continue
-        cur_val = current.get(field)
         new_val = hint[field]
+        if field == "recommended_replacement" and isinstance(new_val, str):
+            if not _active_replacement(new_val, catalog_by_id):
+                continue
+        cur_val = current.get(field)
         if cur_val in (None, "") and new_val not in (None, ""):
             out[field] = new_val
             changed = True
@@ -228,7 +239,7 @@ def consolidate_deprecation_hints(
         if not isinstance(model_id, str) or model_id not in by_id:
             continue
         current = by_id[model_id]
-        update = _merge_hint_fields(current, hint)
+        update = _merge_hint_fields(current, hint, catalog_by_id=by_id)
         if not update:
             continue
         if model_id in merged:
@@ -259,6 +270,7 @@ def fetch_deprecation_page_hints(
     urls = {
         "openai": OPENAI_DEPRECATIONS_URL,
         "anthropic": ANTHROPIC_DEPRECATIONS_URL,
+        "google": GOOGLE_DEPRECATIONS_URL,
     }
     for provider in providers:
         url = urls.get(provider)

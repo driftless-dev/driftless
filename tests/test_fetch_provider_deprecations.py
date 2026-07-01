@@ -131,6 +131,74 @@ def test_consolidate_upgrades_active_to_deprecated_and_fills_missing_fields():
     ]
 
 
+def test_consolidate_skips_inactive_recommended_replacement():
+    cat = _catalog(
+        [
+            {
+                "model": "gemini-pro-vision",
+                "provider": "google",
+                "status": "retired",
+                "recommended_replacement": None,
+            },
+            {"model": "gemini-pro", "provider": "google", "status": "deprecated"},
+            {"model": "gemini-1.5-pro", "provider": "google", "status": "active"},
+            {"model": "gemini-1.5-flash", "provider": "google", "status": "active"},
+        ]
+    )
+    updates = fpd.consolidate_deprecation_hints(
+        cat,
+        [
+            {
+                "model": "gemini-pro-vision",
+                "provider": "google",
+                "status": "retired",
+                "recommended_replacement": "gemini-pro",
+            },
+            {
+                "model": "gemini-1.5-pro",
+                "provider": "google",
+                "status": "deprecated",
+                "recommended_replacement": "gemini-1.5-flash",
+            },
+        ],
+    )
+    assert updates == [
+        {
+            "model": "gemini-1.5-pro",
+            "provider": "google",
+            "status": "deprecated",
+            "recommended_replacement": "gemini-1.5-flash",
+        }
+    ]
+
+
+def test_fetch_deprecation_page_hints_includes_google_url(monkeypatch, tmp_path):
+    cat = _catalog(
+        [
+            {"model": "gemini-1.5-pro", "provider": "google", "status": "active"},
+            {"model": "gemini-1.5-flash", "provider": "google", "status": "active"},
+        ]
+    )
+    seen: list[str] = []
+
+    def fake_fetch(url: str) -> str:
+        seen.append(url)
+        if "gemini-api/docs/changelog" in url:
+            return (
+                "gemini-1.5-pro is deprecated. Shutdown 2025-02-15. "
+                "Use gemini-1.5-flash instead."
+            )
+        return ""
+
+    hints = fpd.fetch_deprecation_page_hints(
+        ["google"], catalog_path=cat, fetch_html=fake_fetch
+    )
+    assert any("gemini-api/docs/changelog" in u for u in seen)
+    assert hints[0]["model"] == "gemini-1.5-pro"
+    assert hints[0]["status"] == "deprecated"
+    assert hints[0]["recommended_replacement"] == "gemini-1.5-flash"
+
+
 def test_fetch_updates_merges_page_and_api_hints(tmp_path, monkeypatch):
     cat = _catalog(
         [

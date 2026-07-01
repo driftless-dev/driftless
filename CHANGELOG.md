@@ -17,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.15] - 2026-07-01
+
+### Added
+
+- **P1.1 Google deprecation changelog** — `fetch_provider_deprecations` scrapes
+  the Gemini API changelog for lifecycle hints on existing catalog models.
+
+### Fixed
+
+- **Catalog deprecation merge** — ignore `recommended_replacement` targets that
+  are not `active` in the committed catalog (avoids proposing retired models).
+
+---
+
 ## [0.2.14] - 2026-07-01
 
 ### Added
@@ -233,10 +247,10 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.14...HEAD
-[0.2.14]: https://github.com/driftless-dev/driftless/compare/v0.2.13...v0.2.14
-[0.2.13]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.13
-[0.2.12]: https://github.com/driftless-dev/driftless/compare/v0.2.12...v0.2.13
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.15...HEAD
+[0.2.15]: https://github.com/driftless-dev/driftless/compare/v0.2.14...v0.2.15
+[0.2.14]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.14
+[0.2.13]: https://github.com/driftless-dev/driftless/compare/v0.2.13...v0.2.14
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
