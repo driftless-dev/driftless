@@ -320,8 +320,31 @@ def fetch_models_api_hints(
                     keep=fpm._keep_anthropic,
                 )
             )
+        elif provider == "google":
+            key = fpm._google_api_key()
+            if not key:
+                print(
+                    "skip google /models diff: GEMINI_API_KEY or GOOGLE_API_KEY not set",
+                    file=sys.stderr,
+                )
+                continue
+            try:
+                api_ids = fpm._google_model_ids(key)
+            except RuntimeError as exc:
+                print(f"skip google /models diff: {exc}", file=sys.stderr)
+                continue
+            hints.extend(
+                discover_models_api_absence(
+                    provider="google",
+                    catalog_path=catalog_path,
+                    api_ids=api_ids,
+                    keep=fpm._keep_google,
+                )
+            )
         else:
-            raise ValueError(f"unknown provider {provider!r} (expected openai or anthropic)")
+            raise ValueError(
+                f"unknown provider {provider!r} (expected openai, anthropic, or google)"
+            )
     return hints
 
 
@@ -359,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--provider",
         action="append",
-        choices=["openai", "anthropic"],
+        choices=["openai", "anthropic", "google"],
         required=True,
         help="Provider to query (repeatable)",
     )

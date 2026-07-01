@@ -211,6 +211,7 @@ In **Settings → Secrets and variables → Actions**, add:
 |---|---|
 | `OPENAI_API_KEY` | Live eval matrix job (`provider: openai`) |
 | `ANTHROPIC_API_KEY` | Live eval matrix job (`provider: anthropic`) |
+| `GEMINI_API_KEY` | Catalog refresh (`refresh-catalog.yml`, Google `/models`) |
 
 If a secret is missing, that provider job exits cleanly with a warning (CI stays
 green). On scheduled or manual runs, the **secrets-preflight** job writes a

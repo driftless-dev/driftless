@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.14] - 2026-07-01
+
+### Added
+
+- **P1.1 Google/Gemini catalog refresh** — `fetch_provider_models`,
+  `fetch_provider_pricing`, and `fetch_provider_deprecations` now support
+  `google` via the Gemini `/models` API (`GEMINI_API_KEY` or `GOOGLE_API_KEY`);
+  the scheduled `refresh-catalog.yml` job merges Google discoveries alongside
+  OpenAI and Anthropic.
+
+---
+
 ## [0.2.13] - 2026-07-01
 
 ### Added
@@ -221,10 +233,10 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.13...HEAD
-[0.2.13]: https://github.com/driftless-dev/driftless/compare/v0.2.12...v0.2.13
-[0.2.12]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.12
-[0.2.11]: https://github.com/driftless-dev/driftless/compare/v0.2.11...v0.2.12
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.14...HEAD
+[0.2.14]: https://github.com/driftless-dev/driftless/compare/v0.2.13...v0.2.14
+[0.2.13]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.13
+[0.2.12]: https://github.com/driftless-dev/driftless/compare/v0.2.12...v0.2.13
 [0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
 [0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
 [0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3

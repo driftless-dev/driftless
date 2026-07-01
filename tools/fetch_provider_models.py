@@ -38,6 +38,7 @@ DEFAULT_CATALOG = (
 
 OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
 ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models"
+GOOGLE_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 ANTHROPIC_VERSION = "2023-06-01"
 
 # Chat / embedding / reasoning ids we care about; skip infra (TTS, image, fine-tunes).
@@ -90,6 +91,43 @@ def _anthropic_model_ids(api_key: str) -> list[str]:
     return ids
 
 
+def _google_model_ids(api_key: str) -> list[str]:
+    ids: list[str] = []
+    page_token: str | None = None
+    while True:
+        url = f"{GOOGLE_MODELS_URL}?pageSize=100"
+        if page_token:
+            url += f"&pageToken={page_token}"
+        payload = _http_get_json(url, {"x-goog-api-key": api_key})
+        rows = payload.get("models")
+        if not isinstance(rows, list):
+            raise RuntimeError("Google /models response missing 'models' array")
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = row.get("name")
+            if not isinstance(name, str) or not name.startswith("models/"):
+                continue
+            methods = row.get("supportedGenerationMethods")
+            if isinstance(methods, list) and "generateContent" not in methods:
+                continue
+            ids.append(name.removeprefix("models/"))
+        page_token = payload.get("nextPageToken")
+        if not isinstance(page_token, str) or not page_token:
+            break
+    return ids
+
+
+def _google_api_key(
+    *,
+    google_key: str | None = None,
+    gemini_key: str | None = None,
+) -> str | None:
+    return google_key or gemini_key or os.environ.get("GEMINI_API_KEY") or os.environ.get(
+        "GOOGLE_API_KEY"
+    )
+
+
 def _keep_openai(model_id: str) -> bool:
     if any(model_id.startswith(p) for p in _OPENAI_SKIP_PREFIXES):
         return False
@@ -98,6 +136,13 @@ def _keep_openai(model_id: str) -> bool:
 
 def _keep_anthropic(model_id: str) -> bool:
     return model_id.startswith("claude-")
+
+
+def _keep_google(model_id: str) -> bool:
+    if not model_id.startswith("gemini-"):
+        return False
+    lowered = model_id.lower()
+    return "embedding" not in lowered and not lowered.endswith("-aqa")
 
 
 def _load_known_ids(catalog_path: Path) -> dict[str, set[str]]:
@@ -147,6 +192,8 @@ def fetch_updates(
     catalog_path: Path,
     openai_key: str | None = None,
     anthropic_key: str | None = None,
+    google_key: str | None = None,
+    gemini_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return merged catalog update entries for the requested providers."""
     all_updates: list[dict[str, Any]] = []
@@ -177,8 +224,25 @@ def fetch_updates(
                 keep=_keep_anthropic,
                 api_key=key,
             )
+        elif provider == "google":
+            key = _google_api_key(google_key=google_key, gemini_key=gemini_key)
+            if not key:
+                print(
+                    "skip google: GEMINI_API_KEY or GOOGLE_API_KEY not set",
+                    file=sys.stderr,
+                )
+                continue
+            batch = discover_new_models(
+                provider="google",
+                catalog_path=catalog_path,
+                fetch_ids=_google_model_ids,
+                keep=_keep_google,
+                api_key=key,
+            )
         else:
-            raise ValueError(f"unknown provider {provider!r} (expected openai or anthropic)")
+            raise ValueError(
+                f"unknown provider {provider!r} (expected openai, anthropic, or google)"
+            )
 
         for entry in batch:
             mid = entry["model"]
@@ -194,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--provider",
         action="append",
-        choices=["openai", "anthropic"],
+        choices=["openai", "anthropic", "google"],
         required=True,
         help="Provider to query (repeatable)",
     )

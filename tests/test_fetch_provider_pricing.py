@@ -39,6 +39,23 @@ def test_litellm_lookup_anthropic_prefix_match():
     assert pricing == {"input_per_1m": 0.25, "output_per_1m": 1.25}
 
 
+def test_litellm_lookup_google_prefix_match():
+    table = {
+        "gemini-2.0-flash-001": {
+            "input_cost_per_token": 1.5e-7,
+            "output_cost_per_token": 6e-7,
+            "litellm_provider": "gemini",
+        },
+        "vertex_ai/gemini-2.0-flash": {
+            "input_cost_per_token": 1e-7,
+            "output_cost_per_token": 4e-7,
+            "litellm_provider": "vertex_ai-language-models",
+        },
+    }
+    pricing = fpp._litellm_lookup(table, "gemini-2.0-flash", "google")
+    assert pricing == {"input_per_1m": 0.15, "output_per_1m": 0.6}
+
+
 def test_pricing_updates_skip_unchanged_and_unknown(tmp_path: Path):
     cat = _catalog(
         tmp_path,

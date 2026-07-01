@@ -7,6 +7,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 import fetch_provider_deprecations as fpd  # noqa: E402
+import fetch_provider_models as fpm  # noqa: E402
 
 
 def _catalog(models) -> Path:
@@ -40,6 +41,22 @@ def test_discover_models_api_absence_flags_missing_active():
     )
     assert [u["model"] for u in updates] == ["legacy-x"]
     assert updates[0]["status"] == "deprecated"
+
+
+def test_discover_models_api_absence_google():
+    cat = _catalog(
+        [
+            {"model": "gemini-1.5-flash", "provider": "google", "status": "active"},
+            {"model": "gemini-pro", "provider": "google", "status": "active"},
+        ]
+    )
+    updates = fpd.discover_models_api_absence(
+        provider="google",
+        catalog_path=cat,
+        api_ids=["gemini-1.5-flash", "gemini-2.0-flash"],
+        keep=fpm._keep_google,
+    )
+    assert [u["model"] for u in updates] == ["gemini-pro"]
 
 
 def test_parse_deprecation_page_extracts_status_date_and_replacement():

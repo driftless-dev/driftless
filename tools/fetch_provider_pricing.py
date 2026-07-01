@@ -87,6 +87,8 @@ def _litellm_provider_matches(entry: dict[str, Any], provider: str) -> bool:
         return raw == "openai"
     if provider == "anthropic":
         return raw in {"anthropic", "bedrock"} or "anthropic" in raw
+    if provider == "google":
+        return raw in {"gemini", "google"}
     return False
 
 
@@ -99,18 +101,19 @@ def _litellm_lookup(
         if pricing and _litellm_provider_matches(direct, provider):
             return pricing
 
-    if provider != "anthropic":
+    if provider not in {"anthropic", "google"}:
         return None
 
-    # Anthropic ids in LiteLLM are often dated suffixes; pick the shortest exact
-    # ``claude-…`` key that starts with our catalog id.
+    # Anthropic / Google ids in LiteLLM are often dated suffixes; pick the shortest
+    # exact key that starts with our catalog id.
+    skip_prefixes = ("bedrock/", "eu.", "us.", "apac.", "vertex_ai/")
     candidates: list[tuple[str, dict[str, Any]]] = []
     for key, entry in table.items():
         if not isinstance(entry, dict):
             continue
         if not (key == model_id or key.startswith(f"{model_id}-")):
             continue
-        if key.startswith(("bedrock/", "eu.", "us.", "apac.", "vertex_ai/")):
+        if key.startswith(skip_prefixes):
             continue
         if not _litellm_provider_matches(entry, provider):
             continue
@@ -244,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--provider",
         action="append",
-        choices=["openai", "anthropic"],
+        choices=["openai", "anthropic", "google"],
         help="Limit to provider(s); repeat flag (default: both)",
     )
     parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
@@ -256,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Write JSON array of pricing update entries here",
     )
     args = parser.parse_args(argv)
-    providers = args.provider or ["openai", "anthropic"]
+    providers = args.provider or ["openai", "anthropic", "google"]
 
     if not args.catalog.is_file():
         print(f"catalog not found: {args.catalog}", file=sys.stderr)

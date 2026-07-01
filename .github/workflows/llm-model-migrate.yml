@@ -25,14 +25,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Audit gold labels
-        uses: driftless-dev/driftless@v0.2.13
+        uses: driftless-dev/driftless@v0.2.14
         with:
           command: audit-labels
           workflow: ${{ github.event.inputs.workflow }}
           args: "--fail"
 
       - name: Attempt migration
-        uses: driftless-dev/driftless@v0.2.13
+        uses: driftless-dev/driftless@v0.2.14
         with:
           command: migrate
           workflow: ${{ github.event.inputs.workflow }}
@@ -43,7 +43,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Open migration PR (or issue)
-        uses: driftless-dev/driftless@v0.2.13
+        uses: driftless-dev/driftless@v0.2.14
         with:
           command: open-pr
           workflow: ${{ github.event.inputs.workflow }}

@@ -80,6 +80,33 @@ def test_fetch_updates_openai(monkeypatch, tmp_path):
     assert [u["model"] for u in updates] == ["o3-mini"]
 
 
+def test_discover_new_models_google_strips_models_prefix(tmp_path):
+    cat = _catalog([{"model": "gemini-1.5-flash", "provider": "google"}])
+
+    updates = fpm.discover_new_models(
+        provider="google",
+        catalog_path=cat,
+        fetch_ids=lambda _k: ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-embedding-001"],
+        keep=fpm._keep_google,
+        api_key="k",
+    )
+    assert [u["model"] for u in updates] == ["gemini-2.0-flash"]
+
+
+def test_fetch_updates_google_uses_gemini_env(monkeypatch, tmp_path):
+    cat = _catalog([{"model": "gemini-1.5-flash", "provider": "google"}])
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "gem")
+    monkeypatch.setattr(
+        fpm,
+        "_google_model_ids",
+        lambda key: (["gemini-1.5-flash", "gemini-2.5-flash"] if key == "gem" else []),
+    )
+
+    updates = fpm.fetch_updates(["google"], catalog_path=cat)
+    assert [u["model"] for u in updates] == ["gemini-2.5-flash"]
+
+
 def test_cli_writes_output(tmp_path, monkeypatch):
     cat = tmp_path / "cat.json"
     cat.write_text(json.dumps({"models": []}), encoding="utf-8")
