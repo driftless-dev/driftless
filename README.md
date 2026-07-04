@@ -10,7 +10,7 @@ and opens a PR with evidence.
 > Also described as *Dependabot for LLM models* — same automation shape, different
 > core insight: prompts are lockfiles, not just config files.
 
-> Status: early development — [`0.1.0`](https://pypi.org/project/driftless/) on PyPI.
+> Status: early development — `0.2.x` release line on [PyPI](https://pypi.org/project/driftless/).
 
 ## Install (dev)
 
@@ -101,6 +101,8 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 
 ## Documentation
 
+- [Blog series: common use cases](./docs/blog/README.md) — drafts for model migration, dataset refine, CI automation, cost, label audit, and LLM judges.
+- [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
 - [Release process](./docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
 - [Changelog](./CHANGELOG.md) — version history.
 - [Repair prompts & custom generators](./docs/repair-and-generators.md) — customize

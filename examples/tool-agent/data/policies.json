@@ -1,0 +1,6 @@
+{
+  "refund_window_days": 30,
+  "invoice_delivery": "email",
+  "password_reset": "send one-time reset link"
+}
+

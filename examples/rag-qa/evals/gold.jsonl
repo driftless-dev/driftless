@@ -1,0 +1,5 @@
+{"id":"q001","required_terms":["SAML SSO","Business","Enterprise","identity-provider metadata"],"required_citations":["doc-sso"]}
+{"id":"q002","required_terms":["tickets","comments","audit events","CSV","seven days"],"required_citations":["doc-export"]}
+{"id":"q003","required_terms":["Enterprise","30 to 365 days","resolved tickets","comments"],"required_citations":["doc-retention"]}
+{"id":"q004","required_terms":["exponential backoff","six hours","integration log","response code"],"required_citations":["doc-webhooks"]}
+

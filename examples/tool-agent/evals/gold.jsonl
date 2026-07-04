@@ -1,0 +1,5 @@
+{"id":"a001","expected_tools":["lookup_order","check_policy","refund_payment"],"required_terms":["refund issued","ord-1001"]}
+{"id":"a002","expected_tools":["lookup_order","check_policy"],"required_terms":["refund not issued","ord-1002","30-day window"]}
+{"id":"a003","expected_tools":["lookup_order","send_invoice"],"required_terms":["invoice sent","ord-1003"]}
+{"id":"a004","expected_tools":["reset_password"],"required_terms":["password reset","sam@example.com"]}
+

@@ -1,0 +1,43 @@
+version: 1
+workflows:
+  rag_qa:
+    description: "Retrieval QA over a fixed support knowledge base."
+    model:
+      current: gpt-4
+      target_candidates:
+        - gpt-4o
+        - gpt-4o-mini
+      env_var: MODEL
+      portable: true
+
+    files:
+      editable:
+        - prompts/rag_answer.md
+        - prompts/retrieval_rewrite.md
+      readonly:
+        - app/
+        - data/docs.jsonl
+        - data/index_manifest.json
+        - evals/questions.jsonl
+        - evals/gold.jsonl
+
+    run:
+      command: python3 -m app.eval_rag
+      input_path: evals/questions.jsonl
+      output_path: evals/outputs.jsonl
+      timeout_seconds: 30
+
+    eval:
+      id_field: id
+      score_field: score
+      cost_field: cost
+      split:
+        tuning: 60%
+        holdout: 40%
+
+    thresholds:
+      min_score: 0.86
+      max_cost_increase: 0.20
+
+    migration:
+      max_iterations: 3

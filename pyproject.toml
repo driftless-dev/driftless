@@ -72,6 +72,10 @@ include = [
     "CHANGELOG.md",
     "docs/RELEASE.md",
     "docs/repair-and-generators.md",
+    "docs/rag-and-agents.md",
+    "docs/blog",
+    "examples/rag-qa",
+    "examples/tool-agent",
 ]
 
 [tool.pytest.ini_options]
