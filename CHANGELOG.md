@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results for broader user-readiness review.
 - **Successful PR fixture** — saved evidence-backed PR body with prompt diff,
   scorecard, thresholds, and reviewer instructions.
+- **Visual proof plan** — screenshot targets and current markdown substitutes
+  for README/blog launch assets.
 - **User readiness plan** — launch-readiness gaps and acceptance criteria for
   broader self-serve adoption.
 - **Self-serve quickstart docs** — bundled example copying, command chooser, and

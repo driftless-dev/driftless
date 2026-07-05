@@ -128,6 +128,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
 - [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
 - [Launch check](./docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
+- [Visual proof plan](./docs/VISUAL_PROOF_PLAN.md) — exact screenshot targets before public launch.
 - [Example review artifact](./docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
 - [Example successful PR artifact](./docs/EXAMPLE_SUCCESS_PR.md) — dry-run PR/report from a passing migration.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.

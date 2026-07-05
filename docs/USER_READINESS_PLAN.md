@@ -85,7 +85,9 @@ Acceptance criteria:
 
 ### 3. Screenshots and visual proof
 
-Status: still open.
+Status: partially implemented via
+[`docs/VISUAL_PROOF_PLAN.md`](./VISUAL_PROOF_PLAN.md). Markdown substitutes are
+available, but actual PNG/browser screenshots are still open.
 
 Capture the product surfaces that make the value obvious.
 
