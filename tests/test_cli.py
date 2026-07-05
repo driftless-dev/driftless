@@ -42,6 +42,25 @@ def test_init_policy_scaffolds_policy(tmp_path, monkeypatch):
     assert "deprecation" in Path(".driftless/policy.yml").read_text()
 
 
+def test_copy_example_scaffolds_bundled_example(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["copy-example", "rag-qa"])
+
+    assert result.exit_code == 0
+    assert Path("rag-qa/driftless.yml").is_file()
+    assert Path("rag-qa/app/eval_rag.py").is_file()
+    assert "driftless validate" in result.output
+
+
+def test_copy_example_rejects_unknown_name(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["copy-example", "missing-example"])
+
+    assert result.exit_code == 1
+    assert "unknown example" in _plain(result.output)
+    assert "rag-qa" in _plain(result.output)
+
+
 def test_validate_no_run_accepts_minimal_contract(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("inputs.jsonl").write_text('{"id": "1", "text": "hello"}\n')

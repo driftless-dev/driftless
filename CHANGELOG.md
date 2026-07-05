@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministic retrieval QA and tool-agent fixtures.
 - **User readiness plan** — launch-readiness gaps and acceptance criteria for
   broader self-serve adoption.
+- **Self-serve quickstart docs** — bundled example copying, command chooser, and
+  known-limits guidance.
 
 ### Changed
 

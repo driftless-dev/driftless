@@ -12,22 +12,33 @@ and opens a PR with evidence.
 
 > Status: early development — `0.2.x` release line on [PyPI](https://pypi.org/project/driftless/).
 
-## Install (dev)
+## Install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+pip install driftless
 ```
 
 ## Quickstart
 
+Try Driftless without provider keys by copying a bundled RAG example:
+
 ```bash
-driftless init            # scaffold a driftless.yml
-driftless init-policy     # scaffold .driftless/policy.yml
-driftless init-ci         # scaffold GitHub Actions workflows
-driftless validate -w support_classifier   # contract parses + harness runs
+driftless copy-example rag-qa --out-dir driftless-rag-demo
+cd driftless-rag-demo
+driftless validate -w rag_qa
+driftless compare -w rag_qa --to gpt-4o-mini
 ```
+
+Expected shape:
+
+```text
+Score / pass-rate   current 1.000   target 0.000
+Total cost          current 0.072   target 0.016
+FAIL min_score: 0.000 >= 0.86
+```
+
+The target is cheaper, but it fails the quality gate. From there, use
+`driftless migrate -w rag_qa --to gpt-4o-mini` to attempt prompt/config repair.
 
 ## How it works
 
@@ -55,6 +66,7 @@ optimizes against it, with your team owning the definition of "good":
 
 | Command | Purpose |
 |---|---|
+| `copy-example` | Copy a bundled example project (`rag-qa`, `tool-agent`). |
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
 | `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, plan, label audit, and judge check. |
@@ -102,6 +114,9 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 ## Documentation
 
 - [Blog series: common use cases](./docs/blog/README.md) — drafts for model migration, dataset refine, CI automation, cost, label audit, and LLM judges.
+- [Getting started](./docs/GETTING_STARTED.md) — run bundled RAG and agent examples.
+- [Command chooser](./docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
+- [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
 - [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.
 - [Release process](./docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.

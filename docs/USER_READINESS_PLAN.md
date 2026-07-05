@@ -30,21 +30,29 @@ Strong enough to show:
   cost, label audit, and CI automation.
 - Tests cover the RAG and agent example fixtures.
 
-Not yet self-serve enough:
+Recently improved:
 
-- README quickstart starts with scaffolding instead of the fastest successful
-  "try this now" path.
-- There is no single golden tutorial that walks from install to scorecard to
-  migration report/PR.
-- The command decision tree (`compare` vs `migrate` vs `refine` vs `plan`) is
-  understandable, but not obvious at first glance.
+- README now starts with a bundled `rag-qa` quickstart via
+  `driftless copy-example`.
+- [`docs/GETTING_STARTED.md`](./GETTING_STARTED.md) walks through bundled RAG
+  and agent examples.
+- [`docs/COMMAND_CHOOSER.md`](./COMMAND_CHOOSER.md) maps user intent to CLI
+  commands.
+- [`docs/LIMITS.md`](./LIMITS.md) collects the main launch boundaries in one
+  user-facing page.
+
+Still not fully self-serve:
+
 - Screenshots are missing for the scorecard, report, run viewer, and PR body.
-- Limits are described across multiple docs, but not collected in one
-  user-facing place.
+- There is not yet a canonical public PR showing the complete generated
+  evidence-backed review experience.
 
 ## P0 Before Wider Launch
 
 ### 1. Golden quickstart
+
+Status: implemented in [`docs/GETTING_STARTED.md`](./GETTING_STARTED.md) and the
+README via `driftless copy-example`.
 
 Create a short "Try Driftless in 5 minutes" path using a bundled fixture.
 Recommended fixture: `examples/rag-qa`, because it demonstrates non-classifier
@@ -59,6 +67,8 @@ Acceptance criteria:
 - The path works from an sdist/wheel install, not only editable checkout.
 
 ### 2. Command chooser
+
+Status: implemented in [`docs/COMMAND_CHOOSER.md`](./COMMAND_CHOOSER.md).
 
 Add a compact guide that maps user intent to commands.
 
@@ -75,6 +85,8 @@ Acceptance criteria:
 
 ### 3. Screenshots and visual proof
 
+Status: still open.
+
 Capture the product surfaces that make the value obvious.
 
 Acceptance criteria:
@@ -86,6 +98,8 @@ Acceptance criteria:
 - Blog posts 1, 3, 7, and 8 include at least one relevant visual.
 
 ### 4. Known limits page
+
+Status: implemented in [`docs/LIMITS.md`](./LIMITS.md).
 
 Create one user-facing page that says what Driftless does not do yet.
 
@@ -179,4 +193,3 @@ These do not block showing the project to early users:
 4. Screenshots for README/blog.
 5. One complete example PR.
 6. Version polish and full launch check.
-

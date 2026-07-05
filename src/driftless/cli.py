@@ -18,6 +18,7 @@ from . import __version__
 from .compare import Comparison, compare_models, save_comparison
 from .contract import CONTRACT_FILENAMES, Workflow, find_contract, load_contract
 from .errors import HarnessError, DriftlessError
+from .examples import available_examples, copy_example as copy_bundled_example
 from .harness import check_inputs, run_workflow
 from .progress import log as progress_log
 from .templates import CONTRACT_TEMPLATE, POLICY_TEMPLATE
@@ -103,6 +104,29 @@ def init_policy(
     console.print(
         "Tune triggers/thresholds, then run [bold]driftless plan[/] to see decisions."
     )
+
+
+@app.command(name="copy-example")
+def copy_example(
+    name: str = typer.Argument(..., help="Example name, such as rag-qa or tool-agent."),
+    out_dir: Path | None = typer.Option(
+        None,
+        "--out-dir",
+        help="Where to copy the example (default: ./<name>).",
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing directory."),
+) -> None:
+    """Copy a bundled example project into the current directory."""
+    try:
+        target = copy_bundled_example(name, out_dir or Path(name), force=force)
+    except DriftlessError as exc:
+        _fail(exc)
+    console.print(f"[green]created[/] {target}")
+    console.print("Next:")
+    console.print(f"  cd {target}")
+    console.print("  driftless validate -w <workflow>")
+    if available_examples():
+        console.print(f"Available examples: {', '.join(available_examples())}")
 
 
 @app.command(name="init-ci")
