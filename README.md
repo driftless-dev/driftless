@@ -20,7 +20,16 @@ pip install driftless
 
 ## Quickstart
 
-Try Driftless without provider keys by copying a bundled RAG example:
+Try Driftless without provider keys by copying a bundled classification example:
+
+```bash
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+```
+
+For a non-classifier workflow, copy the bundled RAG example:
 
 ```bash
 driftless copy-example rag-qa --out-dir driftless-rag-demo
@@ -118,6 +127,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Command chooser](./docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
 - [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
 - [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
+- [Launch check](./docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
 - [Example review artifact](./docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
 - [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.

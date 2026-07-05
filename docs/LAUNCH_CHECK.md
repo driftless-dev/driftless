@@ -1,0 +1,65 @@
+# Launch Check
+
+Last run: 2026-07-05
+
+This records the local checks used before showing Driftless beyond design
+partners. Commands should be run from the repository root unless noted.
+
+## Suite
+
+| Check | Result |
+|---|---|
+| `env PYTHONPATH=src .venv/bin/python -m mypy` | Pass: no issues in 28 source files. |
+| `env PYTHONPATH=src .venv/bin/python -m pytest` | Pass: 333 passed, 12 skipped, coverage 82.67%. |
+| `.venv/bin/python -m build` | Pass: built sdist and wheel for `0.2.15`. |
+| `.venv/bin/python -m twine check dist/driftless-0.2.15*` | Pass: sdist and wheel metadata valid. |
+
+The full pytest run needs permission to bind a local HTTP server for the run
+viewer test.
+
+## Example Commands
+
+Classification:
+
+```bash
+cd examples/support-classifier
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli validate -w support_classifier
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli compare -w support_classifier --to gpt-4o-mini
+```
+
+Expected compare shape: baseline F1 `1.000`, target F1 `0.000`, cheaper target,
+`FAIL min_f1`.
+
+RAG:
+
+```bash
+cd examples/rag-qa
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli validate -w rag_qa
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli compare -w rag_qa --to gpt-4o-mini
+```
+
+Expected compare shape: baseline score `1.000`, target score `0.000`, cheaper
+target, `FAIL min_score`.
+
+Agent:
+
+```bash
+cd examples/tool-agent
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli validate -w support_agent
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli compare -w support_agent --to gpt-4o-mini
+```
+
+Expected compare shape: baseline score `1.000`, target score `0.000`, cheaper
+target, `FAIL min_score`.
+
+## Packaging
+
+The `0.2.15` sdist and wheel include:
+
+- `examples/support-classifier`
+- `examples/rag-qa`
+- `examples/tool-agent`
+
+Generated example outputs such as `examples/**/evals/outputs.jsonl` are ignored
+and are not included in the wheel.
+

@@ -16,6 +16,7 @@ venv/
 
 # driftless run artifacts
 .driftless/
+examples/**/evals/outputs.jsonl
 
 # OS / editor
 .DS_Store

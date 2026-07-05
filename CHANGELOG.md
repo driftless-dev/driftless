@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **RAG and agent workflow guide/examples** — contract patterns plus runnable
   deterministic retrieval QA and tool-agent fixtures.
+- **Support classifier example** — runnable bundled gold-label classification
+  fixture for launch checks and first-time users.
+- **Launch check artifact** — records suite, packaging, and example command
+  results for broader user-readiness review.
 - **User readiness plan** — launch-readiness gaps and acceptance criteria for
   broader self-serve adoption.
 - **Self-serve quickstart docs** — bundled example copying, command chooser, and

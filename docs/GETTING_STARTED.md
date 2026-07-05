@@ -3,13 +3,25 @@
 The fastest way to understand Driftless is to run a bundled example. No provider
 keys are required.
 
-## Try the RAG Example
+## Try the Classification Example
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install driftless
 
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+```
+
+This is the smallest gold-label path: a deterministic ticket classifier with
+macro-F1 thresholds and cost tracking.
+
+## Try the RAG Example
+
+```bash
 driftless copy-example rag-qa --out-dir driftless-rag-demo
 cd driftless-rag-demo
 driftless validate -w rag_qa

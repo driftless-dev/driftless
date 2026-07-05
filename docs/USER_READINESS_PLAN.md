@@ -165,6 +165,8 @@ Acceptance criteria:
 
 ### 8. Full-suite launch check
 
+Status: implemented in [`docs/LAUNCH_CHECK.md`](./LAUNCH_CHECK.md).
+
 Before a broad public push, run the complete local and CI checks.
 
 Acceptance criteria:
