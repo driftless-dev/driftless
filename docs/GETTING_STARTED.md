@@ -52,12 +52,15 @@ sounds plausible.
 After `compare` shows a target regression:
 
 ```bash
-driftless migrate -w rag_qa --to gpt-4o-mini
-driftless report
+driftless migrate -w rag_qa --to gpt-4o-mini --generator none
+driftless report -w rag_qa
+driftless open-pr -w rag_qa
 driftless view
 ```
 
-`migrate` may require provider credentials if you use the default LLM repair
-generator. The examples are deterministic for `validate` and `compare`; repair is
-where real model calls usually enter.
+`--generator none` makes no edits and produces the blocked-report path without
+provider keys. Use the default `--generator llm` when you are ready for
+provider-backed prompt/config repair.
 
+See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for the issue
+body and dry-run GitHub action produced by this flow.

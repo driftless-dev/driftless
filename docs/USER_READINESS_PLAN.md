@@ -44,8 +44,8 @@ Recently improved:
 Still not fully self-serve:
 
 - Screenshots are missing for the scorecard, report, run viewer, and PR body.
-- There is not yet a canonical public PR showing the complete generated
-  evidence-backed review experience.
+- There is a saved blocked-review fixture, but not yet a canonical public PR
+  showing successful prompt/config diffs.
 
 ## P0 Before Wider Launch
 
@@ -116,6 +116,11 @@ Acceptance criteria:
 ## P1 Shortly After
 
 ### 5. One complete example PR
+
+Status: partially implemented via
+[`docs/EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md), which captures
+the blocked issue/report path. A successful PR with prompt/config diffs is still
+open.
 
 Create or capture a canonical evidence-backed PR.
 

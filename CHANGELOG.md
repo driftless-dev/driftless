@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   broader self-serve adoption.
 - **Self-serve quickstart docs** — bundled example copying, command chooser, and
   known-limits guidance.
+- **Example review artifact** — saved blocked-migration issue/report fixture for
+  no-key product walkthroughs.
 
 ### Changed
 
