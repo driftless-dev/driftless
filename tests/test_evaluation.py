@@ -187,6 +187,14 @@ def test_load_labels_scalar_and_dict(tmp_path: Path):
     assert load_labels(p, "label") == ["a", "b"]
 
 
+def test_missing_labels_hint_suggests_score_mode(tmp_path: Path):
+    wf = _workflow(tmp_path, labels_path="missing.jsonl")
+    run = _run(tmp_path, [{"label": "billing"}])
+    with pytest.raises(Exception) as ei:
+        evaluate(wf, run, cwd=tmp_path)
+    assert "eval.score_field/pass_field" in (getattr(ei.value, "hint", "") or "")
+
+
 def test_cost_derived_from_tokens_and_catalog_pricing(tmp_path: Path):
     # gpt-4o pricing: $2.5/1M input, $10/1M output.
     (tmp_path / "labels.jsonl").write_text('"billing"\n"billing"\n')

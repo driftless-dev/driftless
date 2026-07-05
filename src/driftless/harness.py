@@ -157,9 +157,15 @@ def run_workflow(
     )
 
     if proc.returncode != 0:
+        hint = _tail(result.stderr) or _tail(result.stdout) or "no output captured"
+        if proc.returncode == 127:
+            hint = (
+                f"{hint}\ncheck run.command: the shell could not find a command "
+                "or executable in the workflow command"
+            )
         raise HarnessError(
             f"workflow command exited with code {proc.returncode}",
-            hint=_tail(result.stderr) or _tail(result.stdout) or "no output captured",
+            hint=hint,
         )
 
     if not output_path.is_file():

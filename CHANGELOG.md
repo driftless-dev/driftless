@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`validate` success guidance** — successful validation now prints likely next
   commands, including the first configured target candidate when available.
+- **First-run error hints** — command-not-found and missing-label failures now
+  point users at the contract fields most likely to fix them.
 
 ### Fixed
 

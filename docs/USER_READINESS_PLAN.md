@@ -144,7 +144,8 @@ Acceptance criteria:
 ### 7. First-run diagnostics
 
 Status: partially implemented. Successful `validate` now prints likely next
-commands; remaining work is broader error-hint coverage.
+commands; command-not-found and missing-label errors include targeted hints.
+Remaining work is broader provider/auth and malformed-output guidance.
 
 Improve the errors a cold user is most likely to hit.
 

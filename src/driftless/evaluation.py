@@ -250,6 +250,16 @@ def load_labels_by_id(
     return mapping
 
 
+def _labels_not_found(path: str) -> DriftlessError:
+    return DriftlessError(
+        f"labels file not found: {path}",
+        hint=(
+            "set eval.labels_path to an existing gold JSONL file, or remove "
+            "labels_path and use eval.score_field/pass_field for unlabeled scoring"
+        ),
+    )
+
+
 def load_gold_records_by_id(path: Path, id_field: str) -> dict[Any, dict]:
     """Load *full* gold records keyed by id (for extraction's per-field scoring).
 
@@ -413,7 +423,7 @@ def _resolve_gold(
     elif spec.labels_path:
         labels_path = (cwd / spec.labels_path).resolve()
         if not labels_path.is_file():
-            raise DriftlessError(f"labels file not found: {spec.labels_path}")
+            raise _labels_not_found(spec.labels_path)
         gold = load_labels(labels_path, spec.label_field)
     else:
         return None
@@ -435,7 +445,7 @@ def _resolve_gold_by_id(
     if spec.labels_path:
         labels_path = (cwd / spec.labels_path).resolve()
         if not labels_path.is_file():
-            raise DriftlessError(f"labels file not found: {spec.labels_path}")
+            raise _labels_not_found(spec.labels_path)
         return load_labels_by_id(labels_path, spec.id_field, spec.label_field)  # type: ignore[arg-type]
     return None
 
@@ -506,7 +516,7 @@ def _resolve_gold_records(spec: EvalSpec, cwd: Path) -> dict[Any, dict]:
         raise DriftlessError("labels_path is required for extraction grading")
     labels_path = (cwd / spec.labels_path).resolve()
     if not labels_path.is_file():
-        raise DriftlessError(f"labels file not found: {spec.labels_path}")
+        raise _labels_not_found(spec.labels_path)
     return load_gold_records_by_id(labels_path, spec.id_field)  # type: ignore[arg-type]
 
 

@@ -59,6 +59,14 @@ def test_run_workflow_nonzero_exit_hint_carries_stderr(tmp_path: Path):
     assert "boom-on-stderr" in (ei.value.hint or "")
 
 
+def test_run_workflow_command_not_found_hint_points_at_command(tmp_path: Path):
+    (tmp_path / "inputs.jsonl").write_text("{}\n")
+    wf = _workflow("definitely-not-a-command")
+    with pytest.raises(HarnessError) as ei:
+        run_workflow(wf, "model-b", cwd=tmp_path)
+    assert "check run.command" in (ei.value.hint or "")
+
+
 def test_run_workflow_times_out(tmp_path: Path):
     (tmp_path / "inputs.jsonl").write_text("{}\n")
     wf = Workflow.model_validate(
