@@ -117,6 +117,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Getting started](./docs/GETTING_STARTED.md) — run bundled RAG and agent examples.
 - [Command chooser](./docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
 - [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
+- [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
 - [Example review artifact](./docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
 - [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.

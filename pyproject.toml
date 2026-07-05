@@ -79,6 +79,7 @@ include = [
     "LICENSE",
     "CHANGELOG.md",
     "docs/COMMAND_CHOOSER.md",
+    "docs/COST_AND_BUDGETS.md",
     "docs/EXAMPLE_REVIEW_ARTIFACT.md",
     "docs/GETTING_STARTED.md",
     "docs/LIMITS.md",

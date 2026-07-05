@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   known-limits guidance.
 - **Example review artifact** — saved blocked-migration issue/report fixture for
   no-key product walkthroughs.
+- **Cost and budget guidance** — practical defaults for eval sizes, RAG, agents,
+  and judge-graded workflows.
 
 ### Changed
 

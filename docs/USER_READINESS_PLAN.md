@@ -173,6 +173,8 @@ Acceptance criteria:
 
 ### 9. Cost and budget guidance
 
+Status: implemented in [`docs/COST_AND_BUDGETS.md`](./COST_AND_BUDGETS.md).
+
 Document practical guardrails for expensive workflows.
 
 Acceptance criteria:
