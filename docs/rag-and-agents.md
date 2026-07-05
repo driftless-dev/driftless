@@ -25,7 +25,7 @@ workflows:
   rag_qa:
     model:
       current: gpt-4
-      target_candidates: [gpt-4o, gpt-4o-mini]
+      target_candidates: [gpt-4o-mini, gpt-4o]
       env_var: MODEL
 
     files:

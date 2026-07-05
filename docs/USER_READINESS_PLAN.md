@@ -143,6 +143,9 @@ Acceptance criteria:
 
 ### 7. First-run diagnostics
 
+Status: partially implemented. Successful `validate` now prints likely next
+commands; remaining work is broader error-hint coverage.
+
 Improve the errors a cold user is most likely to hit.
 
 Acceptance criteria:

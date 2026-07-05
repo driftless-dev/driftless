@@ -234,6 +234,25 @@ def validate(
 
     if failures:
         raise typer.Exit(code=1)
+    _print_validate_next_steps(contract, names)
+
+
+def _print_validate_next_steps(contract, names: list[str]) -> None:
+    if len(names) == 1:
+        name = names[0]
+        wf = contract.workflow(name)
+        target = wf.model.target_candidates[0] if wf.model.target_candidates else "<model>"
+        console.print("\n[bold]Next[/]")
+        if target == "<model>":
+            console.print(f"  driftless compare -w {name} --to <model>")
+        else:
+            console.print(f"  driftless compare -w {name} --to {target}")
+        console.print(f"  driftless calibrate -w {name}  # optional: suggest thresholds")
+        return
+
+    console.print("\n[bold]Next[/]")
+    console.print("  driftless compare -w <workflow> --to <model>")
+    console.print("  driftless plan  # apply migration policy across workflows")
 
 
 def _validate_workflow(name: str, wf: Workflow, *, run: bool) -> None:

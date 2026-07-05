@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`validate` success guidance** — successful validation now prints likely next
+  commands, including the first configured target candidate when available.
+
 ### Fixed
 
 ### Removed

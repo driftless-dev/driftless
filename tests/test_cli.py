@@ -87,6 +87,32 @@ workflows:
     assert result.exit_code == 0
     assert "contract ok" in result.output
     assert "skipping harness run" in result.output
+    assert "driftless compare -w smoke --to <model>" in _plain(result.output)
+
+
+def test_validate_suggests_first_target_candidate(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("inputs.jsonl").write_text('{"id": "1", "text": "hello"}\n')
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  smoke:
+    run:
+      command: python -c "print('not run')"
+      input_path: inputs.jsonl
+      output_path: .driftless/results/smoke.outputs.jsonl
+    model:
+      current: gpt-4
+      target_candidates: [gpt-4o-mini]
+      env_var: SMOKE_MODEL
+""".lstrip()
+    )
+
+    result = runner.invoke(app, ["validate", "-w", "smoke", "--no-run"])
+
+    assert result.exit_code == 0
+    assert "driftless compare -w smoke --to gpt-4o-mini" in _plain(result.output)
 
 
 def test_scan_reports_detected_model(tmp_path, monkeypatch):
