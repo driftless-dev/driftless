@@ -147,9 +147,10 @@ Acceptance criteria:
 
 ### 7. First-run diagnostics
 
-Status: partially implemented. Successful `validate` now prints likely next
-commands; command-not-found and missing-label errors include targeted hints.
-Remaining work is broader provider/auth and malformed-output guidance.
+Status: implemented. Successful `validate` prints likely next commands;
+command-not-found, missing-output, missing-model-override, missing-label,
+endpoint auth/rate-limit, invalid JSONL, and provider-key failures include
+targeted hints.
 
 Improve the errors a cold user is most likely to hit.
 

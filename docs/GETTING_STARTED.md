@@ -64,3 +64,19 @@ provider-backed prompt/config repair.
 
 See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for the issue
 body and dry-run GitHub action produced by this flow.
+
+## If A Command Fails
+
+- `workflow did not write expected output`: check `run.output_path` in
+  `driftless.yml`. Driftless reads the file your harness writes; update the
+  contract if your eval already writes somewhere else.
+- `no model override mechanism is configured`: set `model.env_var`, or use
+  `model.config_file` plus `model.config_path`, so Driftless can run the same
+  workflow under the baseline and target models.
+- `input is not valid JSONL`: each non-empty line in `run.input_path` must be one
+  JSON object.
+- Endpoint `401` or `403`: set `DRIFTLESS_ENDPOINT_TOKEN` if your endpoint
+  expects a bearer token. For custom auth headers, wrap the endpoint call in
+  `run.command`.
+- Provider-backed repair needs provider credentials. The bundled example flow
+  works without keys when you use `--generator none`.

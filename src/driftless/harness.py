@@ -84,9 +84,9 @@ def run_workflow(
         raise HarnessError(
             "no model override mechanism is configured",
             hint=(
-                "set model.env_var (or model.config_file + model.config_path) so "
-                "the workflow can be run under different models; until then run "
-                "`driftless configure` to make the workflow migration-ready"
+                "set model.env_var to an environment variable your command reads, "
+                "or set model.config_file + model.config_path so Driftless can "
+                "run the workflow under baseline and target models"
             ),
         )
 
@@ -171,7 +171,10 @@ def run_workflow(
     if not output_path.is_file():
         raise HarnessError(
             f"workflow did not write expected output: {run.output_path}",
-            hint="ensure the command writes results to run.output_path",
+            hint=(
+                f"expected JSONL at {output_path}; ensure run.command writes there, "
+                "or update run.output_path to the file your eval already produces"
+            ),
         )
 
     return result
@@ -239,9 +242,10 @@ def _endpoint_post_record(
                     exc.read()
                 time.sleep(retry_backoff * (2**attempt))
                 continue
+            error_detail = exc.read().decode("utf-8", "replace") if exc.fp else ""
             raise HarnessError(
                 f"endpoint returned HTTP {exc.code} on record {index}",
-                hint=_tail(exc.read().decode("utf-8", "replace")) if exc.fp else str(exc),
+                hint=_http_error_hint(exc.code, error_detail or str(exc)),
             ) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             if attempt < max_attempts - 1:
@@ -369,3 +373,17 @@ def _tail(text: str, lines: int = 15) -> str:
     if not text:
         return ""
     return "\n".join(text.splitlines()[-lines:])
+
+
+def _http_error_hint(code: int, detail: str) -> str:
+    detail = _tail(detail)
+    if code in {401, 403}:
+        auth_hint = (
+            f"set {ENDPOINT_TOKEN_ENV} if the endpoint expects a bearer token, "
+            "or run a local command harness when custom auth headers are required"
+        )
+        return f"{detail}\n{auth_hint}" if detail else auth_hint
+    if code == 429:
+        rate_hint = "increase run.endpoint_retries or lower run.endpoint_concurrency"
+        return f"{detail}\n{rate_hint}" if detail else rate_hint
+    return detail or f"HTTP {code}"
