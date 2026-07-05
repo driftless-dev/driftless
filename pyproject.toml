@@ -81,6 +81,7 @@ include = [
     "docs/COMMAND_CHOOSER.md",
     "docs/COST_AND_BUDGETS.md",
     "docs/EXAMPLE_REVIEW_ARTIFACT.md",
+    "docs/EXAMPLE_SUCCESS_PR.md",
     "docs/GETTING_STARTED.md",
     "docs/LAUNCH_CHECK.md",
     "docs/LIMITS.md",

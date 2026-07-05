@@ -12,6 +12,11 @@ stops grounding answers in retrieved context and drops citations.
 score the final answer/citations through your evaluator, and repair only the
 prompt/config files you allow.
 
+Artifact reference: the saved
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the evidence
+shape a passing migration PR should have; the RAG fixture uses the same report
+and `open-pr` path.
+
 If you only remember one rule: **RAG migration is not embedding migration.**
 Keep the index fixed for this workflow. Let Driftless optimize the generator and
 retrieval prompts against the same end-to-end eval your app already uses.
@@ -173,4 +178,3 @@ RAG drift Driftless should handle.
 RAG and agent prompts are brittle to model swaps, but the first trustworthy step
 is boring in the best way: run the same app, keep the index fixed, measure the
 whole pipeline, and review only prompt/config diffs.
-

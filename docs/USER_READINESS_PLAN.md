@@ -28,14 +28,14 @@ Strong enough to show:
   `plan`, `open-pr`, `init-ci`.
 - Examples now cover classification, RAG, tool agents, judge-grading outlines,
   cost, label audit, and CI automation.
-- Tests cover the RAG and agent example fixtures.
+- Tests cover the classification, RAG, and agent example fixtures.
 
 Recently improved:
 
-- README now starts with a bundled `rag-qa` quickstart via
+- README now starts with a bundled `support-classifier` quickstart via
   `driftless copy-example`.
-- [`docs/GETTING_STARTED.md`](./GETTING_STARTED.md) walks through bundled RAG
-  and agent examples.
+- [`docs/GETTING_STARTED.md`](./GETTING_STARTED.md) walks through bundled
+  classification, RAG, and agent examples.
 - [`docs/COMMAND_CHOOSER.md`](./COMMAND_CHOOSER.md) maps user intent to CLI
   commands.
 - [`docs/LIMITS.md`](./LIMITS.md) collects the main launch boundaries in one
@@ -44,8 +44,8 @@ Recently improved:
 Still not fully self-serve:
 
 - Screenshots are missing for the scorecard, report, run viewer, and PR body.
-- There is a saved blocked-review fixture, but not yet a canonical public PR
-  showing successful prompt/config diffs.
+- Saved review fixtures now cover both blocked issue and successful PR paths,
+  but they are not yet real public GitHub screenshots.
 
 ## P0 Before Wider Launch
 
@@ -117,10 +117,12 @@ Acceptance criteria:
 
 ### 5. One complete example PR
 
-Status: partially implemented via
-[`docs/EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md), which captures
-the blocked issue/report path. A successful PR with prompt/config diffs is still
-open.
+Status: implemented via saved fixtures:
+[`docs/EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) captures the
+blocked issue/report path, and
+[`docs/EXAMPLE_SUCCESS_PR.md`](./EXAMPLE_SUCCESS_PR.md) captures the successful
+PR path with prompt diff, scorecard, thresholds, report body, and reviewer
+instructions.
 
 Create or capture a canonical evidence-backed PR.
 
@@ -205,9 +207,5 @@ These do not block showing the project to early users:
 
 ## Suggested Order
 
-1. Golden quickstart.
-2. Command chooser.
-3. Known limits page.
-4. Screenshots for README/blog.
-5. One complete example PR.
-6. Version polish and full launch check.
+1. Screenshots for README/blog.
+2. Public demo PR or issue screenshots once a testbed run is available.

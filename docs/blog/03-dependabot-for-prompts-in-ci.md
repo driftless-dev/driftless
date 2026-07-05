@@ -9,6 +9,10 @@ same triage table twice.
 migrate/refine, open PRs — Dependabot-shaped, but the "dependency" is your
 prompt's **model + eval data**.
 
+Artifact reference: the saved
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the PR body,
+prompt diff, and reviewer instructions produced by the same `open-pr` path.
+
 This post maps each layer to the
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 workflows you can run today.

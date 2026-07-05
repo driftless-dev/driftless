@@ -88,9 +88,8 @@ candidate.
 - The same `open-pr` path will open a PR instead of an issue when a migration
   succeeds and produces file changes.
 
-## Still Needed
+## Successful Path
 
-A public successful PR with prompt/config diffs is still the best final launch
-artifact. That requires either a provider-backed repair run or a future
-deterministic demo repair generator.
-
+See [`EXAMPLE_SUCCESS_PR.md`](./EXAMPLE_SUCCESS_PR.md) for the companion saved
+fixture where the migration passes, changes a prompt, and `open-pr` prepares a
+pull request instead of an issue.

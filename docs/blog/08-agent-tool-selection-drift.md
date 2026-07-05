@@ -13,6 +13,11 @@ using the available tool.
 score the final behavior and trace, and repair only planner/tool-description
 files you mark editable.
 
+Artifact reference: the saved
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the evidence
+shape a passing migration PR should have; the agent fixture uses the same report
+and `open-pr` path.
+
 If you only remember one rule: **agent migration needs trace evidence.** Final
 answers are not enough. Emit the tools selected, tool errors, and final answer so
 the repair loop can see whether the failure was planning, tool choice, or
@@ -174,4 +179,3 @@ Those are prompt/tool-description changes, not application rewrites.
 Agentic workflows fit Driftless because the app remains the unit under test. The
 tool's job is to make model swaps reviewable: same cases, same fake tools, same
 score, clearer planner/tool prompts.
-

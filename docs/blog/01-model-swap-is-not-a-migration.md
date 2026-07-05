@@ -9,6 +9,10 @@ markdown fences and your parser correctly rejects it.
 repair the prompt files you allow, validate on holdout, and open a PR with
 metrics and diffs.
 
+Artifact reference: the saved
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the PR body,
+scorecard, threshold checks, and prompt diff reviewers should expect.
+
 This post walks through a **real, runnable example** in
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc):
 a fictional B2B SaaS that classifies inbound tickets into `billing` /

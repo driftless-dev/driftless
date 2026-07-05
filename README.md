@@ -129,6 +129,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
 - [Launch check](./docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
 - [Example review artifact](./docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
+- [Example successful PR artifact](./docs/EXAMPLE_SUCCESS_PR.md) — dry-run PR/report from a passing migration.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
 - [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.
 - [Release process](./docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
