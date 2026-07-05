@@ -103,6 +103,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 
 - [Blog series: common use cases](./docs/blog/README.md) — drafts for model migration, dataset refine, CI automation, cost, label audit, and LLM judges.
 - [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
+- [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.
 - [Release process](./docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
 - [Changelog](./CHANGELOG.md) — version history.
 - [Repair prompts & custom generators](./docs/repair-and-generators.md) — customize

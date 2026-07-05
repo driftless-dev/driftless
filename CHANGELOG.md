@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **RAG and agent workflow guide/examples** — contract patterns plus runnable
   deterministic retrieval QA and tool-agent fixtures.
+- **User readiness plan** — launch-readiness gaps and acceptance criteria for
+  broader self-serve adoption.
 
 ### Changed
 

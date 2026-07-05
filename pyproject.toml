@@ -71,6 +71,7 @@ include = [
     "LICENSE",
     "CHANGELOG.md",
     "docs/RELEASE.md",
+    "docs/USER_READINESS_PLAN.md",
     "docs/repair-and-generators.md",
     "docs/rag-and-agents.md",
     "docs/blog",
