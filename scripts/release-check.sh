@@ -7,6 +7,7 @@ cd "$ROOT"
 
 INIT="$ROOT/src/driftless/__init__.py"
 CHANGELOG="$ROOT/CHANGELOG.md"
+ACTION="$ROOT/action.yml"
 
 die() { echo "release-check: $*" >&2; exit 1; }
 
@@ -20,6 +21,17 @@ fi
 grep -Fq "## [$VERSION]" "$CHANGELOG" \
   || die "CHANGELOG.md has no section ## [$VERSION] — add it before releasing"
 
+ACTION_VERSION="$(awk '
+  $1 == "version:" { in_version = 1; next }
+  in_version && $1 == "default:" {
+    gsub(/"/, "", $2)
+    print $2
+    exit
+  }
+' "$ACTION")"
+[[ "$ACTION_VERSION" == "==$VERSION" ]] \
+  || die "action.yml version default ($ACTION_VERSION) does not match __version__ (==$VERSION)"
+
 if [[ "${1:-}" == "--tag" ]]; then
   TAG="${2:-}"
   [[ -n "$TAG" ]] || die "usage: $0 --tag vX.Y.Z"
@@ -27,4 +39,4 @@ if [[ "${1:-}" == "--tag" ]]; then
   [[ "$TAG" == "$EXPECTED" ]] || die "tag $TAG does not match __version__ ($EXPECTED)"
 fi
 
-echo "release-check ok: version $VERSION, changelog section present"
+echo "release-check ok: version $VERSION, changelog section, and action default present"

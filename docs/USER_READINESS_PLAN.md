@@ -132,6 +132,10 @@ Acceptance criteria:
 
 ### 6. Release/version polish
 
+Status: implemented. Version references are aligned to the `0.2.15` release
+line, and `scripts/release-check.sh` verifies that `action.yml` matches
+`src/driftless/__init__.py`.
+
 Make version references boringly consistent.
 
 Acceptance criteria:

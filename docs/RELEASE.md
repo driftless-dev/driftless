@@ -29,15 +29,18 @@ fixes and internal improvements.
 
 ### 1. Prepare on a branch
 
+Choose the next version once, then use it everywhere in this checklist:
+
 ```bash
-git checkout -b release/0.2.0
+VERSION=0.2.16
+git checkout -b "release/$VERSION"
 ```
 
 1. **Changelog** — move items from `[Unreleased]` into a dated section in
    [`CHANGELOG.md`](../CHANGELOG.md):
 
    ```markdown
-   ## [0.2.0] - 2026-07-15
+   ## [0.2.16] - 2026-07-15
 
    ### Added
    - ...
@@ -58,23 +61,24 @@ git checkout -b release/0.2.0
    twine check dist/*
    ```
 
-4. Open a PR titled `Release 0.2.0`, get review, merge to `main`.
+4. Open a PR titled `Release 0.2.16`, get review, merge to `main`.
 
 ### 2. Tag and GitHub Release
 
 After merge to `main`:
 
 ```bash
+VERSION=0.2.16
 git checkout main && git pull
-git tag -a v0.2.0 -m "driftless 0.2.0"
-git push origin v0.2.0
+git tag -a "v$VERSION" -m "driftless $VERSION"
+git push origin "v$VERSION"
 ```
 
 Then on GitHub: **Releases → Draft a new release**
 
-- **Choose tag:** `v0.2.0` (must match `__version__` with a `v` prefix)
-- **Title:** `driftless 0.2.0`
-- **Description:** paste the `## [0.2.0]` section from `CHANGELOG.md`
+- **Choose tag:** `v0.2.16` (must match `__version__` with a `v` prefix)
+- **Title:** `driftless 0.2.16`
+- **Description:** paste the `## [0.2.16]` section from `CHANGELOG.md`
 - **Publish release** (not draft — `publish.yml` listens for `release: published`)
 
 The **Publish to PyPI** workflow builds sdist + wheel, runs checks, and uploads.
@@ -84,9 +88,9 @@ The **Publish to PyPI** workflow builds sdist + wheel, runs checks, and uploads.
 Wait ~1–2 minutes, then:
 
 ```bash
-pip install "driftless==0.2.0"
+pip install "driftless==0.2.16"
 driftless --version
-pipx install driftless==0.2.0   # optional smoke test
+pipx install driftless==0.2.16   # optional smoke test
 ```
 
 Confirm https://pypi.org/project/driftless/ shows the new version.
@@ -142,7 +146,7 @@ Run before tagging. Fails if:
 
 ```bash
 ./scripts/release-check.sh
-./scripts/release-check.sh --tag v0.2.0
+./scripts/release-check.sh --tag v0.2.16
 ```
 
 ---
@@ -153,7 +157,7 @@ After a release, users can pin the composite Action by release tag
 (`action.yml` lives at the repo root — no `/action` path segment):
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.12
+- uses: driftless-dev/driftless@v0.2.15
   with:
     command: scan
 ```
@@ -161,9 +165,9 @@ After a release, users can pin the composite Action by release tag
 Or pin the PyPI package in the Action input:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.12
+- uses: driftless-dev/driftless@v0.2.15
   with:
-    version: "==0.2.12"
+    version: "==0.2.15"
     command: migrate
 ```
 
@@ -171,7 +175,7 @@ Optionally maintain a floating **`v1`** tag on the latest stable minor release
 (point it at the current release tag after each publish):
 
 ```bash
-git tag -f v1 v0.2.12 && git push origin v1 --force
+git tag -f v1 v0.2.15 && git push origin v1 --force
 ```
 
 Update [`action.yml`](../action.yml) default `version` input when cutting releases.
