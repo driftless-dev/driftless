@@ -88,6 +88,7 @@ include = [
     "docs/RELEASE.md",
     "docs/USER_READINESS_PLAN.md",
     "docs/VISUAL_PROOF_PLAN.md",
+    "docs/visuals",
     "docs/repair-and-generators.md",
     "docs/rag-and-agents.md",
     "docs/blog",

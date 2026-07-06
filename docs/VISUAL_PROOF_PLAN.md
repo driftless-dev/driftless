@@ -1,7 +1,7 @@
 # Visual Proof Plan
 
-Status: capture checklist ready; actual screenshots still need a browser-capable
-environment.
+Status: visual excerpts checked in; actual screenshots still need a
+browser-capable environment.
 
 Use this before publishing README images or blog posts externally. The current
 Markdown fixtures are enough for reviewers to inspect the product surfaces, but
@@ -11,10 +11,22 @@ not enough for public launch visuals.
 
 | Surface | Current artifact |
 |---|---|
-| Compare scorecard | [`docs/LAUNCH_CHECK.md`](./LAUNCH_CHECK.md) records classification, RAG, and agent compare outputs. |
+| Compare scorecard | [`docs/visuals/compare-scorecard.svg`](./visuals/compare-scorecard.svg) plus [`docs/LAUNCH_CHECK.md`](./LAUNCH_CHECK.md). |
 | Blocked report / issue body | [`docs/EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) captures the blocked issue path. |
-| Successful PR body | [`docs/EXAMPLE_SUCCESS_PR.md`](./EXAMPLE_SUCCESS_PR.md) captures the PR body, prompt diff, threshold checks, and reviewer guidance. |
-| Run viewer | `site/runs.html#sample` auto-loads the bundled sample run. |
+| Successful PR body | [`docs/visuals/successful-pr-artifact.svg`](./visuals/successful-pr-artifact.svg) plus [`docs/EXAMPLE_SUCCESS_PR.md`](./EXAMPLE_SUCCESS_PR.md). |
+| Run viewer | [`docs/visuals/run-viewer-excerpt.svg`](./visuals/run-viewer-excerpt.svg) plus `site/runs.html#sample`. |
+
+## Visual Excerpts
+
+These are checked-in SVG excerpts derived from the fixtures. They are suitable
+for README/blog drafts and product review, but should be replaced with true
+browser screenshots before a public launch announcement.
+
+![Compare scorecard excerpt](./visuals/compare-scorecard.svg)
+
+![Successful PR artifact excerpt](./visuals/successful-pr-artifact.svg)
+
+![Run viewer excerpt](./visuals/run-viewer-excerpt.svg)
 
 ## Screenshots To Capture
 
@@ -103,4 +115,3 @@ Use in:
 - GitHub PR/issue body screenshot from a dry-run or testbed run.
 - Blog posts 1, 3, 7, and 8 each link to or include at least one relevant
   visual.
-

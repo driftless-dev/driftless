@@ -17,6 +17,8 @@ Artifact reference: the saved
 shape a passing migration PR should have; the RAG fixture uses the same report
 and `open-pr` path.
 
+![Run viewer excerpt](../visuals/run-viewer-excerpt.svg)
+
 If you only remember one rule: **RAG migration is not embedding migration.**
 Keep the index fixed for this workflow. Let Driftless optimize the generator and
 retrieval prompts against the same end-to-end eval your app already uses.

@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scorecard, thresholds, and reviewer instructions.
 - **Visual proof plan** — screenshot targets and current markdown substitutes
   for README/blog launch assets.
+- **Visual proof excerpts** — checked-in SVG scorecard, PR body, and run-viewer
+  excerpts for README/blog drafts before browser screenshots are captured.
 - **User readiness plan** — launch-readiness gaps and acceptance criteria for
   broader self-serve adoption.
 - **Self-serve quickstart docs** — bundled example copying, command chooser, and

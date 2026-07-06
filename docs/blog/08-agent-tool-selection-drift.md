@@ -18,6 +18,8 @@ Artifact reference: the saved
 shape a passing migration PR should have; the agent fixture uses the same report
 and `open-pr` path.
 
+![Run viewer excerpt](../visuals/run-viewer-excerpt.svg)
+
 If you only remember one rule: **agent migration needs trace evidence.** Final
 answers are not enough. Emit the tools selected, tool errors, and final answer so
 the repair loop can see whether the failure was planning, tool choice, or

@@ -13,6 +13,8 @@ Artifact reference: the saved
 [`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the PR body,
 prompt diff, and reviewer instructions produced by the same `open-pr` path.
 
+![Successful PR artifact excerpt](../visuals/successful-pr-artifact.svg)
+
 This post maps each layer to the
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 workflows you can run today.
