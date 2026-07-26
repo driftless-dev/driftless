@@ -234,19 +234,57 @@ class NoOpPatchGenerator:
 # --------------------------------------------------------------------------- #
 # Edit-scope enforcement + file sandbox
 # --------------------------------------------------------------------------- #
+def _resolve_repo_path(cwd: Path, rel: str, *, setting: str) -> Path:
+    """Resolve a configured path and require it to remain inside the repository."""
+    root = cwd.resolve()
+    resolved = (root / rel).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        raise DriftlessError(
+            f"{setting} path resolves outside the repository root: {rel}",
+            hint=(
+                "use a repository-relative path that stays within the repository; "
+                "remove '..' segments and avoid symlinks that point outside it"
+            ),
+        ) from None
+    return resolved
+
+
+def _validate_workflow_file_paths(workflow: Workflow, cwd: Path) -> None:
+    for rel in workflow.files.editable:
+        _resolve_repo_path(cwd, rel, setting="files.editable")
+    for rel in workflow.files.context:
+        _resolve_repo_path(cwd, rel, setting="files.context")
+
+
+def _read_workflow_files(paths: list[str], cwd: Path, *, setting: str) -> dict[str, str]:
+    contents: dict[str, str] = {}
+    for rel in paths:
+        path = _resolve_repo_path(cwd, rel, setting=setting)
+        contents[rel] = path.read_text(encoding="utf-8") if path.is_file() else ""
+    return contents
+
+
 def _editable_set(workflow: Workflow, cwd: Path) -> set[Path]:
-    return {(cwd / p).resolve() for p in workflow.files.editable}
+    return {
+        _resolve_repo_path(cwd, rel, setting="files.editable")
+        for rel in workflow.files.editable
+    }
 
 
 def validate_patch_scope(patch: Patch, workflow: Workflow, cwd: Path) -> None:
-    """Reject any patch that touches a file outside ``files.editable``."""
+    """Reject any patch that touches a path outside the exact edit allowlist."""
     allowed = _editable_set(workflow, cwd)
     for rel in patch.files:
-        resolved = (cwd / rel).resolve()
+        resolved = _resolve_repo_path(cwd, rel, setting="patch")
         if resolved not in allowed:
             raise DriftlessError(
                 f"patch tried to edit non-editable file: {rel}",
-                hint="the migration engine may only edit files listed in files.editable",
+                hint=(
+                    "the migration engine may only edit exact paths listed in "
+                    "files.editable; add this path there only if edits are intended"
+                ),
             )
 
 
@@ -257,7 +295,7 @@ def apply_files(file_map: dict[str, str], *, cwd: Path) -> Iterator[None]:
     backups: dict[Path, bytes | None] = {}
     try:
         for rel, content in file_map.items():
-            path = (cwd / rel).resolve()
+            path = _resolve_repo_path(cwd, rel, setting="candidate file")
             backups[path] = path.read_bytes() if path.exists() else None
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
@@ -275,7 +313,7 @@ def commit_files(file_map: dict[str, str], *, cwd: Path) -> list[str]:
     cwd = cwd.resolve()
     written: list[str] = []
     for rel, content in file_map.items():
-        path = (cwd / rel).resolve()
+        path = _resolve_repo_path(cwd, rel, setting="candidate file")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         written.append(rel)
@@ -465,6 +503,7 @@ def run_migration(
     objective: Objective = Objective.MEET_THRESHOLDS,
 ) -> MigrationResult:
     cwd = (cwd or Path.cwd()).resolve()
+    _validate_workflow_file_paths(workflow, cwd)
     generator = generator or NoOpPatchGenerator()
     thresholds = workflow.thresholds
     mig = workflow.migration
@@ -642,14 +681,12 @@ def run_migration(
             )
 
     # Iterate.
-    editable_contents = {
-        rel: ((cwd / rel).read_text(encoding="utf-8") if (cwd / rel).is_file() else "")
-        for rel in workflow.files.editable
-    }
-    context_files = {
-        rel: ((cwd / rel).read_text(encoding="utf-8") if (cwd / rel).is_file() else "")
-        for rel in workflow.files.context
-    }
+    editable_contents = _read_workflow_files(
+        workflow.files.editable, cwd, setting="files.editable"
+    )
+    context_files = _read_workflow_files(
+        workflow.files.context, cwd, setting="files.context"
+    )
     original_editable = dict(editable_contents)  # frozen baseline for diff sizing
     best_files: dict[str, str] = {}
     best_metrics = naive_tuning

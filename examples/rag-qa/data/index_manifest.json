@@ -1,0 +1,7 @@
+{
+  "name": "support-kb-demo",
+  "embedding_model": "fixed-demo-bow",
+  "built_at": "2026-07-04",
+  "note": "The RAG example keeps this index fixed; Driftless edits prompts only."
+}
+

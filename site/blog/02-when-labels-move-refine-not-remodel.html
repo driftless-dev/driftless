@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Support changed the labeling policy — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html" class="active"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 02</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="support-changed-the-labeling-policy-model-stays-put">Support changed the labeling policy — model stays put</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>Same support classifier as <a href="01-model-swap-is-not-a-migration.html">post 1</a>: every<br />
+ticket gets a gold category so you can measure quality offline. For a long time,<br />
+tickets like <em>"Please reverse the payment on my latest invoice"</em> are labeled<br />
+<strong>billing</strong> — the team treated a charge correction as a billing adjustment, not<br />
+a refund.</p>
+<p>Then support ops updates the labeling policy. After a product decision, those<br />
+charge-reversal tickets should be <strong>refund</strong>, not billing. An engineer runs a<br />
+script (or an annotator edits the JSONL), commits ~25 relabeled rows, and merges.<br />
+Nobody changes the model ID in config. Production still calls the same model with<br />
+the same prompt.</p>
+<p>On the next eval run, accuracy drops. Dashboards look like a model regression.<br />
+Someone proposes swapping to a "smarter" model. That is the wrong diagnosis: the<br />
+oracle moved. The prompt still teaches the <em>old</em> definition of billing vs refund,<br />
+so the pinned model is now wrong for the new definition of "correct."</p>
+<p>This is dataset drift, not model drift. The job is to re-tune the prompt against<br />
+the updated labels while keeping the model fixed — not to chase a new model ID.</p>
+<p><strong>What driftless does here:</strong> pin the model, re-optimize allowed prompt files<br />
+against the new gold labels (<code>refine</code>), validate on holdout, and open a PR.</p>
+<p>Again we use<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
+— same 290-ticket classifier, same <code>driftless.yml</code>, different trigger.</p>
+<hr />
+<h2 id="same-repair-loop-different-variable">Same repair loop, different variable</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Model migration (<code>migrate</code>)</th>
+<th>Dataset refine (<code>refine</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What moved</td>
+<td>Provider model ID</td>
+<td>Gold labels (or inputs)</td>
+</tr>
+<tr>
+<td>Model</td>
+<td>Changes (<code>--to gpt-4o-mini</code>)</td>
+<td><strong>Pinned</strong></td>
+</tr>
+<tr>
+<td>Objective</td>
+<td>Meet <code>thresholds:</code> in contract</td>
+<td>Maximize metric; suggest new thresholds</td>
+</tr>
+<tr>
+<td>Testbed trigger</td>
+<td><code>gpt-3.5-turbo</code> deprecation</td>
+<td>Label policy update</td>
+</tr>
+</tbody>
+</table>
+<p>If you bump the model when only labels changed, you're debugging the wrong knob.</p>
+<p>Use the trigger to choose the tool:</p>
+<table>
+<thead>
+<tr>
+<th>What changed</th>
+<th>First check</th>
+<th>Repair path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model ID or provider endpoint</td>
+<td><code>compare</code></td>
+<td><code>migrate --to ...</code></td>
+</tr>
+<tr>
+<td>Gold labels or eval inputs</td>
+<td><code>audit-labels</code></td>
+<td><code>refine</code></td>
+</tr>
+<tr>
+<td>Both changed</td>
+<td>Split the PR if possible</td>
+<td>Audit, then migrate/refine one variable at a time</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="the-policy-change-concrete-tickets">The policy change (concrete tickets)</h2>
+<p>The dataset builder seeds <strong>25 charge-reversal tickets</strong>. They read like billing<br />
+but, after a policy meeting, should be <strong><code>refund</code></strong>.</p>
+<p>Example rows from <code>evals/tickets.inputs.jsonl</code>:</p>
+<pre><code class="language-json">{&quot;id&quot;: &quot;t002&quot;, &quot;text&quot;: &quot;I need you to reverse the credit card payment because it was charged twice.&quot;}
+{&quot;id&quot;: &quot;t021&quot;, &quot;text&quot;: &quot;Please reverse the payment on my latest invoice.&quot;}
+</code></pre>
+<p><strong>Before policy:</strong> gold label <code>billing</code> (adjustment on a charge).<br />
+<strong>After policy:</strong> gold label <code>refund</code> (customer wants money back on a charge<br />
+they dispute).</p>
+<p>The testbed ships a one-command event script — no hand-editing JSONL:</p>
+<pre><code class="language-bash">python evals/_apply_refund_policy.py
+# policy update: re-labeled 25 charge-reversal ticket(s) -&gt; 'refund'
+</code></pre>
+<p>That script uses the same detector as the simulator<br />
+(<code>support_classifier.llm_client._is_charge_reversal</code>) so offline runs stay<br />
+reproducible. On <code>main</code> today the policy may already be applied (running the<br />
+script prints <code>0</code> changes); for a fresh demo, start from a commit before the<br />
+policy or restore labels from git history.</p>
+<p>Then:</p>
+<pre><code class="language-bash">export SUPPORT_CLASSIFIER_SIMULATE=1
+driftless refine -w support_classifier --strict-label-audit
+driftless open-pr -w support_classifier --create
+</code></pre>
+<p>No <code>--to</code>. The model in <code>config/llm.yml</code> never changes.</p>
+<p>The resulting PR should be boring in the best way: label/input diff in one<br />
+commit or branch, prompt diff in the Driftless PR, model config untouched, and a<br />
+report that says the repaired prompt meets the current eval policy.</p>
+<hr />
+<h2 id="what-the-repair-actually-edits">What the repair actually edits</h2>
+<p>The simulator is calibrated so the <strong>old</strong> prompt scores well on the <strong>old</strong><br />
+labels and poorly after relabeling — until category definitions catch up.</p>
+<p>A successful real-model repair (documented in the testbed README, scenario 3)<br />
+rewrote <code>prompts/system.md</code> from:</p>
+<pre><code class="language-markdown">- billing: questions about invoices, charges, payments, or subscriptions
+- refund: the customer wants their money returned
+</code></pre>
+<p>to something like:</p>
+<pre><code class="language-markdown">- billing: ... including requests to reverse or correct erroneous charges
+- refund: ... charged correctly but dissatisfied or no longer wish to pay
+</code></pre>
+<p><strong>Observed on live <code>gpt-4o-mini</code></strong> (repair generator: <code>gpt-4o</code>, 290 tickets):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Before refine</th>
+<th>After refine (tuning)</th>
+<th>Holdout</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td>0.72</td>
+<td>0.96</td>
+<td><strong>1.00</strong></td>
+</tr>
+<tr>
+<td>Accuracy</td>
+<td>0.72</td>
+<td>0.98</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Why so low before? Real models label charge reversals <code>refund</code> ~92% of the time<br />
+from priors alone — but this product's policy says many reversals are <code>billing</code>.<br />
+The prompt never stated the rule; the model wasn't "broken," the spec was<br />
+implicit.</p>
+<blockquote>
+<p>Counterintuitive gold labels are common in production (password-reset →<br />
+security, not account). <code>refine</code> is built to discover explicit rules from<br />
+failure clusters, not just add a few-shot example.</p>
+</blockquote>
+<hr />
+<h2 id="scenario-4-feedback-batch-messier-more-realistic">Scenario 4: feedback batch (messier, more realistic)</h2>
+<p>Pure relabels are rare. The testbed also ships<br />
+<code>evals/_apply_feedback_batch.py</code>:</p>
+<ul>
+<li><strong>+22 new tickets</strong> — subscription cancellation / lifecycle requests missing<br />
+  from v1 of the eval set</li>
+<li><strong>2 relabels</strong> — general subscription <em>inquiries</em> <code>billing</code> → <code>account</code></li>
+</ul>
+<p>On real <code>gpt-4o-mini</code>, <strong>account recall on the new tickets</strong> goes from <strong>0.11</strong><br />
+(16/18 predicted <code>billing</code>) to <strong>1.00</strong> after refine adds a lifecycle rule.<br />
+Offline simulator: accuracy <strong>0.936 → 1.000</strong>.</p>
+<p>Same command path: apply script → <code>refine</code> → PR. Exercises <code>poll</code>'s meaningful-<br />
+change detection if labels live outside git.</p>
+<hr />
+<h2 id="ci-path-filter-on-the-file-that-actually-changed">CI: path filter on the file that actually changed</h2>
+<p>In-repo eval data → <strong>git is the change detector</strong>. The testbed workflow<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/refine-on-label-change.yml">refine-on-label-change.yml</a>:</p>
+<pre><code class="language-yaml">on:
+  push:
+    branches: [main]
+    paths:
+      - &quot;evals/tickets.labels.jsonl&quot;
+      - &quot;evals/tickets.inputs.jsonl&quot;
+</code></pre>
+<p>Notice <strong><code>prompts/</code> is not in <code>paths</code></strong> — otherwise the refine PR would<br />
+re-trigger itself.</p>
+<p>Job steps (abbreviated):</p>
+<ol>
+<li><code>driftless audit-labels -w support_classifier --fail</code></li>
+<li><code>driftless refine -w support_classifier --strict-label-audit</code> with<br />
+<code>SUPPORT_CLASSIFIER_SIMULATE=1</code> (harness offline; repair generator still<br />
+   uses <code>OPENAI_API_KEY</code> when set)</li>
+<li><code>driftless open-pr -w support_classifier --create</code></li>
+<li>Upload <code>.driftless/reports/</code> to the Actions summary + artifacts</li>
+</ol>
+<p><strong>Try it:</strong> commit a label change locally, push, or dispatch the workflow from<br />
+Actions.</p>
+<hr />
+<h2 id="preflight-contradictory-gold-labels">Preflight: contradictory gold labels</h2>
+<p>Before spending tokens:</p>
+<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail
+</code></pre>
+<p>Near-duplicate ticket text with <strong>different</strong> gold categories caps achievable F1.<br />
+The testbed runs audit on every PR touching <code>evals/tickets.*.jsonl</code><br />
+(<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a>).</p>
+<p>More: <a href="05-audit-labels-before-you-trust-f1.html">post 5 outline</a>.</p>
+<p>This is the boundary between data cleanup and prompt repair:</p>
+<table>
+<thead>
+<tr>
+<th>Audit result</th>
+<th>Interpretation</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conflicting near-duplicates</td>
+<td>The eval cannot define a stable target</td>
+<td>Fix labels first</td>
+</tr>
+<tr>
+<td>Clean audit, new failures cluster around a policy edge</td>
+<td>Prompt does not say the new rule</td>
+<td>Run <code>refine</code></td>
+</tr>
+<tr>
+<td>Clean audit, failures are scattered</td>
+<td>The eval may need more coverage</td>
+<td>Inspect report before widening repair</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="simulator-vs-real-api-when-to-use-which">Simulator vs real API (when to use which)</h2>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Command</th>
+<th>Cost</th>
+<th>Proves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulator</td>
+<td><code>SUPPORT_CLASSIFIER_SIMULATE=1</code></td>
+<td>Free</td>
+<td>Workflow + CI plumbing</td>
+</tr>
+<tr>
+<td>Real LiteLLM</td>
+<td>unset simulate, set <code>OPENAI_API_KEY</code></td>
+<td>Hundreds–thousands of calls on 290 rows</td>
+<td>Repair holds on provider behavior</td>
+</tr>
+</tbody>
+</table>
+<p>Scenario 2 (charge-reversal relabel) is reproducible offline. Scenario 3<br />
+(counterintuitive billing/refund policy on <strong>unchanged</strong> labels) only bites on<br />
+real models — that's why the testbed has both <strong>Refine on label change</strong><br />
+(simulator) and <strong>Real-model refine</strong> (weekly/manual, real API).</p>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><strong>Post 1:</strong> model deprecation → <a href="01-model-swap-is-not-a-migration.html"><code>migrate</code></a></li>
+<li><strong>Post 3:</strong> weekly <code>plan</code> across both workflows → <a href="03-dependabot-for-prompts-in-ci.html">CI post</a></li>
+<li>Clone the testbed, run <code>_apply_refund_policy.py</code>, then <code>refine</code></li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="01-model-swap-is-not-a-migration.html"><span>← Previous</span><strong>Your ticket classifier’s model got deprecated</strong></a><a class="next" href="03-dependabot-for-prompts-in-ci.html"><span>Next →</span><strong>Prompt repair that doesn’t wait on memory</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

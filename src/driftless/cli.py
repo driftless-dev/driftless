@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Callable
 
 import typer
 from rich.console import Console
@@ -18,6 +19,7 @@ from . import __version__
 from .compare import Comparison, compare_models, save_comparison
 from .contract import CONTRACT_FILENAMES, Workflow, find_contract, load_contract
 from .errors import HarnessError, DriftlessError
+from .examples import available_examples, copy_example as copy_bundled_example
 from .harness import check_inputs, run_workflow
 from .progress import log as progress_log
 from .templates import CONTRACT_TEMPLATE, POLICY_TEMPLATE
@@ -103,6 +105,29 @@ def init_policy(
     console.print(
         "Tune triggers/thresholds, then run [bold]driftless plan[/] to see decisions."
     )
+
+
+@app.command(name="copy-example")
+def copy_example(
+    name: str = typer.Argument(..., help="Example name, such as rag-qa or tool-agent."),
+    out_dir: Path | None = typer.Option(
+        None,
+        "--out-dir",
+        help="Where to copy the example (default: ./<name>).",
+    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing directory."),
+) -> None:
+    """Copy a bundled example project into the current directory."""
+    try:
+        target = copy_bundled_example(name, out_dir or Path(name), force=force)
+    except DriftlessError as exc:
+        _fail(exc)
+    console.print(f"[green]created[/] {target}")
+    console.print("Next:")
+    console.print(f"  cd {target}")
+    console.print("  driftless validate -w <workflow>")
+    if available_examples():
+        console.print(f"Available examples: {', '.join(available_examples())}")
 
 
 @app.command(name="init-ci")
@@ -210,6 +235,25 @@ def validate(
 
     if failures:
         raise typer.Exit(code=1)
+    _print_validate_next_steps(contract, names)
+
+
+def _print_validate_next_steps(contract, names: list[str]) -> None:
+    if len(names) == 1:
+        name = names[0]
+        wf = contract.workflow(name)
+        target = wf.model.target_candidates[0] if wf.model.target_candidates else "<model>"
+        console.print("\n[bold]Next[/]")
+        if target == "<model>":
+            console.print(f"  driftless compare -w {name} --to <model>")
+        else:
+            console.print(f"  driftless compare -w {name} --to {target}")
+        console.print(f"  driftless calibrate -w {name}  # optional: suggest thresholds")
+        return
+
+    console.print("\n[bold]Next[/]")
+    console.print("  driftless compare -w <workflow> --to <model>")
+    console.print("  driftless plan  # apply migration policy across workflows")
 
 
 def _validate_workflow(name: str, wf: Workflow, *, run: bool) -> None:
@@ -579,7 +623,7 @@ def _act_on_trigger(
     """
     from .engine import run_migration
     from .generators import build_generator
-    from .github import apply_model_change, build_pr_plan, execute_plan
+    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
     from .report import render_markdown, result_to_dict, save_report
 
     try:
@@ -589,12 +633,24 @@ def _act_on_trigger(
         result_dict = result_to_dict(result)
         report_md = render_markdown(result, wf)
         committed = list(result_dict.get("edited_files", []))
-        if result_dict.get("succeeded") and committed:
-            changed = apply_model_change(wf, result_dict["target_model"], cwd=cwd)
+        prepare_files: Callable[[], object] | None = None
+        if result_dict.get("succeeded"):
+            changed = model_change_file(wf, cwd=cwd)
             if changed and changed not in committed:
                 committed.append(changed)
+            if create and changed:
+                prepare_files = lambda: apply_model_change(
+                    wf, result_dict["target_model"], cwd=cwd
+                )
         plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
-        actions = execute_plan(plan_obj, cwd=cwd, create=create, push=True, dedupe=True)
+        actions = execute_plan(
+            plan_obj,
+            cwd=cwd,
+            create=create,
+            push=True,
+            dedupe=True,
+            prepare_files=prepare_files,
+        )
     except DriftlessError as exc:
         return False, f"{name} -> {candidate_model}: error: {exc.message}"
 
@@ -1216,7 +1272,7 @@ def open_pr(
     """Open a PR (or issue) from the latest migration result for a workflow."""
     import json
 
-    from .github import apply_model_change, build_pr_plan, execute_plan
+    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
 
     cwd = Path.cwd()
     result_path = cwd / ".driftless" / "migrations" / f"{workflow}.json"
@@ -1235,12 +1291,24 @@ def open_pr(
         contract = load_contract(contract_path)
         wf = contract.workflow(workflow)
         committed = list(result.get("edited_files", []))
-        if result.get("succeeded") and committed:
-            changed = apply_model_change(wf, result["target_model"], cwd=cwd)
+        prepare_files: Callable[[], object] | None = None
+        if result.get("succeeded"):
+            changed = model_change_file(wf, cwd=cwd)
             if changed and changed not in committed:
                 committed.append(changed)
+            if create and changed:
+                prepare_files = lambda: apply_model_change(
+                    wf, result["target_model"], cwd=cwd
+                )
         plan = build_pr_plan(result, report_md, committed_files=committed)
-        actions = execute_plan(plan, cwd=cwd, create=create, push=push, dedupe=dedupe)
+        actions = execute_plan(
+            plan,
+            cwd=cwd,
+            create=create,
+            push=push,
+            dedupe=dedupe,
+            prepare_files=prepare_files,
+        )
     except DriftlessError as exc:
         _fail(exc)
         return

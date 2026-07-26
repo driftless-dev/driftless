@@ -79,7 +79,6 @@ def build_workflow_scaffold(name: str, path: Path) -> tuple[str, str | None]:
             "max_cost_increase": 0,
         },
         "migration": {
-            "allow_prompt_edits": True,
             "max_iterations": 8,
             "holdout_required": True,
         },

@@ -379,13 +379,20 @@ parsing, and scoping the result to editable files.
 These hold regardless of what a generator returns:
 
 - **Edit scope.** `validate_patch_scope` rejects any patch touching a file not
-  listed in `files.editable`. A generator cannot modify business logic, schemas,
-  or read-only files.
+  listed by exact path in `files.editable`.
 - **Sandboxing.** All trial edits are applied in a backup/restore sandbox; files
   are written to disk only on a holdout-validated `pass`.
 - **Holdout gate.** A candidate must pass thresholds on data it never tuned
   against before it is committed.
 - **No auto-merge.** The product opens PRs/issues; humans review and merge.
+
+`files.editable` is the complete edit policy. Driftless does not classify files
+as prompts, examples, config, schemas, or code from their names or extensions:
+those conventions vary between repositories and overlap in common formats such
+as JSON, YAML, and Python. Put only paths you intend the engine to change in
+`files.editable`; use `files.context` for optimizer-visible reference files and
+`files.readonly` for other documented non-editable paths. In particular, a
+schema or source file is editable if—and only if—you explicitly list its path.
 
 Design your generator to *propose* freely — the engine is responsible for
 accepting or rejecting.

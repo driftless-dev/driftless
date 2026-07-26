@@ -96,6 +96,7 @@ def test_configure_prefills_from_at_risk_model(tmp_path: Path):
     assert wf["model"]["env_var"] == "TICKET_MODEL"
     # recommended replacement from lifecycle data
     assert wf["model"]["target_candidates"] == ["gpt-4o-mini"]
+    assert set(wf["migration"]) == {"max_iterations", "holdout_required"}
 
 
 def test_configure_generic_when_no_detection(tmp_path: Path):

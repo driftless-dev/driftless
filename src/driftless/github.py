@@ -13,10 +13,12 @@ auto-merge and never push to the base branch.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 import yaml
 
@@ -44,6 +46,33 @@ def _set_by_path(data: dict, dotted: str, value) -> None:
     node[keys[-1]] = value
 
 
+def _repo_path(cwd: Path, rel: str, *, setting: str) -> Path:
+    """Resolve a configured path and require it to remain inside the repository."""
+    root = cwd.resolve()
+    resolved = (root / rel).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        raise DriftlessError(
+            f"{setting} path escapes the repository: {rel}",
+            hint="Use a repository-relative path that resolves inside the project root.",
+        )
+    return resolved
+
+
+def model_change_file(workflow: Workflow, *, cwd: Path | None = None) -> str | None:
+    """Return the config file needed for a model change, without modifying it."""
+    cwd = (cwd or Path.cwd()).resolve()
+    spec = workflow.model
+    if not (spec.config_file and spec.config_path):
+        return None
+
+    path = _repo_path(cwd, spec.config_file, setting="model.config_file")
+    if not path.is_file():
+        raise DriftlessError(f"model config file not found: {spec.config_file}")
+    return spec.config_file
+
+
 def apply_model_change(workflow: Workflow, target_model: str, *, cwd: Path | None = None) -> str | None:
     """Update a config-file-based model reference to ``target_model``.
 
@@ -51,14 +80,13 @@ def apply_model_change(workflow: Workflow, target_model: str, *, cwd: Path | Non
     an env var (no in-repo file to change).
     """
     cwd = (cwd or Path.cwd()).resolve()
-    spec = workflow.model
-    if not (spec.config_file and spec.config_path):
+    config_file = model_change_file(workflow, cwd=cwd)
+    if config_file is None:
         return None
 
-    path = (cwd / spec.config_file).resolve()
-    if not path.is_file():
-        raise DriftlessError(f"model config file not found: {spec.config_file}")
-
+    spec = workflow.model
+    assert spec.config_path is not None
+    path = _repo_path(cwd, config_file, setting="model.config_file")
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".json":
         data = json.loads(text)
@@ -68,7 +96,14 @@ def apply_model_change(workflow: Workflow, target_model: str, *, cwd: Path | Non
         data = yaml.safe_load(text) or {}
         _set_by_path(data, spec.config_path, target_model)
         path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-    return spec.config_file
+    return config_file
+
+
+def _branch_component(value: str) -> str:
+    """Make an identifier safe for use as one Git branch path component."""
+    sanitized = re.sub(r"[^A-Za-z0-9_-]+", "-", value)
+    sanitized = re.sub(r"-+", "-", sanitized).strip("-")
+    return sanitized or "unknown"
 
 
 def build_pr_plan(
@@ -81,7 +116,7 @@ def build_pr_plan(
     workflow = result["workflow"]
     current = result["current_model"]
     target = result["target_model"]
-    branch = f"driftless/{workflow}-to-{target}"
+    branch = f"driftless/{_branch_component(workflow)}-to-{_branch_component(target)}"
 
     if result["succeeded"] and committed_files:
         title = f"chore: migrate {workflow} from {current} to {target}"
@@ -175,6 +210,7 @@ def execute_plan(
     create: bool = False,
     push: bool = True,
     dedupe: bool = True,
+    prepare_files: Callable[[], object] | None = None,
 ) -> list[str]:
     """Execute (or dry-run) a plan. Returns a list of human-readable actions.
 
@@ -207,6 +243,8 @@ def execute_plan(
         return actions
 
     _run(["git", "checkout", "-b", plan.branch], cwd=cwd)
+    if prepare_files is not None:
+        prepare_files()
     _run(["git", "add", *plan.files], cwd=cwd)
     _run(["git", "commit", "-m", plan.commit_message], cwd=cwd)
     if push:

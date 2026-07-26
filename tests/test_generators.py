@@ -115,8 +115,10 @@ def test_build_generator_unknown_raises():
 def test_build_generator_llm_without_key_raises(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    with pytest.raises(DriftlessError):
+    with pytest.raises(DriftlessError) as ei:
         build_generator("llm")
+    assert "OPENAI_API_KEY" in (ei.value.hint or "")
+    assert "--generator none" in (ei.value.hint or "")
 
 
 def _ctx_with_rows(tmp_path: Path, rows, context_files=None) -> PatchContext:

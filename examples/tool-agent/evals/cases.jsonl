@@ -1,0 +1,5 @@
+{"id":"a001","task":"refund","order_id":"ord-1001","request":"Customer asks for a refund on order ord-1001."}
+{"id":"a002","task":"refund","order_id":"ord-1002","request":"Customer asks for a refund on order ord-1002."}
+{"id":"a003","task":"invoice","order_id":"ord-1003","request":"Customer needs a copy of the invoice for order ord-1003."}
+{"id":"a004","task":"password_reset","account_email":"sam@example.com","request":"Customer cannot sign in and asks for a password reset."}
+

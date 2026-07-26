@@ -2,10 +2,12 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 from driftless import github
 from driftless.contract import Workflow
+from driftless.errors import DriftlessError
 from driftless.github import (
     apply_model_change,
     build_pr_plan,
@@ -32,6 +34,18 @@ def test_pass_with_files_builds_pr():
     assert "migrate support_classifier from gpt-4o-mini to gpt-5-mini" in plan.title
     assert plan.body == "REPORT"
     assert plan.files == ["config/llm.yml", "prompts/p.md"]
+
+
+def test_branch_components_are_sanitized_deterministically():
+    result = _result()
+    result["workflow"] = "support/classifier @ prod"
+    result["target_model"] = "openai/gpt-5:mini@2026.07"
+
+    first = build_pr_plan(result, "REPORT", committed_files=["prompt.md"])
+    second = build_pr_plan(result, "REPORT", committed_files=["prompt.md"])
+
+    assert first.branch == "driftless/support-classifier-prod-to-openai-gpt-5-mini-2026-07"
+    assert second.branch == first.branch
 
 
 def test_success_without_files_builds_operational_issue():
@@ -88,6 +102,26 @@ def test_apply_model_change_json(tmp_path: Path):
     changed = apply_model_change(wf, "gpt-5-mini", cwd=tmp_path)
     assert changed == "llm.json"
     assert json.loads((tmp_path / "llm.json").read_text())["model"] == "gpt-5-mini"
+
+
+def test_model_config_path_must_stay_inside_repo(tmp_path: Path):
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.yml"
+    outside.write_text("model: gpt-4o-mini\n")
+    wf = Workflow.model_validate(
+        {
+            "run": {"command": "true", "input_path": "i", "output_path": "o"},
+            "model": {
+                "current": "gpt-4o-mini",
+                "config_file": f"../{outside.name}",
+                "config_path": "model",
+            },
+        }
+    )
+
+    with pytest.raises(DriftlessError, match="escapes the repository"):
+        apply_model_change(wf, "gpt-5-mini", cwd=tmp_path)
+
+    assert yaml.safe_load(outside.read_text())["model"] == "gpt-4o-mini"
 
 
 def test_existing_open_item_finds_pr_by_branch(tmp_path, monkeypatch):
@@ -147,19 +181,28 @@ def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
     (tmp_path / "prompts").mkdir()
     (tmp_path / "prompts" / "p.md").write_text("hello\n")
     plan = build_pr_plan(_result(), "REPORT BODY", committed_files=["prompts/p.md"])
-    calls: list[list[str]] = []
+    events: list[list[str] | str] = []
 
     def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
-        calls.append(args)
+        events.append(args)
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(github, "_run", fake_run)
     monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
 
-    actions = execute_plan(plan, cwd=tmp_path, create=True, push=True, dedupe=True)
+    actions = execute_plan(
+        plan,
+        cwd=tmp_path,
+        create=True,
+        push=True,
+        dedupe=True,
+        prepare_files=lambda: events.append("prepare files"),
+    )
 
     assert actions[-1] == "PR created"
+    calls = [event for event in events if isinstance(event, list)]
     assert calls[0] == ["git", "checkout", "-b", plan.branch]
+    assert events[1] == "prepare files"
     assert calls[1] == ["git", "add", "prompts/p.md"]
     assert calls[2][:2] == ["git", "commit"]
     assert calls[2][3] == plan.commit_message
@@ -167,6 +210,28 @@ def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
     assert calls[4][:3] == ["gh", "pr", "create"]
     assert plan.title in calls[4]
     assert "--body-file" in calls[4]
+
+
+def test_execute_plan_dedupe_skips_file_preparation(tmp_path, monkeypatch):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: "PR #7")
+
+    prepared = False
+
+    def prepare() -> None:
+        nonlocal prepared
+        prepared = True
+
+    actions = execute_plan(
+        plan,
+        cwd=tmp_path,
+        create=True,
+        dedupe=True,
+        prepare_files=prepare,
+    )
+
+    assert actions == ["skipped: already open PR #7"]
+    assert not prepared
 
 
 def test_execute_plan_create_pr_no_push_skips_push(tmp_path, monkeypatch):

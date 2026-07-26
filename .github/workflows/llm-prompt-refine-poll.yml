@@ -1,16 +1,16 @@
 name: LLM prompt refine (external dataset poll)
 
-# Re-optimize a prompt when its eval dataset changes -- for datasets that live
+# Example workflow: re-optimize a prompt when its eval dataset changes -- for datasets that live
 # OUTSIDE the repo (object storage, a labeling tool, a warehouse), where git
 # can't see the change. A scheduled job fetches the dataset (eval.data_source),
 # fingerprints it, and refines only when a *meaningful* change is detected per
 # policy.data_change (so whitespace / a couple of new rows stay quiet).
 #
 # For IN-REPO datasets, use llm-prompt-refine.yml instead -- git is the change
-# detector and no fetch/state is needed.
+# detector and no fetch/state is needed. This repository has no root
+# driftless.yml/data source, so this copy is manual; `driftless init-ci --poll`
+# scaffolds the scheduled version in a configured customer project.
 on:
-  schedule:
-    - cron: "0 6 * * 1"
   workflow_dispatch: {}
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Poll external datasets and refine on meaningful change
-        uses: driftless-dev/driftless@v0.2.15
+        uses: driftless-dev/driftless@v0.3.0
         with:
           command: poll
           args: "--act --create"

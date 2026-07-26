@@ -108,11 +108,8 @@ workflows:
       # regression_tolerance: 0.02  # band used when no absolute bar is set
 
     migration:
-      allow_prompt_edits: true
-      allow_example_edits: true
-      allow_config_edits: true
-      allow_schema_edits: false
-      allow_business_logic_edits: false
+      # files.editable above is the complete, exact edit allowlist. File types
+      # are not inferred from names or extensions.
       max_iterations: 8
       holdout_required: true
 

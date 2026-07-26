@@ -214,6 +214,39 @@ def test_endpoint_does_not_retry_client_errors(tmp_path, monkeypatch):
     assert attempts["n"] == 1
 
 
+def test_endpoint_auth_error_hint_mentions_token(tmp_path, monkeypatch):
+    import urllib.error
+
+    _write_inputs(tmp_path, [{"id": "a", "text": "x"}])
+
+    def fake_post(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            url="http://x", code=401, msg="unauthorized", hdrs={}, fp=None
+        )
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+    with pytest.raises(HarnessError) as ei:
+        run_workflow(_endpoint_workflow(), "m1", cwd=tmp_path)
+    assert harness.ENDPOINT_TOKEN_ENV in (ei.value.hint or "")
+
+
+def test_endpoint_rate_limit_hint_mentions_retries(tmp_path, monkeypatch):
+    import urllib.error
+
+    _write_inputs(tmp_path, [{"id": "a", "text": "x"}])
+
+    def fake_post(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            url="http://x", code=429, msg="too many requests", hdrs={}, fp=None
+        )
+
+    monkeypatch.setattr(harness, "_http_post", fake_post)
+    with pytest.raises(HarnessError) as ei:
+        run_workflow(_endpoint_workflow(), "m1", cwd=tmp_path)
+    assert "endpoint_retries" in (ei.value.hint or "")
+    assert "endpoint_concurrency" in (ei.value.hint or "")
+
+
 def test_endpoint_retries_network_errors(tmp_path, monkeypatch):
     import urllib.error
 

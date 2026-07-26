@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prompt repair that doesn’t wait on memory — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html" class="active"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 03</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="prompt-repair-that-doesnt-wait-for-someone-to-remember">Prompt repair that doesn’t wait for someone to remember</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>Your LLM app already looks "done" from a git perspective: prompts live in the<br />
+repo, gold labels live in JSONL, and a harness command can score quality offline.<br />
+You can migrate a model or refine after a label change <em>when someone remembers<br />
+to</em>.</p>
+<p>In practice, nobody owns that loop. Deprecations arrive as a Slack forward of a<br />
+provider email. Someone bumps the model ID under deadline pressure (see<br />
+<a href="01-model-swap-is-not-a-migration.html">post 1</a>). Separately, annotators merge<br />
+label updates and CI never re-tunes the prompt (see<br />
+<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>). Cost opportunities sit<br />
+unnoticed because no one runs a weekly triage. Each incident invents a one-off<br />
+runbook; the next person cannot see the same decision table.</p>
+<p>What you want is Dependabot's shape applied to prompts: something that<br />
+<strong>watches</strong> model lifecycle and eval data, <strong>tests</strong> candidates through your<br />
+real harness, and <strong>opens a PR or issue with evidence</strong> — without requiring a<br />
+hero engineer every Monday.</p>
+<p><strong>What driftless does here:</strong> scaffold GitHub Actions (<code>init-ci</code>), apply a policy<br />
+file for when to propose changes, and run <code>scan</code> / <code>plan</code> / <code>migrate</code> / <code>refine</code><br />
+through a composite Action so triage is scheduled and reviewable.</p>
+<p>Artifact reference:<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> distinguishes public<br />
+testbed PR #4 from the different bundled four-row saved success fixture. Both<br />
+show the <code>open-pr</code> evidence shape, but the published CLI does not ship the<br />
+testbed-specific deterministic patch tooling used to prepare PR #4.</p>
+<p><img alt="Real GitHub pull request containing Driftless migration evidence" src="../visuals/github-migration-pr.png" /></p>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/pull/4">Open the public draft PR and inspect the generated report and diff.</a></p>
+<p>This post maps each layer to the<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
+workflows you can run today.</p>
+<hr />
+<h2 id="the-testbed-at-a-glance">The testbed at a glance</h2>
+<p>Two workflows in one <code>driftless.yml</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Job</th>
+<th>Model (today)</th>
+<th>Eval</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>support_classifier</code></td>
+<td>4-way ticket JSON classification</td>
+<td><code>gpt-3.5-turbo</code></td>
+<td>290 labeled tickets, <code>min_f1: 0.90</code></td>
+</tr>
+<tr>
+<td><code>quick_triage</code></td>
+<td>Escalate yes/no</td>
+<td><code>gpt-3.5-turbo</code></td>
+<td>Same inputs, pass/fail labels</td>
+</tr>
+</tbody>
+</table>
+<p>Policy in <code>.driftless/policy.yml</code> (committed in the testbed):</p>
+<pre><code class="language-yaml">deprecation:
+  enabled: true
+  warn_before_days: 90
+  action: pr
+
+cost:
+  enabled: true
+  min_savings_pct: 0.20
+  max_quality_drop: 0.01
+
+data_change:
+  enabled: true
+  min_changed_rows: 5
+</code></pre>
+<p>Both workflows still sit on deprecated <code>gpt-3.5-turbo</code>, so <strong><code>plan</code> always<br />
+has work</strong> — useful for demoing CI.</p>
+<p>The shape is intentionally Dependabot-like:</p>
+<table>
+<thead>
+<tr>
+<th>Dependency surface</th>
+<th>Driftless watches</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Package version</td>
+<td>Provider model lifecycle</td>
+<td><code>plan</code>, <code>compare</code>, <code>migrate</code></td>
+</tr>
+<tr>
+<td>Lockfile / manifest policy</td>
+<td><code>.driftless/policy.yml</code></td>
+<td>PR, issue, or dry-run</td>
+</tr>
+<tr>
+<td>Test suite</td>
+<td>Your eval harness</td>
+<td>Threshold-gated report</td>
+</tr>
+<tr>
+<td>Generated PR</td>
+<td>Prompt/config diffs</td>
+<td><code>open-pr</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="scaffold-ci-from-your-contract">Scaffold CI from your contract</h2>
+<p>Greenfield repos:</p>
+<pre><code class="language-bash">driftless init-policy    # .driftless/policy.yml
+driftless init-ci        # .github/workflows/driftless-*.yml
+</code></pre>
+<p>The testbed instead <strong>dogfoods</strong> hand-written workflows pinned to<br />
+<code>driftless==0.3.0</code> — copy patterns from<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows"><code>.github/workflows/</code></a>.</p>
+<hr />
+<h2 id="layer-1-weekly-plan-simulator-free">Layer 1: Weekly <code>plan</code> (simulator, free)</h2>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/plan-preview.yml">plan-preview.yml</a><br />
+runs every Monday:</p>
+<pre><code class="language-yaml">env:
+  SUPPORT_CLASSIFIER_SIMULATE: &quot;1&quot;
+
+steps:
+  - run: driftless plan || test $? -eq 1
+    # exit 1 = triggers found (expected here)
+</code></pre>
+<p>Local equivalent:</p>
+<pre><code class="language-bash">cd support-classifier-svc
+export SUPPORT_CLASSIFIER_SIMULATE=1
+driftless plan
+</code></pre>
+<p><strong>Actual output</strong> (July 2026):</p>
+<pre><code>┃ Workflow          ┃ Trigger     ┃ Migrate                    ┃ Naive     ┃ Decision      ┃
+│ support_classifier│ deprecation │ gpt-3.5-turbo -&gt; gpt-4o-mini │ regresses │ ISSUE (critical) │
+│ quick_triage      │ deprecation │ gpt-3.5-turbo -&gt; gpt-4o-mini │ regresses │ ISSUE (critical) │
+
+Why:
+  gpt-3.5-turbo retired 277d ago; candidate gpt-4o-mini not shippable as-is
+  (status=blocked) -&gt; open issue
+
+2 workflow(s) need action across 1 model move(s):
+  gpt-3.5-turbo -&gt; gpt-4o-mini (deprecation): support_classifier, quick_triage
+</code></pre>
+<p>One grouped move, two workflows — not two blind migrate PRs. Artifacts land under<br />
+<code>.driftless/reports/</code> for the run.</p>
+<p><strong>Why ISSUE not PR?</strong> Naive <code>compare</code> fails thresholds (100% schema errors on<br />
+the simulator — see <a href="01-model-swap-is-not-a-migration.html">post 1</a>). Policy<br />
+still surfaces the row; <code>migrate</code> + repair is required before a PR is safe.</p>
+<p>Read the table as a routing layer, not an approval:</p>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Meaning</th>
+<th>Human expectation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PR</code></td>
+<td>Candidate can be repaired and passes gates</td>
+<td>Review prompt/config diffs</td>
+</tr>
+<tr>
+<td><code>ISSUE</code></td>
+<td>Drift exists, but no safe patch is ready</td>
+<td>Triage with evidence</td>
+</tr>
+<tr>
+<td>No rows</td>
+<td>No policy trigger crossed the threshold</td>
+<td>Nothing to review</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="layer-2-plan-act-when-youre-ready-to-close-the-loop">Layer 2: <code>plan --act</code> when you're ready to close the loop</h2>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/plan-act.yml">plan-act.yml</a><br />
+— manual dispatch, optional <code>--create</code>:</p>
+<pre><code class="language-bash">driftless plan --act              # preview git/gh operations
+driftless plan --act --create     # run migrate/refine + open PRs/issues
+</code></pre>
+<p>Scheduled runs stay dry-run; flipping <code>create=true</code> on dispatch actually opens<br />
+PRs. Needs <code>OPENAI_API_KEY</code> (and <code>GH_TOKEN</code> for GitHub).</p>
+<p>Keep scheduled <code>plan --act</code> dry until the issue/PR distinction matches your<br />
+team's risk tolerance. The first few runs are calibration: you are teaching the<br />
+policy which changes deserve automation and which deserve a human migration<br />
+ticket.</p>
+<hr />
+<h2 id="layer-3-event-driven-refine-dataset-drift">Layer 3: Event-driven refine (dataset drift)</h2>
+<p>When someone commits label changes →<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/refine-on-label-change.yml">refine-on-label-change.yml</a>:</p>
+<pre><code>push to evals/tickets.labels.jsonl
+  → audit-labels --fail
+  → refine --strict-label-audit  (simulator harness)
+  → open-pr --create
+</code></pre>
+<p>See <a href="02-when-labels-move-refine-not-remodel.html">post 2</a> for the charge-reversal<br />
+policy story (<code>evals/_apply_refund_policy.py</code>, 25 tickets).</p>
+<hr />
+<h2 id="layer-4-manual-migration-real-api-full-pr">Layer 4: Manual migration (real API, full PR)</h2>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/migrate-on-model-change.yml">migrate-on-model-change.yml</a><br />
+— <strong>Actions → Migrate model → Run workflow</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_model</code></td>
+<td><code>gpt-4o-mini</code></td>
+<td><code>--to</code> argument</td>
+</tr>
+<tr>
+<td><code>restore_baseline_prompt</code></td>
+<td><code>true</code></td>
+<td>Copy <code>evals/fixtures/prompt-baseline-scenario3.md</code> so each run starts from the hand-written prompt</td>
+</tr>
+</tbody>
+</table>
+<p>Steps: <code>audit-labels</code> → real <code>compare</code> → <code>migrate --strict-label-audit</code> →<br />
+<code>open-pr --create</code>. Requires <code>OPENAI_API_KEY</code>. Timeout <strong>120 minutes</strong> on 290<br />
+tickets with LLM repair.</p>
+<p>This is the PR you show stakeholders: scorecard, diffs on <code>prompts/system.md</code><br />
+and <code>config/llm.yml</code>, holdout line, attempt log.</p>
+<hr />
+<h2 id="layer-5-label-hygiene-on-every-eval-pr">Layer 5: Label hygiene on every eval PR</h2>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a><br />
+on PRs touching <code>evals/tickets.*.jsonl</code> — blocks merge if similar inputs disagree<br />
+on gold labels.</p>
+<hr />
+<h2 id="suggested-rollout-order">Suggested rollout order</h2>
+<ol>
+<li><strong>audit-labels</strong> on eval file paths (cheap, catches bad data early)</li>
+<li><strong>plan-preview</strong> weekly with simulator (visibility, no keys)</li>
+<li><strong>refine-on-label-change</strong> when labels live in git</li>
+<li><strong>migrate-on-model-change</strong> manual dispatch when you accept token cost</li>
+<li><strong>plan-act --create</strong> only after policy thresholds feel right</li>
+</ol>
+<p>That order keeps the blast radius small. First make the eval trustworthy, then<br />
+make drift visible, then let automation propose changes.</p>
+<hr />
+<h2 id="workflow-cheat-sheet-testbed">Workflow cheat sheet (testbed)</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow file</th>
+<th>Trigger</th>
+<th>Keys required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>plan-preview.yml</code></td>
+<td>Weekly + dispatch</td>
+<td>None (simulator)</td>
+</tr>
+<tr>
+<td><code>plan-act.yml</code></td>
+<td>Weekly + dispatch (<code>create</code> input)</td>
+<td>Optional API keys</td>
+</tr>
+<tr>
+<td><code>refine-on-label-change.yml</code></td>
+<td>Push to eval JSONL</td>
+<td>Repair: API key</td>
+</tr>
+<tr>
+<td><code>migrate-on-model-change.yml</code></td>
+<td>Manual dispatch</td>
+<td><code>OPENAI_API_KEY</code></td>
+</tr>
+<tr>
+<td><code>audit-labels.yml</code></td>
+<td>PR/push to eval JSONL</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>real-model-refine.yml</code></td>
+<td>Manual / schedule</td>
+<td><code>OPENAI_API_KEY</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="01-model-swap-is-not-a-migration.html">Post 1: compare + migrate</a></li>
+<li><a href="02-when-labels-move-refine-not-remodel.html">Post 2: refine on label change</a></li>
+<li><a href="04-cheaper-model-same-quality-bar.html">Post 4: cost trigger</a> — needs an<br />
+<em>active</em> baseline model; testbed deprecation rows dominate until you migrate</li>
+<li>Product workflows: <a href="https://github.com/driftless-dev/driftless/tree/main/.github/workflows">driftless <code>.github/workflows/</code></a></li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="02-when-labels-move-refine-not-remodel.html"><span>← Previous</span><strong>Support changed the labeling policy</strong></a><a class="next" href="04-cheaper-model-same-quality-bar.html"><span>Next →</span><strong>Finance wants cheaper inference, same bar</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

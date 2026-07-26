@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RAG QA: new answer model, same knowledge base — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html" class="active"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 07</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="rag-qa-new-answer-model-same-knowledge-base">RAG QA: new answer model, same knowledge base</h1>
+<p><strong>Status:</strong> publishable draft — uses the in-repo deterministic<br />
+<a href="https://github.com/driftless-dev/driftless/tree/main/examples/rag-qa"><code>examples/rag-qa</code></a> fixture and includes a run-viewer<br />
+capture.</p>
+<h2 id="the-use-case">The use case</h2>
+<p>You ship a retrieval-augmented QA feature: user asks a question, the app<br />
+retrieves chunks from a knowledge base, and an LLM writes an answer that should<br />
+stay grounded in those chunks and cite them. Quality is measured end-to-end —<br />
+not "did the LLM sound plausible?" but "did the answer use the retrieved<br />
+context correctly?"</p>
+<p>Then you change the generator model (deprecation, cost, or latency). The<br />
+<strong>retrieval index stays the same</strong>. On smoke tests the new model still answers<br />
+every question. In eval, though, groundedness falls: answers invent details that<br />
+were not in the retrieved context, or they drop citations the product requires.<br />
+Teams often misread this as "we need to re-embed the corpus" or "RAG is broken."<br />
+Usually the failure is in the <strong>generator / retrieval prompt contract</strong> under the<br />
+new model — the same prompt-debt pattern as a classifier swap, with a longer<br />
+pipeline.</p>
+<p>The use case is migrating a RAG <em>workflow</em> while holding the index fixed, and<br />
+proving the end-to-end eval still passes before you merge.</p>
+<p><strong>What driftless does here:</strong> run the whole RAG pipeline under the candidate<br />
+model, score the final answer/citations through your evaluator, and repair only<br />
+the prompt/config files you allow — not the embedding store.</p>
+<p>Artifact reference:<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> shows the evidence shape and<br />
+separates public testbed PR #4 from the different bundled saved success fixture;<br />
+the RAG fixture uses the same report and <code>open-pr</code> path.</p>
+<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
+<p>If you only remember one rule: <strong>RAG migration is not embedding migration.</strong><br />
+Keep the index fixed for this workflow. Let Driftless optimize the generator and<br />
+retrieval prompts against the same end-to-end eval your app already uses.</p>
+<hr />
+<h2 id="the-app">The app</h2>
+<p>The example is intentionally small and dependency-free:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Contract</td>
+<td><code>examples/rag-qa/driftless.yml</code></td>
+</tr>
+<tr>
+<td>Eval command</td>
+<td><code>python3 -m app.eval_rag</code></td>
+</tr>
+<tr>
+<td>Knowledge base</td>
+<td><code>data/docs.jsonl</code></td>
+</tr>
+<tr>
+<td>Fixed index metadata</td>
+<td><code>data/index_manifest.json</code></td>
+</tr>
+<tr>
+<td>Questions</td>
+<td><code>evals/questions.jsonl</code></td>
+</tr>
+<tr>
+<td>Gold expectations</td>
+<td><code>evals/gold.jsonl</code></td>
+</tr>
+<tr>
+<td>Editable prompts</td>
+<td><code>prompts/rag_answer.md</code>, <code>prompts/retrieval_rewrite.md</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>app.eval_rag</code> retrieves one support article, generates an answer, and emits one<br />
+JSON object per question:</p>
+<pre><code class="language-jsonl">{&quot;id&quot;:&quot;q001&quot;,&quot;answer&quot;:&quot;...&quot;,&quot;citations&quot;:[&quot;doc-sso&quot;],&quot;score&quot;:1.0,&quot;cost&quot;:0.018,&quot;retrieved_doc&quot;:&quot;doc-sso&quot;}
+</code></pre>
+<p>In a real app, <code>score</code> might blend answer correctness, citation support,<br />
+faithfulness, and context relevance. In this fixture it is deterministic so the<br />
+example runs without provider keys.</p>
+<hr />
+<h2 id="reproduce-the-naive-regression">Reproduce the naive regression</h2>
+<p>From the repo root:</p>
+<pre><code class="language-bash">cd examples/rag-qa
+driftless validate -w rag_qa
+driftless compare -w rag_qa --to gpt-4o-mini
+</code></pre>
+<p>Actual local output from the fixture:</p>
+<pre><code class="language-text">Running gpt-4 (baseline) and gpt-4o-mini (target)...
+
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Metric            ┃ Current ┃ Target (orig files) ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ F1                │     n/a │                 n/a │
+│ Precision         │     n/a │                 n/a │
+│ Recall            │     n/a │                 n/a │
+│ Accuracy          │     n/a │                 n/a │
+│ Score / pass-rate │   1.000 │               0.000 │
+│ Schema error rate │    0.0% │                0.0% │
+│ Refusal rate      │    0.0% │                0.0% │
+│ Total cost        │   0.072 │               0.016 │
+└───────────────────┴─────────┴─────────────────────┘
+
+Thresholds (target vs contract):
+  FAIL min_score: 0.000 &gt;= 0.86
+  PASS max_cost_increase: -77.8% &lt;= +20%
+</code></pre>
+<p>This is exactly the trap: the candidate is cheaper, but it fails the RAG quality<br />
+bar. A cost win is not a migration unless the quality gate still passes.</p>
+<hr />
+<h2 id="the-contract-boundary">The contract boundary</h2>
+<p>The important part of <code>driftless.yml</code> is the edit scope:</p>
+<pre><code class="language-yaml">files:
+  editable:
+    - prompts/rag_answer.md
+    - prompts/retrieval_rewrite.md
+  readonly:
+    - app/
+    - data/docs.jsonl
+    - data/index_manifest.json
+    - evals/questions.jsonl
+    - evals/gold.jsonl
+</code></pre>
+<p>Driftless can change the prompt instructions. It cannot silently rebuild the<br />
+index, change the documents, or rewrite retrieval code.</p>
+<p>That boundary keeps the migration reviewable:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Driftless role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Answer prompt</td>
+<td>Editable</td>
+</tr>
+<tr>
+<td>Retrieval rewrite prompt</td>
+<td>Editable</td>
+</tr>
+<tr>
+<td>Knowledge base</td>
+<td>Read-only context</td>
+</tr>
+<tr>
+<td>Index manifest</td>
+<td>Read-only context</td>
+</tr>
+<tr>
+<td>Eval scorer</td>
+<td>Owned by the app</td>
+</tr>
+<tr>
+<td>Embedding model/index rebuild</td>
+<td>Out of scope</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="why-score_field-is-enough-to-start">Why <code>score_field</code> is enough to start</h2>
+<p>The workflow uses task-agnostic score mode:</p>
+<pre><code class="language-yaml">eval:
+  id_field: id
+  score_field: score
+  cost_field: cost
+
+thresholds:
+  min_score: 0.86
+  max_cost_increase: 0.20
+</code></pre>
+<p>This is the simplest way to bring RAG under Driftless: your app decides what a<br />
+good answer means and emits a number. Driftless aggregates that score, applies<br />
+thresholds, and uses the failing rows as repair evidence.</p>
+<p>Use <code>eval.judge</code> later when quality is semantic and you do not have a reliable<br />
+deterministic scorer. Start with a human-calibrated judge check, then optimize.</p>
+<hr />
+<h2 id="what-a-repair-should-learn">What a repair should learn</h2>
+<p>The baseline prompts are intentionally weak:</p>
+<pre><code class="language-markdown">Answer the customer question using the retrieved support article.
+
+Keep the answer concise. If the article seems relevant, summarize the policy in
+plain language.
+</code></pre>
+<p>For the cheaper model to pass, the prompt needs to become more explicit:</p>
+<ul>
+<li>use only retrieved context;</li>
+<li>cite every factual answer;</li>
+<li>preserve product nouns during retrieval rewriting.</li>
+</ul>
+<p>Those are prompt/config changes, not application rewrites. That is the kind of<br />
+RAG drift Driftless should handle.</p>
+<hr />
+<h2 id="honest-limits">Honest limits</h2>
+<ul>
+<li>Do not use this as an embedding-model migration story.</li>
+<li>Do not let the repair loop edit your corpus or index.</li>
+<li>Do not optimize against an uncalibrated judge.</li>
+<li>For agents, emit trace fields (<code>tools</code>, <code>tool_errors</code>, retrieved docs) so the<br />
+  report can explain failures beyond the final answer.</li>
+</ul>
+<p>RAG and agent prompts are brittle to model swaps, but the first trustworthy step<br />
+is boring in the best way: run the same app, keep the index fixed, measure the<br />
+whole pipeline, and review only prompt/config diffs.</p>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="06-trust-your-llm-judge.html"><span>← Previous</span><strong>Free-form answers graded by an LLM judge</strong></a><a class="next" href="08-agent-tool-selection-drift.html"><span>Next →</span><strong>Tool-calling agent: new planner, same tools</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

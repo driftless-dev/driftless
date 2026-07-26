@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "driftless"
 dynamic = ["version"]
-description = "Keep prompts in sync when model or eval data changes — Poetry-style lock regeneration, Dependabot-style PRs."
+description = "Keep models, prompts, and eval data in sync with quality-gated updates."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -38,6 +38,8 @@ dev = [
     "types-PyYAML>=6.0",
     "types-jsonschema>=4.21",
     "build>=1.2",
+    "markdown>=3.8",
+    "twine>=6.0",
 ]
 llm = [
     "openai>=1.0",
@@ -47,7 +49,7 @@ llm = [
 [project.urls]
 Homepage = "https://github.com/driftless-dev/driftless"
 Repository = "https://github.com/driftless-dev/driftless"
-Documentation = "https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md"
+Documentation = "https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md"
 Issues = "https://github.com/driftless-dev/driftless/issues"
 
 [project.scripts]
@@ -56,11 +58,19 @@ driftless = "driftless.cli:app"
 [tool.hatch.version]
 path = "src/driftless/__init__.py"
 
+[tool.hatch.build]
+exclude = [
+    "examples/**/.driftless",
+    "examples/**/__pycache__",
+    "examples/**/evals/outputs.jsonl",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/driftless"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "site" = "driftless/site"
+"examples" = "driftless/examples"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -69,9 +79,26 @@ include = [
     "tests",
     "README.md",
     "LICENSE",
+    "SECURITY.md",
     "CHANGELOG.md",
+    "docs/COMMAND_CHOOSER.md",
+    "docs/COST_AND_BUDGETS.md",
+    "docs/EXAMPLE_REVIEW_ARTIFACT.md",
+    "docs/EXAMPLE_SUCCESS_PR.md",
+    "docs/GETTING_STARTED.md",
+    "docs/LAUNCH_CHECK.md",
+    "docs/LIMITS.md",
     "docs/RELEASE.md",
+    "docs/UPGRADING.md",
+    "docs/USER_READINESS_PLAN.md",
+    "docs/VISUAL_PROOF_PLAN.md",
+    "docs/visuals",
     "docs/repair-and-generators.md",
+    "docs/rag-and-agents.md",
+    "docs/blog",
+    "examples/support-classifier",
+    "examples/rag-qa",
+    "examples/tool-agent",
 ]
 
 [tool.pytest.ini_options]

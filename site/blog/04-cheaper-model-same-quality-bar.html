@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Finance wants cheaper inference, same bar — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html" class="active"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 04</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="finance-wants-cheaper-inference-on-the-same-quality-bar">Finance wants cheaper inference on the same quality bar</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>Your classifier (or similar LLM workflow) runs on a frontier model — say<br />
+<code>gpt-4o</code> — because that is what cleared quality when you launched. Volume grew.<br />
+Finance now wants <strong>20%+ inference savings</strong>. A cheaper model like <code>gpt-4o-mini</code><br />
+is on the table. Engineering's constraint is simple and non-negotiable: the same<br />
+offline eval that guards production (e.g. 290 labeled tickets, <code>min_f1: 0.90</code>)<br />
+must still pass before anyone merges a model change.</p>
+<p>The naive path is the same mistake as a deprecation swap: edit the model string,<br />
+ship, hope. Sometimes the cheaper model is fine with today's prompt. Often it is<br />
+not — formatting drifts, a category rule softens, and you "saved money" by<br />
+shipping a silent quality regression. Finance and eng then argue from different<br />
+dashboards: one cites unit price, the other cites ticket mishandling.</p>
+<p>You need a workflow where <strong>cost is a proposal trigger</strong>, not a merge button:<br />
+surface candidates that look ≥20% cheaper on paper (or on measured tokens), then<br />
+run the <em>same</em> compare → repair → holdout path you use for deprecations. Only<br />
+open a PR when quality still clears your bar.</p>
+<p><strong>What driftless does here:</strong> treat cost as an <em>opportunistic</em> policy trigger.<br />
+When catalog pricing (and optionally measured token cost) clears<br />
+<code>min_savings_pct</code>, <code>plan</code> proposes a cheaper candidate; <code>compare</code> / <code>migrate</code><br />
+still gate on <em>your</em> quality thresholds.</p>
+<p>This post uses<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
+for cost wiring and policy, plus catalog math you can reproduce locally.</p>
+<hr />
+<h2 id="forced-vs-opportunistic-dont-confuse-them">Forced vs opportunistic (don't confuse them)</h2>
+<table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>When it fires</th>
+<th>Testbed today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Deprecation</strong> (forced)</td>
+<td>Current model is deprecated/retired</td>
+<td>Both workflows on <code>gpt-3.5-turbo</code> → <code>plan</code> always shows ISSUE rows</td>
+</tr>
+<tr>
+<td><strong>Cost</strong> (opportunistic)</td>
+<td>Baseline is <em>active</em>, candidate ≥ capability tier, savings ≥ <code>min_savings_pct</code></td>
+<td>Ready in policy, but <strong>hidden</strong> while baseline is at-risk</td>
+</tr>
+</tbody>
+</table>
+<p>From <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>: as long as <code>gpt-3.5-turbo</code> is<br />
+current, deprecation wins. Cost discovery skips at-risk baselines on purpose —<br />
+you shouldn't "save money" by ignoring a retirement deadline.</p>
+<hr />
+<h2 id="wire-cost-into-the-contract-testbed-already-does">Wire cost into the contract (testbed already does)</h2>
+<p><code>support_classifier</code> emits per-record spend so <code>compare</code> and <code>plan</code> can reason<br />
+about real totals — not vibes:</p>
+<pre><code class="language-yaml"># driftless.yml → workflows.support_classifier.eval
+cost_field: cost_usd
+prompt_tokens_field: prompt_tokens
+completion_tokens_field: completion_tokens
+</code></pre>
+<p><code>evals/run_eval.py</code> fills these (simulator estimates offline; LiteLLM usage with<br />
+a provider key). Prefer <code>cost_field</code> when you have it; otherwise driftless<br />
+derives USD from token fields × the bundled catalog.</p>
+<p>Policy (<code>.driftless/policy.yml</code> in the testbed):</p>
+<pre><code class="language-yaml">cost:
+  enabled: true
+  min_savings_pct: 0.20    # require ≥ 20% cheaper
+  max_quality_drop: 0.01   # after compare: F1 may not fall more than 1pt
+  action: pr
+</code></pre>
+<p><code>min_savings_pct</code> is the <em>proposal</em> bar. Your contract <code>thresholds:</code> (e.g.<br />
+<code>min_f1: 0.90</code>) remain the <em>ship</em> bar.</p>
+<hr />
+<h2 id="catalog-math-you-can-check-yourself">Catalog math you can check yourself</h2>
+<pre><code class="language-bash">python - &lt;&lt;'PY'
+from driftless.discovery import estimate_cost_change_pct
+print(&quot;gpt-4o → gpt-4o-mini:&quot;, estimate_cost_change_pct(&quot;gpt-4o&quot;, &quot;gpt-4o-mini&quot;))
+print(&quot;claude-3-opus → claude-3-5-sonnet:&quot;,
+      estimate_cost_change_pct(&quot;claude-3-opus-20240229&quot;, &quot;claude-3-5-sonnet&quot;))
+PY
+</code></pre>
+<p>Typical catalog result (blended input+output $/1M tokens):</p>
+<table>
+<thead>
+<tr>
+<th>Move</th>
+<th>Est. cost change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gpt-4o</code> → <code>gpt-4o-mini</code></td>
+<td><strong>−94%</strong></td>
+</tr>
+<tr>
+<td><code>claude-3-opus-20240229</code> → <code>claude-3-5-sonnet</code></td>
+<td><strong>−80%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Both clear <code>min_savings_pct: 0.20</code>. Discovery still refuses candidates with a<br />
+<em>lower</em> capability tier than the baseline — it won't auto-propose a silent<br />
+quality downgrade for pennies.</p>
+<p>On the testbed simulator, a naive <code>gpt-3.5-turbo</code> → <code>gpt-4o-mini</code> <code>compare</code><br />
+already prints a <strong>Total cost</strong> row (~<code>0.033</code> → <code>0.011</code> on 290 tickets). Treat<br />
+those USD as <strong>relative scale</strong>, not production spend — but the column is what<br />
+finance and eng should argue about.</p>
+<hr />
+<h2 id="demo-force-a-cost-row-on-the-testbed">Demo: force a cost row on the testbed</h2>
+<p>With the committed <code>gpt-3.5-turbo</code> baseline you will only see deprecation.<br />
+To exercise cost discovery:</p>
+<ol>
+<li>Temporarily set <code>model.current: gpt-4o</code> in <code>driftless.yml</code> <strong>and</strong><br />
+<code>config/llm.yml</code> for <code>support_classifier</code>.</li>
+<li>Keep <code>cost.enabled: true</code> / <code>min_savings_pct: 0.20</code>.</li>
+<li>Run:</li>
+</ol>
+<pre><code class="language-bash">export SUPPORT_CLASSIFIER_SIMULATE=1
+driftless plan
+</code></pre>
+<p>Expect a <strong>cost</strong> trigger proposing something like <code>gpt-4o-mini</code> (same<br />
+provider, active, cheaper, not a capability downgrade). Then:</p>
+<pre><code class="language-bash">driftless compare -w support_classifier --to gpt-4o-mini
+# if naive swap fails thresholds → migrate, same as post 1
+driftless migrate -w support_classifier --to gpt-4o-mini --generator llm
+</code></pre>
+<p>Revert the temporary <code>gpt-4o</code> baseline when you're done — the testbed's<br />
+deprecation demo depends on <code>gpt-3.5-turbo</code>.</p>
+<hr />
+<h2 id="same-repair-loop-as-migration">Same repair loop as migration</h2>
+<p>Cost does <strong>not</strong> get a special optimizer. Once <code>plan</code> (or you) picks a<br />
+candidate:</p>
+<ol>
+<li><code>compare</code> — quality + measured cost side by side</li>
+<li><code>migrate</code> — repair editable prompts if the naive swap fails</li>
+<li>Holdout gate — still <code>min_f1: 0.90</code> / <code>max_schema_error_rate: 0.02</code></li>
+<li><code>open-pr</code> — PR only if shippable; else ISSUE with evidence</li>
+</ol>
+<p>Policy <code>max_quality_drop</code> decides whether a <em>passing-but-slightly-worse</em> swap<br />
+is worth a PR. Your absolute thresholds still win if the candidate is blocked.</p>
+<p>See <a href="01-model-swap-is-not-a-migration.html">post 1</a> for the scorecard / holdout<br />
+story; only the <em>trigger</em> differs.</p>
+<hr />
+<h2 id="ci-pattern">CI pattern</h2>
+<p>Weekly <code>plan</code> (simulator) already runs in<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/plan-preview.yml">plan-preview.yml</a>.<br />
+After you migrate off deprecated models, the same job starts surfacing <strong>cost</strong><br />
+rows without a new workflow.</p>
+<p>Manual cost chase: Actions → <strong>Migrate model</strong> with <code>target_model=gpt-4o-mini</code><br />
+once the baseline is an active frontier model you want to downsize from.</p>
+<hr />
+<h2 id="what-not-to-do">What <em>not</em> to do</h2>
+<ul>
+<li>Don't enable <code>cost</code> and disable deprecation — retirement still comes first.</li>
+<li>Don't report savings from a swap that failed <code>min_f1</code>.</li>
+<li>Don't confuse catalog <em>estimates</em> (triage) with measured <code>total_cost</code> after<br />
+<code>compare</code> (decision evidence). Prefer measured when the harness emits tokens.</li>
+</ul>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="01-model-swap-is-not-a-migration.html">Post 1</a> — repair loop details</li>
+<li><a href="03-dependabot-for-prompts-in-ci.html">Post 3</a> — schedule <code>plan</code> in Actions</li>
+<li><a href="05-audit-labels-before-you-trust-f1.html">Post 5</a> — audit before spending tokens on a cost migrate</li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="03-dependabot-for-prompts-in-ci.html"><span>← Previous</span><strong>Prompt repair that doesn’t wait on memory</strong></a><a class="next" href="05-audit-labels-before-you-trust-f1.html"><span>Next →</span><strong>Offline F1 is lying — labels conflict</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

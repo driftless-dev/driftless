@@ -47,8 +47,10 @@ def test_run_workflow_raises_on_nonzero_exit(tmp_path: Path):
 
 def test_run_workflow_raises_when_no_output(tmp_path: Path):
     wf = _workflow("true")  # succeeds but writes nothing
-    with pytest.raises(HarnessError):
+    with pytest.raises(HarnessError) as ei:
         run_workflow(wf, "model-b", cwd=tmp_path)
+    assert "run.output_path" in (ei.value.hint or "")
+    assert str(tmp_path / "out" / "results.jsonl") in (ei.value.hint or "")
 
 
 def test_run_workflow_nonzero_exit_hint_carries_stderr(tmp_path: Path):
@@ -57,6 +59,14 @@ def test_run_workflow_nonzero_exit_hint_carries_stderr(tmp_path: Path):
     with pytest.raises(HarnessError) as ei:
         run_workflow(wf, "model-b", cwd=tmp_path)
     assert "boom-on-stderr" in (ei.value.hint or "")
+
+
+def test_run_workflow_command_not_found_hint_points_at_command(tmp_path: Path):
+    (tmp_path / "inputs.jsonl").write_text("{}\n")
+    wf = _workflow("definitely-not-a-command")
+    with pytest.raises(HarnessError) as ei:
+        run_workflow(wf, "model-b", cwd=tmp_path)
+    assert "check run.command" in (ei.value.hint or "")
 
 
 def test_run_workflow_times_out(tmp_path: Path):
@@ -96,8 +106,10 @@ def test_run_workflow_requires_override(tmp_path: Path):
             "model": {"current": "m"},  # no env_var
         }
     )
-    with pytest.raises(HarnessError):
+    with pytest.raises(HarnessError) as ei:
         run_workflow(wf, "m", cwd=tmp_path)
+    assert "model.env_var" in (ei.value.hint or "")
+    assert "model.config_file + model.config_path" in (ei.value.hint or "")
 
 
 def test_check_inputs_missing(tmp_path: Path):
