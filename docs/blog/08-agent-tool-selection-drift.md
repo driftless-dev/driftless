@@ -1,24 +1,39 @@
-# Agent tool selection drifts too
+# Tool-calling support agent: new planner, same tools
 
 **Status:** publishable draft — uses the in-repo deterministic
-[`examples/tool-agent`](../../examples/tool-agent) fixture. Add screenshots
-before publishing externally.
+[`examples/tool-agent`](../../examples/tool-agent) fixture and includes a
+run-viewer capture.
 
-**Use case:** A support agent moves from a larger model to a cheaper/faster
-candidate. The candidate still writes plausible final answers, but it skips
-required tools, calls a side-effecting tool too early, or refuses instead of
-using the available tool.
+## The use case
 
-**What driftless does:** run the whole agent workflow under the candidate model,
-score the final behavior and trace, and repair only planner/tool-description
-files you mark editable.
+You run a support-style agent that must use tools — look up an order, check a
+policy, create a ticket — before it answers the user. Success is not only a
+polite final message. The agent must call the right tools in a safe order, avoid
+side-effecting actions until it has enough information, and not invent an answer
+when a tool was required.
 
-Artifact reference: the saved
-[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the evidence
-shape a passing migration PR should have; the agent fixture uses the same report
-and `open-pr` path.
+You swap the planner model for something cheaper or newer. Final answers still
+*look* fine in a chat playground. In eval, behavior breaks: the agent skips a
+required lookup, calls a write tool too early, or refuses and apologizes instead
+of using the tool you already exposed. Spot-checking final text misses all of
+that. Without a tool trace on each eval row, you cannot tell whether the failure
+was planning, tool choice, or generation — so the team either over-edits the
+wrong prompt or concludes "agents are too flaky to migrate."
 
-![Run viewer excerpt](../visuals/run-viewer-excerpt.svg)
+The use case is migrating the **agent workflow** with the same evidence bar as a
+classifier: run the full loop under the candidate model, score final behavior
+*and* the trace, and repair only the planner / tool-description files you mark
+editable.
+
+**What driftless does here:** run the whole agent workflow under the candidate
+model, score the final behavior and trace, and repair only those editable files.
+
+Artifact reference:
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) shows the evidence shape and
+separates public testbed PR #4 from the different bundled saved success fixture;
+the agent fixture uses the same report and `open-pr` path.
+
+![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 
 If you only remember one rule: **agent migration needs trace evidence.** Final
 answers are not enough. Emit the tools selected, tool errors, and final answer so

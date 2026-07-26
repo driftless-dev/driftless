@@ -346,16 +346,38 @@ class ThresholdsSpec(StrictModel):
 
 
 class MigrationSpec(StrictModel):
-    allow_prompt_edits: bool = True
-    allow_example_edits: bool = True
-    allow_config_edits: bool = True
-    allow_schema_edits: bool = False
-    allow_business_logic_edits: bool = False
     max_iterations: int = 8
     holdout_required: bool = True
     # When >1, average tuning-split metrics across this many shuffle seeds
     # (seed, seed+1, …) when scoring repair candidates. Holdout uses ``seed`` only.
     split_seed_count: int = 1
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_edit_flags(cls, data: Any) -> Any:
+        """Use one enforceable edit policy instead of filename-based categories."""
+        if not isinstance(data, dict):
+            return data
+        legacy = sorted(
+            set(data)
+            & {
+                "allow_prompt_edits",
+                "allow_example_edits",
+                "allow_config_edits",
+                "allow_schema_edits",
+                "allow_code_edits",
+                "allow_business_logic_edits",
+            }
+        )
+        if legacy:
+            fields = ", ".join(f"migration.{name}" for name in legacy)
+            raise ValueError(
+                f"{fields} {'is' if len(legacy) == 1 else 'are'} not supported; "
+                "file categories cannot be inferred reliably from names or extensions. "
+                "List every path the engine may change in files.editable, and put "
+                "reference-only paths in files.context or files.readonly."
+            )
+        return data
 
     @field_validator("split_seed_count")
     @classmethod

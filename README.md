@@ -4,13 +4,15 @@
 
 A prompt is pinned to a **model** and an **eval dataset** (like `pyproject.toml`
 declares deps and `poetry.lock` pins what works). When either moves, the prompt
-goes stale. driftless re-derives it through your real eval, validates on holdout,
+goes stale. driftless repairs it through your real eval, validates on holdout,
 and opens a PR with evidence.
 
 > Also described as *Dependabot for LLM models* — same automation shape, different
 > core insight: prompts are lockfiles, not just config files.
 
-> Status: early development — `0.2.x` release line on [PyPI](https://pypi.org/project/driftless/).
+> Status: early development — `0.3.x` release line on [PyPI](https://pypi.org/project/driftless/).
+> Upgrading from 0.2.x? Version 0.3.0 rejects legacy `migration.allow_*`
+> fields; follow the [upgrade guide](./docs/UPGRADING.md) before updating.
 
 ## Install
 
@@ -20,7 +22,8 @@ pip install driftless
 
 ## Quickstart
 
-Try Driftless without provider keys by copying a bundled classification example:
+Try Driftless without provider keys by copying the bundled support-classifier
+example:
 
 ```bash
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
@@ -29,25 +32,51 @@ driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
-For a non-classifier workflow, copy the bundled RAG example:
-
-```bash
-driftless copy-example rag-qa --out-dir driftless-rag-demo
-cd driftless-rag-demo
-driftless validate -w rag_qa
-driftless compare -w rag_qa --to gpt-4o-mini
-```
-
-Expected shape:
+The comparison intentionally fails:
 
 ```text
-Score / pass-rate   current 1.000   target 0.000
-Total cost          current 0.072   target 0.016
-FAIL min_score: 0.000 >= 0.86
+F1          current 1.000   target 0.000
+Total cost  current 0.024   target 0.004
+FAIL min_f1: 0.000 >= 0.9
 ```
 
-The target is cheaper, but it fails the quality gate. From there, use
-`driftless migrate -w rag_qa --to gpt-4o-mini` to attempt prompt/config repair.
+The target is cheaper, but it is not safe to ship because it fails the
+classifier's quality gate. Continue through the blocked migration path without
+provider keys:
+
+```bash
+driftless migrate -w support_classifier --to gpt-4o-mini --generator none
+driftless report -w support_classifier
+driftless open-pr -w support_classifier
+```
+
+`migrate` exits non-zero with `BLOCKED`, as intended. `--generator none` makes
+no repair edits, `report` renders the saved evidence, and `open-pr` is a dry run
+unless you explicitly pass `--create`.
+
+## Product proof
+
+This is the actual output of the cold-install quickstart:
+
+![Terminal output from Driftless compare showing a cheaper target blocked by the F1 gate](./docs/visuals/compare-terminal.png)
+
+A deterministic offline migration was also run against the public
+[`support-classifier-svc`](https://github.com/driftless-dev/support-classifier-svc)
+testbed. It produced [draft PR #4](https://github.com/driftless-dev/support-classifier-svc/pull/4)
+with the generated scorecard, holdout evidence, prompt diff, and model update:
+
+![Real GitHub pull request created from a passing Driftless migration](./docs/visuals/github-migration-pr.png)
+
+Other bundled examples are available for retrieval QA and tool-using agents:
+
+```bash
+driftless copy-example rag-qa
+driftless copy-example tool-agent
+```
+
+To adopt Driftless in an existing repository, start there with `driftless scan`,
+then run `driftless configure <workflow>` for a detected workflow before
+validating and comparing it.
 
 ## How it works
 
@@ -75,7 +104,7 @@ optimizes against it, with your team owning the definition of "good":
 
 | Command | Purpose |
 |---|---|
-| `copy-example` | Copy a bundled example project (`rag-qa`, `tool-agent`). |
+| `copy-example` | Copy a bundled example project (`support-classifier`, `rag-qa`, `tool-agent`). |
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
 | `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, plan, label audit, and judge check. |
@@ -115,7 +144,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 `plan --act` triage, and manually-triggered migration workflows.
 
 ```yaml
-- uses: driftless-dev/driftless@v0.2.15
+- uses: driftless-dev/driftless@v0.3.0
   with:
     command: scan
 ```
@@ -123,7 +152,8 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 ## Documentation
 
 - [Blog series: common use cases](./docs/blog/README.md) — drafts for model migration, dataset refine, CI automation, cost, label audit, and LLM judges.
-- [Getting started](./docs/GETTING_STARTED.md) — run bundled RAG and agent examples.
+- [Getting started](./docs/GETTING_STARTED.md) — run the bundled classifier, RAG, and agent examples.
+- [Upgrading to 0.3](./docs/UPGRADING.md) — replace legacy `migration.allow_*` fields with exact `files.editable` paths.
 - [Command chooser](./docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
 - [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
 - [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.

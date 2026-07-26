@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tool-calling agent: new planner, same tools — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html" class="active"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 08</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="tool-calling-support-agent-new-planner-same-tools">Tool-calling support agent: new planner, same tools</h1>
+<p><strong>Status:</strong> publishable draft — uses the in-repo deterministic<br />
+<a href="https://github.com/driftless-dev/driftless/tree/main/examples/tool-agent"><code>examples/tool-agent</code></a> fixture and includes a<br />
+run-viewer capture.</p>
+<h2 id="the-use-case">The use case</h2>
+<p>You run a support-style agent that must use tools — look up an order, check a<br />
+policy, create a ticket — before it answers the user. Success is not only a<br />
+polite final message. The agent must call the right tools in a safe order, avoid<br />
+side-effecting actions until it has enough information, and not invent an answer<br />
+when a tool was required.</p>
+<p>You swap the planner model for something cheaper or newer. Final answers still<br />
+<em>look</em> fine in a chat playground. In eval, behavior breaks: the agent skips a<br />
+required lookup, calls a write tool too early, or refuses and apologizes instead<br />
+of using the tool you already exposed. Spot-checking final text misses all of<br />
+that. Without a tool trace on each eval row, you cannot tell whether the failure<br />
+was planning, tool choice, or generation — so the team either over-edits the<br />
+wrong prompt or concludes "agents are too flaky to migrate."</p>
+<p>The use case is migrating the <strong>agent workflow</strong> with the same evidence bar as a<br />
+classifier: run the full loop under the candidate model, score final behavior<br />
+<em>and</em> the trace, and repair only the planner / tool-description files you mark<br />
+editable.</p>
+<p><strong>What driftless does here:</strong> run the whole agent workflow under the candidate<br />
+model, score the final behavior and trace, and repair only those editable files.</p>
+<p>Artifact reference:<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> shows the evidence shape and<br />
+separates public testbed PR #4 from the different bundled saved success fixture;<br />
+the agent fixture uses the same report and <code>open-pr</code> path.</p>
+<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
+<p>If you only remember one rule: <strong>agent migration needs trace evidence.</strong> Final<br />
+answers are not enough. Emit the tools selected, tool errors, and final answer so<br />
+the repair loop can see whether the failure was planning, tool choice, or<br />
+generation.</p>
+<hr />
+<h2 id="the-app">The app</h2>
+<p>The fixture is local and side-effect-free:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Contract</td>
+<td><code>examples/tool-agent/driftless.yml</code></td>
+</tr>
+<tr>
+<td>Eval command</td>
+<td><code>python3 -m app.eval_agent</code></td>
+</tr>
+<tr>
+<td>Fake tool data</td>
+<td><code>data/orders.jsonl</code>, <code>data/policies.json</code></td>
+</tr>
+<tr>
+<td>Eval cases</td>
+<td><code>evals/cases.jsonl</code></td>
+</tr>
+<tr>
+<td>Gold trace expectations</td>
+<td><code>evals/gold.jsonl</code></td>
+</tr>
+<tr>
+<td>Editable prompts</td>
+<td><code>prompts/planner.md</code>, <code>prompts/tool_descriptions.md</code></td>
+</tr>
+</tbody>
+</table>
+<p>The tools are plain Python functions over fixture data:</p>
+<ul>
+<li><code>lookup_order</code></li>
+<li><code>check_policy</code></li>
+<li><code>refund_payment</code></li>
+<li><code>send_invoice</code></li>
+<li><code>reset_password</code></li>
+</ul>
+<p>No real refunds, emails, or account changes happen. That is intentional. Local<br />
+and CI examples should prove the workflow shape before anyone talks about hosted<br />
+agent execution.</p>
+<hr />
+<h2 id="reproduce-the-naive-regression">Reproduce the naive regression</h2>
+<p>From the repo root:</p>
+<pre><code class="language-bash">cd examples/tool-agent
+driftless validate -w support_agent
+driftless compare -w support_agent --to gpt-4o-mini
+</code></pre>
+<p>Actual local output from the fixture:</p>
+<pre><code class="language-text">Running gpt-4 (baseline) and gpt-4o-mini (target)...
+
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Metric            ┃ Current ┃ Target (orig files) ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ F1                │     n/a │                 n/a │
+│ Precision         │     n/a │                 n/a │
+│ Recall            │     n/a │                 n/a │
+│ Accuracy          │     n/a │                 n/a │
+│ Score / pass-rate │   1.000 │               0.000 │
+│ Schema error rate │    0.0% │                0.0% │
+│ Refusal rate      │    0.0% │                0.0% │
+│ Total cost        │   0.096 │               0.024 │
+└───────────────────┴─────────┴─────────────────────┘
+
+Thresholds (target vs contract):
+  FAIL min_score: 0.000 &gt;= 0.85
+  PASS max_cost_increase: -75.0% &lt;= +20%
+</code></pre>
+<p>Again, cheaper is not enough. The candidate fails because it does not follow the<br />
+tool protocol.</p>
+<hr />
+<h2 id="score-the-trace-not-just-the-prose">Score the trace, not just the prose</h2>
+<p>Each output row carries both final answer and trajectory:</p>
+<pre><code class="language-jsonl">{&quot;id&quot;:&quot;a001&quot;,&quot;final&quot;:&quot;Refund issued for ord-1001...&quot;,&quot;tools&quot;:[&quot;lookup_order&quot;,&quot;check_policy&quot;,&quot;refund_payment&quot;],&quot;tool_errors&quot;:[],&quot;score&quot;:1.0,&quot;cost&quot;:0.024}
+</code></pre>
+<p>The evaluator gives zero credit when:</p>
+<ul>
+<li>a required tool is missing;</li>
+<li>tools are called in the wrong order;</li>
+<li>a side-effecting tool runs without policy eligibility;</li>
+<li><code>tool_errors</code> is non-empty.</li>
+</ul>
+<p>That makes the eval useful for migration. A candidate that says "refund issued"<br />
+without <code>lookup_order</code> and <code>check_policy</code> should fail before it reaches<br />
+production.</p>
+<hr />
+<h2 id="the-contract-boundary">The contract boundary</h2>
+<p>The important part of <code>driftless.yml</code> is the edit scope:</p>
+<pre><code class="language-yaml">files:
+  editable:
+    - prompts/planner.md
+    - prompts/tool_descriptions.md
+  readonly:
+    - app/
+    - data/orders.jsonl
+    - data/policies.json
+    - evals/cases.jsonl
+    - evals/gold.jsonl
+</code></pre>
+<p>Driftless can clarify planner instructions and tool descriptions. It cannot edit<br />
+the tool simulator, fixture data, or scoring rules.</p>
+<p>That boundary keeps the migration reviewable:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Driftless role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Planner prompt</td>
+<td>Editable</td>
+</tr>
+<tr>
+<td>Tool descriptions</td>
+<td>Editable</td>
+</tr>
+<tr>
+<td>Tool implementations</td>
+<td>Read-only</td>
+</tr>
+<tr>
+<td>Fixture data</td>
+<td>Read-only</td>
+</tr>
+<tr>
+<td>Eval scorer</td>
+<td>Owned by the app</td>
+</tr>
+<tr>
+<td>Hosted agent sandbox</td>
+<td>Out of scope for this example</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="what-a-repair-should-learn">What a repair should learn</h2>
+<p>The baseline planner is intentionally vague:</p>
+<pre><code class="language-markdown">Choose tools that seem directly related to the customer request.
+
+For refunds, use the refund tool when the customer asks for money back. Keep the
+answer short and helpful.
+</code></pre>
+<p>For the cheaper model to pass, the planner/tool docs need to say the operational<br />
+rules directly:</p>
+<ul>
+<li>call <code>lookup_order</code> before refund decisions;</li>
+<li>call <code>check_policy</code> before <code>refund_payment</code>;</li>
+<li>do not call <code>refund_payment</code> unless eligibility is confirmed;</li>
+<li>include the tool trace in each result.</li>
+</ul>
+<p>Those are prompt/tool-description changes, not application rewrites.</p>
+<hr />
+<h2 id="honest-limits">Honest limits</h2>
+<ul>
+<li>Keep first examples local or inside CI.</li>
+<li>Use fake or sandboxed tools for migration tests.</li>
+<li>Do not let a hosted runner execute arbitrary side-effecting tools without a<br />
+  sandbox.</li>
+<li>Add budgets before scaling: agent eval is records times tool calls times repair<br />
+  attempts.</li>
+</ul>
+<p>Agentic workflows fit Driftless because the app remains the unit under test. The<br />
+tool's job is to make model swaps reviewable: same cases, same fake tools, same<br />
+score, clearer planner/tool prompts.</p>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="07-rag-prompts-drift-too.html"><span>← Previous</span><strong>RAG QA: new answer model, same knowledge base</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

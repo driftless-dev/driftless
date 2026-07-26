@@ -61,6 +61,29 @@ jobs:
       - name: Ensure catalog is normalized
         run: python tools/refresh_catalog.py --check
 
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install site generator dependency
+        run: pip install "markdown>=3.8"
+
+      - name: Regenerate committed blog assets
+        run: python scripts/build_blog.py
+
+      - name: Ensure generated site assets are fresh
+        run: |
+          git diff --exit-code -- site/blog site/visuals
+          test -z "$(git status --porcelain -- site/blog site/visuals)"
+
+      - name: Check static internal links
+        run: python scripts/check_site_links.py
+
   build:
     runs-on: ubuntu-latest
     steps:

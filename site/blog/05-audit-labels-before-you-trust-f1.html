@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Offline F1 is lying — labels conflict — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html" class="active"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 05</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="your-offline-f1-is-lying-because-the-labels-conflict">Your offline F1 is lying because the labels conflict</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>You trust your offline eval. Macro-F1 on a few hundred labeled tickets is how<br />
+you decide whether a model migration or prompt refine is safe. After a labeling<br />
+policy change (or a messy annotation pass), you run <code>refine</code> and watch F1 stall<br />
+around 0.85. The team assumes the prompt is bad. Someone rewrites category<br />
+definitions three times. Someone else proposes a bigger model. Iterations and<br />
+API spend pile up; holdout never clears the bar.</p>
+<p>The actual problem is upstream of the prompt. Buried in the eval set are<br />
+near-duplicate tickets — same customer intent, almost the same wording — with<br />
+<strong>disagreeing gold labels</strong>. One row says <code>billing</code>, its twin says <code>refund</code>. No<br />
+prompt can satisfy both. Every optimizer report looks like "the model is flaky"<br />
+or "repair isn't converging," when the oracle itself is contradictory.</p>
+<p>Until you find and fix those conflicts, F1 has a hard ceiling that has nothing<br />
+to do with GPT. The use case is: <strong>prove the gold labels are internally<br />
+consistent before you spend a migration or refine budget.</strong></p>
+<p><strong>What driftless does here:</strong> <code>audit-labels</code> finds exact and near-duplicate<br />
+inputs with label disagreements <em>before</em> <code>migrate</code> / <code>refine</code> burn iterations.<br />
+CI can <code>--fail</code> on that report; migrations can <code>--strict-label-audit</code>.</p>
+<p>Grounded in<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
+(290 labeled tickets) and the same CLI you run in Actions today.</p>
+<hr />
+<h2 id="the-silent-f1-ceiling">The silent F1 ceiling</h2>
+<p>Macro-F1 on an imbalanced set (testbed builder: technical ~105 / billing ~95 /<br />
+account ~50 / refund ~40) already hides per-class pain. Label noise is worse:<br />
+if two inputs normalize to the same text and gold says <code>billing</code> vs <code>refund</code>,<br />
+<strong>no prompt</strong> can hit 1.0 accuracy on both.</p>
+<p>That looks like "the model is flaky" or "repair isn't converging." It is a<br />
+<strong>data</strong> problem.</p>
+<hr />
+<h2 id="clean-baseline-on-the-testbed">Clean baseline on the testbed</h2>
+<pre><code class="language-bash">git clone https://github.com/driftless-dev/support-classifier-svc
+cd support-classifier-svc
+pip install driftless
+
+driftless audit-labels -w support_classifier
+</code></pre>
+<p>Expected on <code>main</code> (July 2026):</p>
+<pre><code>Label audit: `support_classifier` (290 labeled records)
+
+No duplicate or near-duplicate inputs with disagreeing labels.
+</code></pre>
+<p>A clean audit does <strong>not</strong> mean the labeling <em>policy</em> is finished — only that<br />
+the JSONL is internally consistent. After<br />
+<code>python evals/_apply_refund_policy.py</code> (<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>),<br />
+audit should still pass: 25 charge-reversals move together to <code>refund</code>.</p>
+<hr />
+<h2 id="what-a-conflict-looks-like-reproduce-in-30-seconds">What a conflict looks like (reproduce in 30 seconds)</h2>
+<p>Support-classifier tickets look like this when annotators disagree on the same<br />
+intent. Paste into a scratch workspace (or temporarily edit eval JSONL on a<br />
+branch):</p>
+<pre><code class="language-jsonl">{&quot;id&quot;: &quot;a&quot;, &quot;text&quot;: &quot;Please refund my order&quot;}
+{&quot;id&quot;: &quot;b&quot;, &quot;text&quot;: &quot;please refund my order&quot;}
+{&quot;id&quot;: &quot;c&quot;, &quot;text&quot;: &quot;I forgot my password&quot;}
+{&quot;id&quot;: &quot;d&quot;, &quot;text&quot;: &quot;I forgot my  password&quot;}
+</code></pre>
+<pre><code class="language-jsonl">{&quot;id&quot;: &quot;a&quot;, &quot;category&quot;: &quot;refund&quot;}
+{&quot;id&quot;: &quot;b&quot;, &quot;category&quot;: &quot;billing&quot;}
+{&quot;id&quot;: &quot;c&quot;, &quot;category&quot;: &quot;account&quot;}
+{&quot;id&quot;: &quot;d&quot;, &quot;category&quot;: &quot;technical&quot;}
+</code></pre>
+<p>Normalization lowercases and collapses whitespace, so <code>a</code>/<code>b</code> and <code>c</code>/<code>d</code> are<br />
+<strong>exact duplicates</strong> with disagreeing labels. Real <code>audit-labels</code> output:</p>
+<pre><code>Label audit: `ticket_classifier` (4 labeled records)
+
+Exact duplicates with label disagreement (2 group(s)):
+  - 2 rows, labels: 'billing', 'refund'
+      id='a' label='refund': Please refund my order
+      id='b' label='billing': please refund my order
+  - 2 rows, labels: 'account', 'technical'
+      id='c' label='account': I forgot my password
+      id='d' label='technical': I forgot my password
+
+These disagreements cap achievable accuracy — fix labels or dedupe inputs
+before expecting refine / migrate to converge.
+</code></pre>
+<p>Near-duplicates (Jaccard ≥ 0.85 by default) get a separate section with a<br />
+similarity score — e.g. two charge-reversal phrasings labeled <code>billing</code> vs<br />
+<code>refund</code> after a messy policy edit.</p>
+<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail   # exit 1 when conflicts exist
+</code></pre>
+<hr />
+<h2 id="wire-it-where-tokens-get-spent">Wire it where tokens get spent</h2>
+<h3 id="1-path-filtered-ci-testbed">1. Path-filtered CI (testbed)</h3>
+<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a>:</p>
+<pre><code class="language-yaml">on:
+  pull_request:
+    paths:
+      - &quot;evals/tickets.labels.jsonl&quot;
+      - &quot;evals/tickets.inputs.jsonl&quot;
+  push:
+    branches: [main]
+    paths:
+      - &quot;evals/tickets.labels.jsonl&quot;
+      - &quot;evals/tickets.inputs.jsonl&quot;
+
+jobs:
+  audit:
+    steps:
+      - run: driftless audit-labels -w support_classifier --fail
+</code></pre>
+<p>Any PR that introduces conflicting gold labels fails <strong>before</strong> merge.</p>
+<h3 id="2-before-refine-migrate">2. Before refine / migrate</h3>
+<p>The testbed's refine and migrate workflows already call <code>audit-labels --fail</code>,<br />
+then pass <code>--strict-label-audit</code> into the optimizer:</p>
+<pre><code class="language-bash">driftless refine -w support_classifier --strict-label-audit
+driftless migrate -w support_classifier --to gpt-4o-mini --strict-label-audit
+</code></pre>
+<p>Scaffold the same pattern:</p>
+<pre><code class="language-bash">driftless init-ci --audit-labels
+</code></pre>
+<hr />
+<h2 id="decision-tree-labels-vs-prompt-vs-model">Decision tree: labels vs prompt vs model</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Audit reports conflicts</td>
+<td>Gold label noise / duplicate rows</td>
+<td>Fix or dedupe JSONL; re-audit</td>
+</tr>
+<tr>
+<td>Clean audit, F1 drops after policy relabel</td>
+<td>Prompt lag</td>
+<td><code>refine</code> (<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>)</td>
+</tr>
+<tr>
+<td>Clean audit, naive swap fails schema / F1</td>
+<td>Model + prompt</td>
+<td><code>migrate</code> (<a href="01-model-swap-is-not-a-migration.html">post 1</a>)</td>
+</tr>
+<tr>
+<td>Clean audit, cost row looks good, quality dips</td>
+<td>Candidate too weak or prompt debt</td>
+<td>Compare → migrate; don't "save" on a blocked run (<a href="04-cheaper-model-same-quality-bar.html">post 4</a>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Charge-reversal tip:</strong> after <code>_apply_refund_policy.py</code>, audit should stay<br />
+green. If it fails, someone edited labels inconsistently — not that the policy<br />
+script "broke" F1.</p>
+<hr />
+<h2 id="what-audit-does-not-do">What audit does <em>not</em> do</h2>
+<ul>
+<li>It does not re-label tickets for you.</li>
+<li>It does not judge whether <code>billing</code> vs <code>refund</code> is the <em>right</em> product policy<br />
+  — only whether the dataset agrees with itself.</li>
+<li>It applies to <strong>classification</strong> workflows (<code>eval.label_field</code>). Pass/fail and<br />
+  judge-graded workflows use other preflights (<a href="06-trust-your-llm-judge.html">post 6</a>).</li>
+</ul>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Run <code>audit-labels</code> on your eval set before the next <code>refine</code></li>
+<li>Add the path-filtered workflow (or <code>init-ci --audit-labels</code>)</li>
+<li>Then return to <a href="02-when-labels-move-refine-not-remodel.html">post 2</a> or<br />
+<a href="01-model-swap-is-not-a-migration.html">post 1</a> with a trustworthy oracle</li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="04-cheaper-model-same-quality-bar.html"><span>← Previous</span><strong>Finance wants cheaper inference, same bar</strong></a><a class="next" href="06-trust-your-llm-judge.html"><span>Next →</span><strong>Free-form answers graded by an LLM judge</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

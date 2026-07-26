@@ -1,5 +1,5 @@
 name: "driftless"
-description: "Dependabot for LLM models — scan, compare, and migrate model dependencies in CI."
+description: "Keep models, prompts, and eval data in sync with quality-gated CI updates."
 branding:
   icon: "git-pull-request"
   color: "purple"
@@ -22,9 +22,9 @@ inputs:
     required: false
     default: ""
   version:
-    description: "driftless version/spec to install (e.g. '==0.2.0' or a git URL)."
+    description: "driftless version/spec to install (e.g. '==0.3.0' or a git URL)."
     required: false
-    default: "==0.2.15"
+    default: "==0.3.0"
 
 runs:
   using: "composite"

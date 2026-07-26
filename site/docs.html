@@ -7,36 +7,43 @@
 <meta name="description" content="Documentation for driftless: install, the workflow contract, the migration loop, CLI reference, policy, and the GitHub Action." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="assets/styles.css" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ea8fe'/%3E%3Cstop offset='.5' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%2343e0c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%230a0b0f'/%3E%3Cpath d='M9 21V11l7 6 7-6v10' fill='none' stroke='url(%23g)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/landing.css?v=v6" />
+<link rel="stylesheet" href="assets/docs.css?v=v1" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1514'/%3E%3Cpath d='M8 21V10l8 7 8-7v11' fill='none' stroke='%235ce1c3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
-<body>
+<body class="landing docs-page">
+<a class="skip-link" href="#main-content">Skip to content</a>
 
 <!-- NAV -->
-<header class="nav" id="nav">
-  <div class="container nav-inner">
-    <a class="brand" href="index.html">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#6ea8fe"/><stop offset=".5" stop-color="#8b7bff"/><stop offset="1" stop-color="#43e0c4"/>
-        </linearGradient></defs>
-        <rect width="32" height="32" rx="8" fill="#11141f"/>
-        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      driftless
+<header class="site-header" id="nav">
+  <div class="nav-shell">
+    <a class="wordmark" href="index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
     </a>
-    <nav class="nav-links">
-      <a href="index.html#loop">How it works</a>
-      <a href="index.html#evidence">Evidence</a>
-      <a href="docs.html">Docs</a>
+
+    <nav class="landing-links" id="primaryNav" aria-label="Primary navigation">
+      <a href="index.html#product">Product</a>
+      <a href="index.html#workflow">How it works</a>
+      <a class="active" href="docs.html">Docs</a>
+      <a href="blog/index.html">Blog</a>
+      <a class="mobile-nav-action" href="https://github.com/driftless-dev/driftless">GitHub</a>
+      <a class="mobile-nav-action" href="#quickstart">Get started</a>
     </nav>
-    <div class="nav-cta">
-      <a class="btn btn-ghost" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
-      <a class="btn btn-primary" href="#quickstart">Get started</a>
+
+    <div class="nav-actions">
+      <a class="github-link" href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
+      <a class="button button-small button-primary" href="#quickstart">Get started</a>
     </div>
-    <button class="nav-toggle" aria-label="Toggle menu" id="navToggle">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+
+    <button class="landing-menu" id="navToggle" type="button" aria-label="Toggle navigation" aria-controls="primaryNav" aria-expanded="false">
+      <span></span><span></span>
     </button>
   </div>
 </header>
@@ -71,9 +78,16 @@
     </aside>
 
     <!-- CONTENT -->
-    <main class="docs-content">
-      <h1>Documentation</h1>
-      <p class="doc-lede">driftless keeps prompts in sync when their dependencies change. Think <strong>Poetry</strong> (regenerate the lock when model or eval data moves) plus <strong>Dependabot</strong> (watch, test, open a PR with evidence).</p>
+    <main class="docs-content" id="main-content">
+      <header class="doc-hero">
+        <p class="doc-kicker">Product documentation</p>
+        <h1>Keep every LLM workflow <em>in sync.</em></h1>
+        <p class="doc-lede">Install Driftless, define the contract around your real eval, and automate model or dataset changes without lowering the quality bar.</p>
+        <div class="doc-hero-actions">
+          <a class="button button-primary" href="#quickstart">Run the quickstart <span aria-hidden="true">→</span></a>
+          <a class="doc-text-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">Inspect a real migration PR ↗</a>
+        </div>
+      </header>
 
       <!-- INTRO -->
       <section id="intro">
@@ -93,14 +107,14 @@
       <!-- INSTALL -->
       <section id="install">
         <h2>Installation</h2>
-        <p>Once published, install with <code class="inline">pipx</code> (recommended) so the CLI lives in its own isolated environment:</p>
-<pre class="has-copy"><button class="copy-btn">copy</button><code>pipx install driftless</code></pre>
+        <p>Install the published CLI from PyPI:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>pip install driftless</code></pre>
         <p>For local development from source:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>python -m venv .venv
 source .venv/bin/activate
 pip install -e <span class="tok-s">".[dev]"</span></code></pre>
-        <p>LLM-backed repair needs at least one provider key. Install the optional extra and export a key:</p>
-<pre class="has-copy"><button class="copy-btn">copy</button><code>pip install -e <span class="tok-s">".[llm]"</span>      <span class="tok-c"># openai + anthropic SDKs</span>
+        <p>The bundled examples and <code class="inline">--generator none</code> path need no provider key. For LLM-backed repair, install the optional extra and export a key:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>pip install <span class="tok-s">"driftless[llm]"</span>      <span class="tok-c"># openai + anthropic SDKs</span>
 export OPENAI_API_KEY=<span class="tok-s">sk-...</span>   <span class="tok-c"># or ANTHROPIC_API_KEY</span></code></pre>
         <div class="callout">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
@@ -111,26 +125,27 @@ export OPENAI_API_KEY=<span class="tok-s">sk-...</span>   <span class="tok-c"># 
       <!-- QUICKSTART -->
       <section id="quickstart">
         <h2>Quickstart</h2>
-        <p>From the root of the repo you want to migrate:</p>
-<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># 1. find probable LLM usage and at-risk models</span>
-driftless scan
-
-<span class="tok-c"># 2. scaffold a contract for a detected workflow</span>
-driftless configure support_classifier
-
-<span class="tok-c"># 3. sanity-check the contract parses and the harness runs</span>
+        <p>Start with the bundled support classifier. It is deterministic and runs without provider keys:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
 driftless validate -w support_classifier
-
-<span class="tok-c"># 4. score a candidate replacement on your real eval</span>
-driftless compare -w support_classifier --to gpt-4o-mini
-
-<span class="tok-c"># 5. repair + validate + produce migrated files</span>
-driftless migrate -w support_classifier --to gpt-4o-mini
-
-<span class="tok-c"># 6. render the evidence and open a PR (dry run by default)</span>
-driftless report  -w support_classifier
-driftless open-pr -w support_classifier --create</code></pre>
-        <p>If you're starting from scratch rather than a scan, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template you can fill in.</p>
+driftless compare -w support_classifier --to gpt-4o-mini</code></pre>
+        <p>The comparison intentionally shows F1 <code class="inline">1.000 → 0.000</code> and total cost <code class="inline">0.024 → 0.004</code>. The cheaper target is unsafe, so <code class="inline">FAIL min_f1: 0.000 &gt;= 0.9</code> is the expected result.</p>
+        <p>Continue through the key-free blocked path:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator none
+driftless report -w support_classifier
+driftless open-pr -w support_classifier</code></pre>
+        <p><code class="inline">migrate</code> intentionally exits non-zero with <code class="inline">BLOCKED</code>. Run the following commands afterward: <code class="inline">report</code> renders the saved evidence, and <code class="inline">open-pr</code> previews the issue without creating it. Pass <code class="inline">--create</code> only when you want the external side effect.</p>
+        <p>All bundled projects can be copied with <code class="inline">copy-example</code>: <code class="inline">support-classifier</code>, <code class="inline">rag-qa</code>, and <code class="inline">tool-agent</code>.</p>
+        <h3>Adopt Driftless in an existing repository</h3>
+        <p>After the bundled tour, discover LLM usage in your own repository and scaffold a migration contract for a detected workflow:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>cd your-existing-repo
+driftless scan
+driftless configure &lt;workflow&gt;
+driftless validate -w &lt;workflow&gt;
+driftless compare -w &lt;workflow&gt; --to &lt;model&gt;</code></pre>
+        <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template.</p>
       </section>
 
       <!-- CONTRACT -->
@@ -152,6 +167,7 @@ driftless open-pr -w support_classifier --create</code></pre>
       <span class="tok-k">config_path</span>: <span class="tok-s">model</span>
     <span class="tok-k">files</span>:
       <span class="tok-k">editable</span>: [<span class="tok-s">prompts/system.md</span>, <span class="tok-s">prompts/examples.yml</span>]
+      <span class="tok-k">context</span>: [<span class="tok-s">src/parser.py</span>]
       <span class="tok-k">readonly</span>: [<span class="tok-s">src/**</span>]
     <span class="tok-k">eval</span>:
       <span class="tok-k">labels_path</span>: <span class="tok-s">evals/labels.jsonl</span>
@@ -163,7 +179,8 @@ driftless open-pr -w support_classifier --create</code></pre>
       <span class="tok-k">max_schema_error_rate</span>: <span class="tok-p">0.02</span>
     <span class="tok-k">migration</span>:
       <span class="tok-k">max_iterations</span>: <span class="tok-p">4</span>
-      <span class="tok-k">holdout_required</span>: <span class="tok-k">true</span></code></pre>
+      <span class="tok-k">holdout_required</span>: <span class="tok-k">true</span>
+      <span class="tok-k">split_seed_count</span>: <span class="tok-p">1</span></code></pre>
         <p>There are two override mechanisms, and a workflow may use both:</p>
         <ul>
           <li><strong><code class="inline">env_var</code></strong> — the harness sets this environment variable to run the workflow under a different model. This is the runtime override used during evaluation.</li>
@@ -303,6 +320,7 @@ driftless open-pr -w support_classifier --create</code></pre>
         <table class="doc-table">
           <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
           <tbody>
+            <tr><td><code>copy-example &lt;name&gt;</code></td><td>Copy a bundled project: <code>support-classifier</code>, <code>rag-qa</code>, or <code>tool-agent</code>.</td></tr>
             <tr><td><code>init</code></td><td>Scaffold a <code>driftless.yml</code>.</td></tr>
             <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
@@ -333,10 +351,10 @@ driftless open-pr -w support_classifier --create</code></pre>
           <tbody>
             <tr><td><code>run</code></td><td><code>command</code>, <code>input_path</code>, <code>output_path</code>, <code>timeout_seconds</code></td><td>How to execute the real workflow.</td></tr>
             <tr><td><code>model</code></td><td><code>current</code>, <code>target_candidates</code>, <code>env_var</code>, <code>config_file</code>, <code>config_path</code></td><td>Which model and how to override it.</td></tr>
-            <tr><td><code>files</code></td><td><code>editable[]</code>, <code>readonly[]</code></td><td>Edit scope for the repair loop.</td></tr>
+            <tr><td><code>files</code></td><td><code>editable[]</code>, <code>context[]</code>, <code>readonly[]</code></td><td><code>editable</code> is the only write scope. <code>context</code> is loaded for optimizer reference but never edited; <code>readonly</code> explicitly records other non-editable paths.</td></tr>
             <tr><td><code>eval</code></td><td><code>labels_path</code>, <code>schema_path</code>, <code>label_field</code>, <code>id_field</code>, <code>split</code></td><td>How to score outputs.</td></tr>
             <tr><td><code>thresholds</code></td><td><code>min_f1</code>, <code>min_precision</code>, <code>min_recall</code>, <code>max_schema_error_rate</code>, <code>max_cost_increase</code>, <code>max_latency_increase</code></td><td>What must hold to pass.</td></tr>
-            <tr><td><code>migration</code></td><td><code>allow_*_edits</code>, <code>max_iterations</code>, <code>holdout_required</code></td><td>What the engine may do.</td></tr>
+            <tr><td><code>migration</code></td><td><code>max_iterations</code>, <code>holdout_required</code>, <code>split_seed_count</code></td><td>Search budget and validation behavior. Edit permission comes only from <code>files.editable</code>.</td></tr>
             <tr><td><code>repair</code></td><td><code>system_prompt(_path)</code>, <code>guidance</code>, <code>user_template(_path)</code></td><td>Customize the LLM repair prompt.</td></tr>
           </tbody>
         </table>
@@ -428,7 +446,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.2.12
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.0
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>
@@ -443,23 +461,24 @@ driftless view -w support_classifier</code></pre>
 </div>
 
 <!-- FOOTER -->
-<footer class="footer">
-  <div class="container footer-inner">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="8" fill="#11141f"/>
-        <path d="M9 21V11l7 6 7-6v10" fill="none" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      driftless
+<footer class="site-footer">
+  <div class="footer-main">
+    <div>
+      <a class="wordmark" href="index.html">
+        <span class="wordmark-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>driftless</span>
+      </a>
+      <p>Dependabot-style synchronization for models, prompts, and eval data.</p>
     </div>
-    <div class="footer-links">
-      <a href="index.html#loop">How it works</a>
-      <a href="index.html#evidence">Evidence</a>
-      <a href="docs.html">Docs</a>
-      <a href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>
-    </div>
-    <div class="dim">Dependabot for LLM models · MIT licensed</div>
+    <nav aria-label="Footer navigation">
+      <div><strong>Product</strong><a href="index.html#workflow">How it works</a><a href="index.html#evidence">Evidence</a><a href="runs.html">Run viewer</a></div>
+      <div><strong>Learn</strong><a href="docs.html">Documentation</a><a href="blog/index.html">Use-case guides</a><a href="#quickstart">Quickstart</a></div>
+      <div><strong>Project</strong><a href="https://github.com/driftless-dev/driftless">GitHub</a><a href="https://pypi.org/project/driftless/">PyPI</a><a href="https://github.com/driftless-dev/driftless/blob/main/SECURITY.md">Security</a></div>
+    </nav>
   </div>
+  <div class="footer-bottom"><span>© 2026 driftless</span><span>MIT licensed</span></div>
 </footer>
 
 <script src="assets/app.js"></script>

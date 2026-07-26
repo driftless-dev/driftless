@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Free-form answers graded by an LLM judge — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html" class="active"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 06</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="free-form-answers-graded-by-an-llm-judge">Free-form answers graded by an LLM judge</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>Not every LLM workflow is a classifier with gold categories. You might summarize<br />
+support tickets, rewrite answers for tone, or grade free-form responses for<br />
+faithfulness. There is no single <code>label_field</code> to compute F1 against. So the team<br />
+adds an <strong>LLM-as-judge</strong>: a second model scores each output against a written<br />
+rubric, and you treat the mean score like a quality metric for migrations.</p>
+<p>That solves the "how do we score this?" problem and creates a new one. If you<br />
+<code>migrate</code> or <code>refine</code> against the judge, you are optimizing prompts toward<br />
+whatever that second model prefers. If the judge is noisy, biased, or drifts when<br />
+you change the grading model, you can ship a "successful" migration that humans<br />
+would reject — with beautiful charts and a green holdout on a bad proxy.</p>
+<p>The use case is the decision <em>before</em> the repair loop: <strong>when is a judge trusted<br />
+enough to optimize against?</strong> You need a human calibration set, a quantitative<br />
+agreement check, and a hard stop when agreement fails — not vibes that "the<br />
+rubric looks good."</p>
+<p><strong>What driftless does here:</strong> treat the judge as a grading mode with an optional<br />
+<strong>human calibration gate</strong>. Measure judge↔human agreement (<code>judge-check</code>) and<br />
+refuse to optimize when MAE / correlation miss your bar.</p>
+<p>The support-classifier testbed is <strong>label-F1 first</strong>. This post uses that as<br />
+contrast, then shows the judge contract shape, CLI, and CI scaffold from the<br />
+product itself.</p>
+<hr />
+<h2 id="three-grading-modes-pick-one">Three grading modes (pick one)</h2>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Contract</th>
+<th>Testbed example</th>
+<th>Gate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classification</td>
+<td><code>eval.label_field</code></td>
+<td><code>support_classifier</code> → macro-F1</td>
+<td><code>min_f1</code></td>
+</tr>
+<tr>
+<td>Customer score / pass</td>
+<td><code>score_field</code> / <code>pass_field</code></td>
+<td><code>quick_triage</code> → escalate yes/no</td>
+<td><code>min_score</code></td>
+</tr>
+<tr>
+<td>LLM-as-judge</td>
+<td><code>eval.judge</code></td>
+<td><em>(your summarization / RAG write-up)</em></td>
+<td><code>min_score</code> + optional MAE/corr</td>
+</tr>
+</tbody>
+</table>
+<p><code>quick_triage</code> is closer to a rubric <em>in spirit</em> (binary escalate) but still<br />
+uses <strong>gold labels</strong>, not a second model. Jump to judge only when humans cannot<br />
+pre-label every row cheaply — and then calibrate.</p>
+<p>Posts <a href="01-model-swap-is-not-a-migration.html">1</a>–<a href="02-when-labels-move-refine-not-remodel.html">2</a><br />
+stay on the F1 path. This post is for everyone else.</p>
+<hr />
+<h2 id="why-judge-trust-is-a-first-class-problem">Why judge trust is a first-class problem</h2>
+<p>Putting a model inside the trust loop means:</p>
+<ul>
+<li>The judge can be noisy, biased, or <strong>itself</strong> drift when you change the grading model.</li>
+<li>Optimizing prompts against a bad judge produces confident, wrong migrations.</li>
+<li>Holdout on judge scores is not enough if the judge disagrees with humans.</li>
+</ul>
+<p>Driftless keeps the judge injectable (deterministic stubs in tests), normalizes<br />
+scores to 0..1, and exposes <code>judge_agreement()</code> against a human-scored JSONL.</p>
+<hr />
+<h2 id="contract-shape">Contract shape</h2>
+<pre><code class="language-yaml">workflows:
+  support_summary:
+    run:
+      command: python evals/run_summary.py
+      input_path: evals/tickets.inputs.jsonl
+      output_path: evals/summary.outputs.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: SUMMARY_MODEL
+    files:
+      editable: [prompts/summary.md]
+    eval:
+      judge:
+        rubric: |
+          Award full marks if the summary is faithful to the ticket,
+          names the category of ask, and stays under 3 sentences.
+          Deduct for hallucinations or leaked internal IDs.
+        scale_max: 5              # rubric 0..5 → normalized to 0..1
+        # pass_threshold: 0.6     # optional per-row pass
+        # input_field: text
+        # output_field: summary   # if output is JSON; else raw text
+        calibration_path: evals/judge_calibration.jsonl
+        max_mae: 0.15             # gate: refuse migrate/compare if exceeded
+        min_correlation: 0.80     # Pearson r vs human scores
+    thresholds:
+      min_score: 0.85
+    migration:
+      holdout_required: true
+</code></pre>
+<p>Calibration JSONL — one human-scored example per line:</p>
+<pre><code class="language-jsonl">{&quot;input&quot;: &quot;Please reverse the payment on my latest invoice.&quot;, &quot;output&quot;: &quot;Customer wants a charge reversed on the latest invoice.&quot;, &quot;score&quot;: 5}
+{&quot;input&quot;: &quot;App crashes on login.&quot;, &quot;output&quot;: &quot;The weather in Paris is lovely.&quot;, &quot;score&quot;: 0}
+</code></pre>
+<p><code>score</code> is on the rubric's <code>scale_max</code> (here 0..5). Driftless normalizes both<br />
+human and judge scores to 0..1 before MAE / correlation.</p>
+<p>Scaffold comments for this block also live in <code>driftless init</code> templates.</p>
+<hr />
+<h2 id="measure-before-you-optimize">Measure before you optimize</h2>
+<pre><code class="language-bash">driftless judge-check -w support_summary
+# prints records, MAE, correlation, and gate status (ok/FAIL) when configured
+
+driftless judge-check -w support_summary --enforce
+# same gates migrate/compare/refine apply — exit non-zero on failure
+</code></pre>
+<p>Example shape of a passing check:</p>
+<pre><code>support_summary — judge calibration check
+
+  records: 40
+  MAE: 0.112
+  correlation: 0.86
+  gates: max_mae=0.15 (ok), min_correlation=0.8 (ok)
+
+gates passed — judge vs. human on 40 records: MAE=0.112, corr=0.86
+</code></pre>
+<p>If MAE is 0.22 against <code>max_mae: 0.15</code>, <strong>stop</strong>. Fix the rubric, calibration<br />
+set, or judge model — do not run <code>migrate</code>.</p>
+<p>With gates set on the contract, <code>compare</code> / <code>migrate</code> / <code>refine</code> call<br />
+<code>require_judge_agreement()</code> automatically. You do not need <code>--enforce</code> for<br />
+those commands; <code>judge-check --enforce</code> is the preflight you run in CI and<br />
+locally.</p>
+<hr />
+<h2 id="ci-path-filtered-judge-check">CI: path-filtered judge-check</h2>
+<pre><code class="language-bash">driftless init-ci --judge-check
+</code></pre>
+<p>Emits a workflow that re-runs when the rubric or calibration file changes, using<br />
+the composite Action:</p>
+<pre><code class="language-yaml">- uses: driftless-dev/driftless@v0.3.0
+  with:
+    command: judge-check
+    workflow: support_summary
+    args: &quot;--enforce&quot;
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+</code></pre>
+<p>Same Dependabot-shaped idea as <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>:<br />
+the file that defines "good" is what triggers the check.</p>
+<hr />
+<h2 id="evidence-in-the-migration-pr">Evidence in the migration PR</h2>
+<p>When a judge-graded migrate succeeds, the report and <code>driftless view</code> include:</p>
+<ul>
+<li>Mean judge score (baseline vs target / repaired)</li>
+<li>Holdout check on <code>min_score</code></li>
+<li><strong>Judge agreement</strong> summary when calibration ran</li>
+<li>Per-record <strong>rationales</strong> in the attempt log (why the judge dinged a row)</li>
+</ul>
+<p>That is the same evidence path as classification migrations — different oracle.</p>
+<hr />
+<h2 id="honest-limits">Honest limits</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Judge drifts when <em>grading</em> model changes</td>
+<td>Re-run <code>judge-check --enforce</code>; bump calibration</td>
+</tr>
+<tr>
+<td>Thin calibration set</td>
+<td>Agreement undefined / weak — add rows before gating</td>
+</tr>
+<tr>
+<td>Optimizing to game the judge</td>
+<td>Keep humans in the loop; refresh calibration from production spot-checks</td>
+</tr>
+<tr>
+<td>Confusing judge trust with label trust</td>
+<td>Classification → <a href="05-audit-labels-before-you-trust-f1.html">post 5</a>; free-form → this post</td>
+</tr>
+</tbody>
+</table>
+<p>Judge trust ≠ "the numbers look smooth." It means <strong>documented agreement with<br />
+humans</strong> before the repair loop spends tokens.</p>
+<hr />
+<h2 id="how-this-relates-to-the-testbed">How this relates to the testbed</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Grading</th>
+<th>Preflight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>support_classifier</code></td>
+<td>F1 on categories</td>
+<td><code>audit-labels</code></td>
+</tr>
+<tr>
+<td><code>quick_triage</code></td>
+<td><code>pass_field: escalate</code></td>
+<td>gold labels (no judge)</td>
+</tr>
+<tr>
+<td>Your free-form workflow</td>
+<td><code>eval.judge</code></td>
+<td><code>judge-check --enforce</code></td>
+</tr>
+</tbody>
+</table>
+<p>A future testbed addition could ship a tiny summarization workflow + calibration<br />
+file for a one-command demo. Until then, start from <code>driftless init</code> comments or<br />
+a RAG/agent fixture that already uses <code>score_field</code> /<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md"><code>docs/rag-and-agents.md</code></a> and graduate to <code>eval.judge</code><br />
+when you need rubrics.</p>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Classification teams: stay on <a href="01-model-swap-is-not-a-migration.html">posts 1–2</a>; add <a href="05-audit-labels-before-you-trust-f1.html">label audit</a></li>
+<li>Free-form teams: add <code>eval.judge</code> + calibration → <code>judge-check --enforce</code> → then <code>migrate</code></li>
+<li>CI: <code>driftless init-ci --judge-check</code> next to your migrate workflow (<a href="03-dependabot-for-prompts-in-ci.html">post 3</a>)</li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="05-audit-labels-before-you-trust-f1.html"><span>← Previous</span><strong>Offline F1 is lying — labels conflict</strong></a><a class="next" href="07-rag-prompts-drift-too.html"><span>Next →</span><strong>RAG QA: new answer model, same knowledge base</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

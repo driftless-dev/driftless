@@ -6,13 +6,23 @@
   var nav = document.getElementById("nav");
   var toggle = document.getElementById("navToggle");
   if (toggle && nav) {
+    var setMenuOpen = function (open) {
+      nav.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
     toggle.addEventListener("click", function () {
-      nav.classList.toggle("open");
+      setMenuOpen(!nav.classList.contains("open"));
     });
     nav.querySelectorAll(".nav-links a, .landing-links a").forEach(function (a) {
       a.addEventListener("click", function () {
-        nav.classList.remove("open");
+        setMenuOpen(false);
       });
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && nav.classList.contains("open")) {
+        setMenuOpen(false);
+        toggle.focus();
+      }
     });
   }
 

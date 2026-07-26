@@ -1,24 +1,46 @@
-# A model swap is not a migration
+# Your ticket classifier’s model got deprecated
 
-**Use case:** OpenAI deprecates `gpt-3.5-turbo`. Someone updates
-`config/llm.yml`. CI stays green. Two weeks later support queues spike because
-the classifier returns `null` for half the tickets — the new model wraps JSON in
-markdown fences and your parser correctly rejects it.
+## The use case
 
-**What driftless does:** run *your* eval harness under the candidate model,
-repair the prompt files you allow, validate on holdout, and open a PR with
-metrics and diffs.
+You run a support product that routes every inbound ticket through an LLM
+classifier before a human ever sees it. The model returns a small JSON object
+like `{"category": "billing"}`. Downstream code parses that JSON strictly — no
+markdown fences, no extra prose — and files the ticket into billing, technical,
+account, or refund.
 
-Artifact reference: the saved
-[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the PR body,
-scorecard, threshold checks, and prompt diff reviewers should expect.
+For months the system runs on `gpt-3.5-turbo`. The prompt and few-shot examples
+were tuned for that model. Then the provider announces deprecation. Someone on
+the team updates one line in `config/llm.yml` to `gpt-4o-mini`, opens a PR, and
+merges. Unit tests still pass. Staging still "looks fine" because people spot-check
+a handful of tickets in the playground.
 
-![Compare scorecard excerpt](../visuals/compare-scorecard.svg)
+Two weeks later the support queue spikes. Roughly half the tickets never get a
+category: the new model wraps JSON in markdown code fences, your parser correctly
+rejects the output as invalid, and the workflow records `null`. Refund tickets
+also start landing in billing because the old prompt never spelled out the
+rule clearly enough for the new model's priors.
 
-This post walks through a **real, runnable example** in
+Nothing in infrastructure broke. The model ID changed; the prompt did not. That
+gap — treating a model swap like a dependency bump instead of a behavior change —
+is the use case this post covers.
+
+**What driftless does here:** run *your* eval harness under the candidate model,
+repair only the prompt files you allow, validate on a holdout split the optimizer
+never saw, and open a PR (or issue) with metrics and diffs.
+
+Artifact reference:
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) separates public testbed PR
+#4 (290 labels, `0.904` tuning / `0.901` holdout) from the different bundled
+four-row saved fixture (`1.000` metrics). The published CLI ships no
+deterministic repair generator; exact key-free reproduction covers the compare
+and blocked `--generator none` paths, while successful LLM repair requires
+provider credentials and is nondeterministic.
+
+![Actual Driftless compare output showing the target model blocked by the quality gate](../visuals/compare-terminal.png)
+
+The walkthrough uses a **real, runnable example** in
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc):
-a fictional B2B SaaS that classifies inbound tickets into `billing` /
-`technical` / `account` / `refund` with strict JSON output.
+a fictional B2B SaaS with ~290 labeled tickets and the same strict JSON contract.
 
 If you only remember one rule: **change the model under the same harness before
 you merge the model change.** A migration is not "does the new model answer?"

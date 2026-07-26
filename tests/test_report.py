@@ -198,6 +198,7 @@ def test_summary_and_diff_sections_in_pr_body():
     assert "+ billing rule" in md
     assert "## Full Run Data" in md
     assert ".driftless/migrations/support_classifier.json" in md
+    assert "No files outside the explicit `files.editable` allowlist were changed." in md
 
 
 def test_partial_report_shows_best_attempt_diff():

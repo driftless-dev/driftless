@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your ticket classifier’s model got deprecated — Driftless blog</title>
+<meta name="description" content="Practical guidance for keeping LLM models, prompts, and eval data in sync." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="blog.css" />
+</head>
+<body class="blog blog-article">
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+  <div class="nav-shell">
+    <a class="wordmark" href="../index.html" aria-label="Driftless home">
+      <span class="wordmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>driftless</span>
+    </a>
+    <nav class="top-links" aria-label="Primary navigation">
+      <a href="../index.html">Product</a>
+      <a href="../docs.html">Docs</a>
+      <a href="index.html" class="active">Blog</a>
+      <a href="https://github.com/driftless-dev/driftless">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="../index.html#quickstart">Get started</a>
+  </div>
+</header>
+<div class="blog-shell">
+  <aside class="series-nav">
+    <div class="series-heading">
+      <span>Field notes</span>
+      <strong>LLM workflow<br />use cases</strong>
+    </div>
+    <a class="series-index" href="index.html">All guides <span>↗</span></a>
+    <nav aria-label="Blog series">
+      <a href="01-model-swap-is-not-a-migration.html" class="active"><span>01</span>Your ticket classifier’s model got deprecated</a>
+      <a href="02-when-labels-move-refine-not-remodel.html"><span>02</span>Support changed the labeling policy</a>
+      <a href="03-dependabot-for-prompts-in-ci.html"><span>03</span>Prompt repair that doesn’t wait on memory</a>
+      <a href="04-cheaper-model-same-quality-bar.html"><span>04</span>Finance wants cheaper inference, same bar</a>
+      <a href="05-audit-labels-before-you-trust-f1.html"><span>05</span>Offline F1 is lying — labels conflict</a>
+      <a href="06-trust-your-llm-judge.html"><span>06</span>Free-form answers graded by an LLM judge</a>
+      <a href="07-rag-prompts-drift-too.html"><span>07</span>RAG QA: new answer model, same knowledge base</a>
+      <a href="08-agent-tool-selection-drift.html"><span>08</span>Tool-calling agent: new planner, same tools</a>
+    </nav>
+  </aside>
+  <main class="blog-content" id="main-content">
+
+      <div class="article-meta">
+        <span>Use-case guide 01</span>
+        <span>Driftless field notes</span>
+      </div>
+<h1 id="your-ticket-classifiers-model-got-deprecated">Your ticket classifier’s model got deprecated</h1>
+<h2 id="the-use-case">The use case</h2>
+<p>You run a support product that routes every inbound ticket through an LLM<br />
+classifier before a human ever sees it. The model returns a small JSON object<br />
+like <code>{"category": "billing"}</code>. Downstream code parses that JSON strictly — no<br />
+markdown fences, no extra prose — and files the ticket into billing, technical,<br />
+account, or refund.</p>
+<p>For months the system runs on <code>gpt-3.5-turbo</code>. The prompt and few-shot examples<br />
+were tuned for that model. Then the provider announces deprecation. Someone on<br />
+the team updates one line in <code>config/llm.yml</code> to <code>gpt-4o-mini</code>, opens a PR, and<br />
+merges. Unit tests still pass. Staging still "looks fine" because people spot-check<br />
+a handful of tickets in the playground.</p>
+<p>Two weeks later the support queue spikes. Roughly half the tickets never get a<br />
+category: the new model wraps JSON in markdown code fences, your parser correctly<br />
+rejects the output as invalid, and the workflow records <code>null</code>. Refund tickets<br />
+also start landing in billing because the old prompt never spelled out the<br />
+rule clearly enough for the new model's priors.</p>
+<p>Nothing in infrastructure broke. The model ID changed; the prompt did not. That<br />
+gap — treating a model swap like a dependency bump instead of a behavior change —<br />
+is the use case this post covers.</p>
+<p><strong>What driftless does here:</strong> run <em>your</em> eval harness under the candidate model,<br />
+repair only the prompt files you allow, validate on a holdout split the optimizer<br />
+never saw, and open a PR (or issue) with metrics and diffs.</p>
+<p>Artifact reference:<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> separates public testbed PR</p>
+<h1 id="4-290-labels-0904-tuning-0901-holdout-from-the-different-bundled">4 (290 labels, <code>0.904</code> tuning / <code>0.901</code> holdout) from the different bundled</h1>
+<p>four-row saved fixture (<code>1.000</code> metrics). The published CLI ships no<br />
+deterministic repair generator; exact key-free reproduction covers the compare<br />
+and blocked <code>--generator none</code> paths, while successful LLM repair requires<br />
+provider credentials and is nondeterministic.</p>
+<p><img alt="Actual Driftless compare output showing the target model blocked by the quality gate" src="../visuals/compare-terminal.png" /></p>
+<p>The walkthrough uses a <strong>real, runnable example</strong> in<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a>:<br />
+a fictional B2B SaaS with ~290 labeled tickets and the same strict JSON contract.</p>
+<p>If you only remember one rule: <strong>change the model under the same harness before<br />
+you merge the model change.</strong> A migration is not "does the new model answer?"<br />
+It is "does the new model satisfy the same parser, labels, cost accounting, and<br />
+release gate as production?"</p>
+<hr />
+<h2 id="the-app-and-why-a-one-line-swap-fails">The app (and why a one-line swap fails)</h2>
+<p>The service looks like production LLM apps you already have:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Testbed path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt + few-shots</td>
+<td><code>prompts/system.md</code>, <code>prompts/examples.yml</code></td>
+</tr>
+<tr>
+<td>Model default</td>
+<td><code>config/llm.yml</code> → <code>gpt-3.5-turbo</code></td>
+</tr>
+<tr>
+<td>Runtime override</td>
+<td><code>SUPPORT_CLASSIFIER_MODEL</code> env var</td>
+</tr>
+<tr>
+<td>Eval harness</td>
+<td><code>python evals/run_eval.py</code></td>
+</tr>
+<tr>
+<td>Gold labels</td>
+<td><code>evals/tickets.labels.jsonl</code> (<strong>290</strong> tickets)</td>
+</tr>
+<tr>
+<td>Output contract</td>
+<td><code>schemas/ticket.schema.json</code></td>
+</tr>
+<tr>
+<td>Parser (strict)</td>
+<td><code>src/support_classifier/postprocess.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>The parser <strong>does not</strong> strip markdown fences — by design. From the code:</p>
+<blockquote>
+<p><em>We do not try to rescue markdown-fenced output here — surfacing those as<br />
+failures is the point (it's a real production parsing bug).</em></p>
+</blockquote>
+<p>The migration contract lives in <code>driftless.yml</code>. Both <code>support_classifier</code> and<br />
+a second workflow <code>quick_triage</code> still default to <code>gpt-3.5-turbo</code>, which the<br />
+lifecycle catalog marks <strong>deprecated</strong> (retirement date in the past as of 2026).</p>
+<hr />
+<h2 id="reproduce-the-naive-regression-free-offline">Reproduce the naive regression (free, offline)</h2>
+<p>Clone the testbed and reset the prompt to the <strong>hand-written baseline</strong> used in<br />
+CI migrations (before any repair):</p>
+<pre><code class="language-bash">git clone https://github.com/driftless-dev/support-classifier-svc
+cd support-classifier-svc
+pip install -r requirements.txt driftless
+
+cp evals/fixtures/prompt-baseline-scenario3.md prompts/system.md
+
+export SUPPORT_CLASSIFIER_SIMULATE=1   # deterministic simulator, no API key
+driftless compare -w support_classifier --to gpt-4o-mini
+</code></pre>
+<p>That baseline prompt is short — it never says "raw JSON only":</p>
+<pre><code class="language-markdown">- billing: questions about invoices, charges, payments, or subscriptions
+- refund: the customer wants their money returned
+...
+Respond in JSON with a single &quot;category&quot; field, for example: {&quot;category&quot;: &quot;billing&quot;}
+</code></pre>
+<p>On a real run against the simulator (July 2026), <code>compare</code> prints:</p>
+<pre><code>Running gpt-3.5-turbo (baseline) and gpt-4o-mini (target)...
+
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Metric            ┃ Current ┃ Target (orig files) ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ F1                │   0.903 │               0.000 │
+│ Schema error rate │    0.0% │              100.0% │
+│ Total cost        │   0.033 │               0.011 │
+└───────────────────┴─────────┴─────────────────────┘
+
+Thresholds (target vs contract):
+  FAIL min_f1: 0.000 &gt;= 0.9
+  FAIL max_schema_error_rate: 1.000 &lt;= 0.02
+
+Naive target does not pass - run driftless migrate ...
+</code></pre>
+<p><strong>Current model passes. Naive swap fails every threshold.</strong> F1 collapses to zero<br />
+because <strong>100% of target outputs fail schema validation</strong> — the simulator is<br />
+deliberately adversarial here, modeling <code>gpt-4o-mini</code> returning fenced JSON that<br />
+<code>parse_category()</code> rejects.</p>
+<p>Do not treat that offline number as a benchmark for either provider model. Treat<br />
+it as a production-contract test: if a new model changes output shape, your eval<br />
+should fail before your parser does. The live 2x2 later in this post shows the<br />
+more common version of the same problem: no schema explosion, but a real quality<br />
+drop once the prompt has been tuned around the old model.</p>
+<hr />
+<h2 id="step-1-describe-the-workflow-once">Step 1: Describe the workflow once</h2>
+<p>The committed <code>driftless.yml</code> (abbreviated) wires the harness, editable files,<br />
+and gates:</p>
+<pre><code class="language-yaml">workflows:
+  support_classifier:
+    run:
+      command: python evals/run_eval.py
+      input_path: evals/tickets.inputs.jsonl
+      output_path: evals/outputs.jsonl
+    model:
+      current: gpt-3.5-turbo
+      target_candidates: [gpt-4o-mini]
+      env_var: SUPPORT_CLASSIFIER_MODEL
+      config_file: config/llm.yml
+      config_path: support_classifier.model
+    files:
+      editable: [prompts/system.md, prompts/examples.yml]
+    eval:
+      labels_path: evals/tickets.labels.jsonl
+      label_field: category
+      cost_field: cost_usd          # per-record cost for plan/compare
+    thresholds:
+      min_f1: 0.90
+      max_schema_error_rate: 0.02
+    migration:
+      holdout_required: true
+      max_iterations: 6
+</code></pre>
+<p>Driftless shells out to <code>run_eval.py</code> with <code>SUPPORT_CLASSIFIER_MODEL</code> set. It<br />
+never reimplements your post-processing.</p>
+<pre><code class="language-bash">driftless validate -w support_classifier   # contract + one harness run
+</code></pre>
+<hr />
+<h2 id="step-2-compare-is-your-pre-flight-check">Step 2: Compare is your pre-flight check</h2>
+<p><code>compare</code> is the evidence you attach to the migration PR <em>before</em> anyone merges<br />
+a model bump. It answers: <em>does this swap pass our bar with today's prompt?</em></p>
+<p>The scorecard above is the answer: <strong>no.</strong> Save the JSON under<br />
+<code>.driftless/compare/support_classifier.json</code> for <code>report</code> / <code>open-pr</code>.</p>
+<p>Decision snapshot:</p>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>What it means</th>
+<th>Next command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target passes thresholds</td>
+<td>Candidate is shippable as-is</td>
+<td><code>driftless open-pr</code></td>
+</tr>
+<tr>
+<td>Target fails, repair may help</td>
+<td>Prompt is coupled to the old model</td>
+<td><code>driftless migrate</code></td>
+</tr>
+<tr>
+<td>Holdout still fails after repair</td>
+<td>Evidence is useful, merge is not</td>
+<td>Open an issue</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="step-3-migrate-open-a-pr">Step 3: Migrate + open a PR</h2>
+<pre><code class="language-bash"># Simulator repair (deterministic, no API key):
+SUPPORT_CLASSIFIER_SIMULATE=1 driftless migrate -w support_classifier \
+  --to gpt-4o-mini --generator llm   # needs OPENAI_API_KEY for the repair LLM
+
+# Real end-to-end (what the testbed's &quot;Migrate model&quot; Action does):
+export OPENAI_API_KEY=...
+driftless migrate -w support_classifier --to gpt-4o-mini --generator llm
+driftless open-pr -w support_classifier --create
+</code></pre>
+<p>The testbed workflow<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/migrate-on-model-change.yml"><code>.github/workflows/migrate-on-model-change.yml</code></a><br />
+does exactly this: restores the baseline prompt fixture, runs <code>audit-labels</code>,<br />
+<code>compare</code>, <code>migrate --strict-label-audit</code>, then <code>open-pr --create</code>. The PR body<br />
+includes the scorecard, file diffs, and attempt log.</p>
+<p><strong>Blocked is valid.</strong> If holdout F1 cannot reach <code>min_f1: 0.90</code>, driftless<br />
+opens an <strong>issue</strong> with evidence instead of a false-confidence PR.</p>
+<hr />
+<h2 id="real-api-numbers-differ-from-the-simulator-on-purpose">Real API numbers differ from the simulator (on purpose)</h2>
+<p>The simulator exaggerates fenced-JSON failures so CI can prove the <em>workflow</em><br />
+without keys. On <strong>live</strong> <code>gpt-3.5-turbo</code> / <code>gpt-4o-mini</code> with the same<br />
+hand-written prompt, macro-F1 is ~<strong>0.92</strong> for both — the dramatic regression<br />
+doesn't show until you've optimized the prompt.</p>
+<p>That caveat is the point, not a footnote. Offline simulation proves plumbing and<br />
+contract failure handling. Live runs prove provider behavior. A serious migration<br />
+uses both, and the PR should label which evidence came from which mode.</p>
+<p>The testbed documents a <strong>2×2 control</strong> on all <strong>290</strong> labels (real API):</p>
+<table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th><code>gpt-3.5-turbo</code></th>
+<th><code>gpt-4o-mini</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0</strong> — original hand prompt</td>
+<td>0.922</td>
+<td>0.904</td>
+</tr>
+<tr>
+<td><strong>P_src*</strong> — optimized on source</td>
+<td>0.993</td>
+<td>0.921</td>
+</tr>
+<tr>
+<td><strong>P_tgt*</strong> — optimized on target</td>
+<td>1.000</td>
+<td>0.987</td>
+</tr>
+</tbody>
+</table>
+<p>Takeaways:</p>
+<ul>
+<li><strong>0.922 → 0.993</strong> on the source is mostly <em>prompt debt</em>, not "migration."</li>
+<li><strong>0.993 → 0.921</strong> after swap is <em>model-induced drift</em> (few-shots tuned for<br />
+  the wrong model).</li>
+<li><strong>0.921 → 0.987</strong> after <code>migrate</code>/<code>refine</code> on the target is the migration<br />
+  win you should report.</li>
+</ul>
+<p>Full methodology:<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md#measuring-migration-gains-honestly">Measuring migration gains honestly</a>.</p>
+<hr />
+<h2 id="what-plan-sees-today">What <code>plan</code> sees today</h2>
+<p>Both workflows still on <code>gpt-3.5-turbo</code>:</p>
+<pre><code class="language-bash">SUPPORT_CLASSIFIER_SIMULATE=1 driftless plan
+</code></pre>
+<pre><code>┃ Workflow          ┃ Trigger     ┃ Migrate                    ┃ Decision        ┃
+│ support_classifier│ deprecation │ gpt-3.5-turbo -&gt; gpt-4o-mini │ ISSUE (critical) │
+│ quick_triage      │ deprecation │ gpt-3.5-turbo -&gt; gpt-4o-mini │ ISSUE (critical) │
+
+2 workflow(s) need action across 1 model move(s):
+  gpt-3.5-turbo -&gt; gpt-4o-mini (deprecation): support_classifier, quick_triage
+</code></pre>
+<p>Grouped by move, not two duplicate PRs — see <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>.</p>
+<hr />
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><strong>Post 2:</strong> labels move, model stays → <a href="02-when-labels-move-refine-not-remodel.html"><code>refine</code></a></li>
+<li><strong>Post 3:</strong> schedule this in GitHub Actions → <a href="03-dependabot-for-prompts-in-ci.html"><code>init-ci</code> / <code>plan</code></a></li>
+<li><strong>Try it:</strong> <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a> → Actions → <strong>Migrate model</strong></li>
+</ul>
+<nav class="post-nav" aria-label="Adjacent posts"><a class="next" href="02-when-labels-move-refine-not-remodel.html"><span>Next →</span><strong>Support changed the labeling policy</strong></a></nav>
+  </main>
+</div>
+<footer class="blog-footer">
+  <a class="wordmark" href="../index.html">
+    <span class="wordmark-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M7 10h10M7 16h18M7 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m20 9 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span>driftless</span>
+  </a>
+  <span>Keep models, prompts, and eval data in sync.</span>
+  <span>MIT licensed · 2026</span>
+</footer>
+</body>
+</html>

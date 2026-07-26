@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Callable
 
 import typer
 from rich.console import Console
@@ -622,7 +623,7 @@ def _act_on_trigger(
     """
     from .engine import run_migration
     from .generators import build_generator
-    from .github import apply_model_change, build_pr_plan, execute_plan
+    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
     from .report import render_markdown, result_to_dict, save_report
 
     try:
@@ -632,12 +633,24 @@ def _act_on_trigger(
         result_dict = result_to_dict(result)
         report_md = render_markdown(result, wf)
         committed = list(result_dict.get("edited_files", []))
-        if result_dict.get("succeeded") and committed:
-            changed = apply_model_change(wf, result_dict["target_model"], cwd=cwd)
+        prepare_files: Callable[[], object] | None = None
+        if result_dict.get("succeeded"):
+            changed = model_change_file(wf, cwd=cwd)
             if changed and changed not in committed:
                 committed.append(changed)
+            if create and changed:
+                prepare_files = lambda: apply_model_change(
+                    wf, result_dict["target_model"], cwd=cwd
+                )
         plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
-        actions = execute_plan(plan_obj, cwd=cwd, create=create, push=True, dedupe=True)
+        actions = execute_plan(
+            plan_obj,
+            cwd=cwd,
+            create=create,
+            push=True,
+            dedupe=True,
+            prepare_files=prepare_files,
+        )
     except DriftlessError as exc:
         return False, f"{name} -> {candidate_model}: error: {exc.message}"
 
@@ -1259,7 +1272,7 @@ def open_pr(
     """Open a PR (or issue) from the latest migration result for a workflow."""
     import json
 
-    from .github import apply_model_change, build_pr_plan, execute_plan
+    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
 
     cwd = Path.cwd()
     result_path = cwd / ".driftless" / "migrations" / f"{workflow}.json"
@@ -1278,12 +1291,24 @@ def open_pr(
         contract = load_contract(contract_path)
         wf = contract.workflow(workflow)
         committed = list(result.get("edited_files", []))
-        if result.get("succeeded") and committed:
-            changed = apply_model_change(wf, result["target_model"], cwd=cwd)
+        prepare_files: Callable[[], object] | None = None
+        if result.get("succeeded"):
+            changed = model_change_file(wf, cwd=cwd)
             if changed and changed not in committed:
                 committed.append(changed)
+            if create and changed:
+                prepare_files = lambda: apply_model_change(
+                    wf, result["target_model"], cwd=cwd
+                )
         plan = build_pr_plan(result, report_md, committed_files=committed)
-        actions = execute_plan(plan, cwd=cwd, create=create, push=push, dedupe=dedupe)
+        actions = execute_plan(
+            plan,
+            cwd=cwd,
+            create=create,
+            push=push,
+            dedupe=dedupe,
+            prepare_files=prepare_files,
+        )
     except DriftlessError as exc:
         _fail(exc)
         return

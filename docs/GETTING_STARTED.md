@@ -3,11 +3,14 @@
 The fastest way to understand Driftless is to run a bundled example. No provider
 keys are required.
 
-## Try the Classification Example
+> **Upgrading from 0.2.x?** Version 0.3.0 rejects legacy
+> `migration.allow_*` fields. Update each contract to use exact paths in
+> `files.editable` before installing it; see [Upgrading Driftless](./UPGRADING.md)
+> for before/after YAML and the complete edit-policy rules.
+
+## Golden Path: Support Classifier
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
 pip install driftless
 
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
@@ -17,65 +20,65 @@ driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
 This is the smallest gold-label path: a deterministic ticket classifier with
-macro-F1 thresholds and cost tracking.
-
-## Try the RAG Example
-
-```bash
-driftless copy-example rag-qa --out-dir driftless-rag-demo
-cd driftless-rag-demo
-driftless validate -w rag_qa
-driftless compare -w rag_qa --to gpt-4o-mini
-```
-
-Expected shape:
+macro-F1 thresholds and cost tracking. The comparison intentionally produces:
 
 ```text
 Running gpt-4 (baseline) and gpt-4o-mini (target)...
 
 Metric              Current   Target (orig files)
-Score / pass-rate     1.000                 0.000
-Total cost            0.072                 0.016
+F1                    1.000                 0.000
+Total cost            0.024                 0.004
 
 Thresholds (target vs contract):
-  FAIL min_score: 0.000 >= 0.86
-  PASS max_cost_increase: -77.8% <= +20%
+  FAIL min_f1: 0.000 >= 0.9
 ```
 
-The target is cheaper, but it fails the quality bar. That is the core Driftless
-loop: measure the model change through the real workflow before changing
-production defaults.
+The output is deliberate: the target costs less, but its classifier output
+drifts and fails the quality bar. Driftless therefore prevents a cheap but
+unsafe model swap.
 
-## Try the Agent Example
+Continue through the key-free blocked path:
 
 ```bash
-driftless copy-example tool-agent --out-dir driftless-agent-demo
-cd driftless-agent-demo
-driftless validate -w support_agent
-driftless compare -w support_agent --to gpt-4o-mini
+driftless migrate -w support_classifier --to gpt-4o-mini --generator none
+driftless report -w support_classifier
+driftless open-pr -w support_classifier
 ```
 
-The agent example emits trace fields (`tools`, `tool_errors`, `final`) plus a
-numeric `score`, so the eval catches bad tool selection even when the final text
-sounds plausible.
+`migrate` is expected to exit non-zero with `BLOCKED`; run the next commands
+afterward. `--generator none` makes no edits and needs no provider credentials.
+`report` renders the evidence saved by the migration, and `open-pr` previews the
+issue it would create. It is a dry run unless you add `--create`.
 
-## Next Commands
+## Other Bundled Examples
 
-After `compare` shows a target regression:
+`copy-example` includes all three examples:
 
 ```bash
-driftless migrate -w rag_qa --to gpt-4o-mini --generator none
-driftless report -w rag_qa
-driftless open-pr -w rag_qa
-driftless view
+driftless copy-example support-classifier
+driftless copy-example rag-qa
+driftless copy-example tool-agent
 ```
 
-`--generator none` makes no edits and produces the blocked-report path without
-provider keys. Use the default `--generator llm` when you are ready for
-provider-backed prompt/config repair.
+The RAG example uses numeric score/pass-rate grading. The tool-agent example
+emits trace fields (`tools`, `tool_errors`, `final`) so its eval catches bad tool
+selection even when the final text sounds plausible.
 
-See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for the issue
-body and dry-run GitHub action produced by this flow.
+## Adopt Driftless in an Existing Repository
+
+The bundled example is the fastest product tour. For a repository that already
+contains an LLM workflow, discover it and scaffold a contract separately:
+
+```bash
+cd your-existing-repo
+driftless scan
+driftless configure <workflow>
+driftless validate -w <workflow>
+driftless compare -w <workflow> --to <model>
+```
+
+See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for an example
+issue body and dry-run GitHub action produced by the same blocked path.
 
 ## If A Command Fails
 

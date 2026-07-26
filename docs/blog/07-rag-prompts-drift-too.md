@@ -1,23 +1,39 @@
-# RAG prompts drift too
+# RAG QA: new answer model, same knowledge base
 
 **Status:** publishable draft — uses the in-repo deterministic
-[`examples/rag-qa`](../../examples/rag-qa) fixture. Add screenshots before
-publishing externally.
+[`examples/rag-qa`](../../examples/rag-qa) fixture and includes a run-viewer
+capture.
 
-**Use case:** A retrieval QA app moves from a larger model to a cheaper/faster
-candidate. The retrieval index is unchanged. The candidate still answers, but it
-stops grounding answers in retrieved context and drops citations.
+## The use case
 
-**What driftless does:** run the whole RAG pipeline under the candidate model,
-score the final answer/citations through your evaluator, and repair only the
-prompt/config files you allow.
+You ship a retrieval-augmented QA feature: user asks a question, the app
+retrieves chunks from a knowledge base, and an LLM writes an answer that should
+stay grounded in those chunks and cite them. Quality is measured end-to-end —
+not "did the LLM sound plausible?" but "did the answer use the retrieved
+context correctly?"
 
-Artifact reference: the saved
-[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the evidence
-shape a passing migration PR should have; the RAG fixture uses the same report
-and `open-pr` path.
+Then you change the generator model (deprecation, cost, or latency). The
+**retrieval index stays the same**. On smoke tests the new model still answers
+every question. In eval, though, groundedness falls: answers invent details that
+were not in the retrieved context, or they drop citations the product requires.
+Teams often misread this as "we need to re-embed the corpus" or "RAG is broken."
+Usually the failure is in the **generator / retrieval prompt contract** under the
+new model — the same prompt-debt pattern as a classifier swap, with a longer
+pipeline.
 
-![Run viewer excerpt](../visuals/run-viewer-excerpt.svg)
+The use case is migrating a RAG *workflow* while holding the index fixed, and
+proving the end-to-end eval still passes before you merge.
+
+**What driftless does here:** run the whole RAG pipeline under the candidate
+model, score the final answer/citations through your evaluator, and repair only
+the prompt/config files you allow — not the embedding store.
+
+Artifact reference:
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) shows the evidence shape and
+separates public testbed PR #4 from the different bundled saved success fixture;
+the RAG fixture uses the same report and `open-pr` path.
+
+![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 
 If you only remember one rule: **RAG migration is not embedding migration.**
 Keep the index fixed for this workflow. Let Driftless optimize the generator and

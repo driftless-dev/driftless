@@ -14,6 +14,7 @@ from driftless.engine import (
     run_migration,
     validate_patch_scope,
 )
+from driftless.errors import DriftlessError
 from driftless.evaluation import RecordRow
 
 # A demo workflow whose target-model behavior depends on the editable prompt.
@@ -156,8 +157,70 @@ def test_blocked_without_override(tmp_path: Path):
 def test_validate_patch_scope_rejects_non_editable(tmp_path: Path):
     wf = _make_workflow(tmp_path)
     bad = Patch(files={"src/business_logic.py": "malicious"})
-    with pytest.raises(Exception):
+    with pytest.raises(DriftlessError) as exc_info:
         validate_patch_scope(bad, wf, tmp_path)
+    assert "src/business_logic.py" in str(exc_info.value)
+    assert exc_info.value.hint is not None
+    assert "exact paths listed in files.editable" in exc_info.value.hint
+
+
+def test_validate_patch_scope_uses_paths_not_file_categories(tmp_path: Path):
+    wf = _make_workflow(tmp_path)
+    wf.files.editable = ["schemas/output.json", "src/prompt_builder.py"]
+
+    validate_patch_scope(
+        Patch(
+            files={
+                "schemas/output.json": '{"type": "object"}',
+                "src/prompt_builder.py": 'PROMPT = "new"',
+            }
+        ),
+        wf,
+        tmp_path,
+    )
+
+
+def test_run_migration_rejects_editable_path_outside_repository(tmp_path: Path):
+    wf = _make_workflow(tmp_path)
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
+    outside.write_text("must remain unchanged")
+    wf.files.editable = [f"../{outside.name}"]
+
+    with pytest.raises(DriftlessError) as exc_info:
+        run_migration("demo", wf, "weak", generator=StrictGen(), cwd=tmp_path)
+
+    assert "files.editable path resolves outside the repository root" in str(exc_info.value)
+    assert exc_info.value.hint is not None
+    assert "repository-relative path" in exc_info.value.hint
+    assert outside.read_text() == "must remain unchanged"
+
+
+def test_run_migration_rejects_context_path_outside_repository(tmp_path: Path):
+    wf = _make_workflow(tmp_path)
+    outside = tmp_path.parent / f"{tmp_path.name}-context.txt"
+    outside.write_text("private context")
+    wf.files.context = [f"../{outside.name}"]
+
+    with pytest.raises(DriftlessError) as exc_info:
+        run_migration("demo", wf, "weak", cwd=tmp_path)
+
+    assert "files.context path resolves outside the repository root" in str(exc_info.value)
+    assert exc_info.value.hint is not None
+
+
+def test_editable_symlink_cannot_escape_repository(tmp_path: Path):
+    outside_dir = tmp_path.parent / f"{tmp_path.name}-outside-dir"
+    outside_dir.mkdir()
+    (outside_dir / "prompt.txt").write_text("must remain unchanged")
+    (tmp_path / "linked").symlink_to(outside_dir, target_is_directory=True)
+    wf = _make_workflow(tmp_path)
+    wf.files.editable = ["linked/prompt.txt"]
+
+    with pytest.raises(DriftlessError) as exc_info:
+        run_migration("demo", wf, "weak", generator=StrictGen(), cwd=tmp_path)
+
+    assert "files.editable path resolves outside the repository root" in str(exc_info.value)
+    assert (outside_dir / "prompt.txt").read_text() == "must remain unchanged"
 
 
 def test_apply_files_restores(tmp_path: Path):

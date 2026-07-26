@@ -1,11 +1,13 @@
 import json
 import re
+from types import SimpleNamespace
 from pathlib import Path
 
 from typer.testing import CliRunner
 
-from driftless import github
-from driftless.cli import app
+from driftless import engine, generators, github, report
+from driftless.cli import _act_on_trigger, app
+from driftless.contract import Workflow
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -133,9 +135,11 @@ def test_open_pr_dry_run_reads_migration_artifacts(tmp_path, monkeypatch):
     (tmp_path / "prompts").mkdir()
     (tmp_path / "prompts" / "system.md").write_text("prompt\n")
     (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "llm.yml").write_text(
+    config_path = tmp_path / "config" / "llm.yml"
+    config_path.write_text(
         "workflows:\n  support_classifier:\n    model: gpt-4o-mini\n"
     )
+    original_config = config_path.read_bytes()
     Path("driftless.yml").write_text(
         """
 version: 1
@@ -171,6 +175,61 @@ workflows:
     assert "Dry run" in result.output
     assert "create branch" in result.output
     assert "re-run with --create" in result.output
+    assert config_path.read_bytes() == original_config
+
+
+def test_plan_act_dry_run_does_not_change_model_config(tmp_path, monkeypatch):
+    config_path = tmp_path / "llm.yml"
+    config_path.write_text("model: provider/old-model\n")
+    original_config = config_path.read_bytes()
+    wf = Workflow.model_validate(
+        {
+            "run": {"command": "true", "input_path": "i", "output_path": "o"},
+            "model": {
+                "current": "provider/old-model",
+                "config_file": "llm.yml",
+                "config_path": "model",
+            },
+        }
+    )
+    migration_result = SimpleNamespace(status=SimpleNamespace(value="pass"))
+    result_dict = {
+        "workflow": "demo/workflow",
+        "current_model": "provider/old-model",
+        "target_model": "provider/new:model",
+        "succeeded": True,
+        "edited_files": [],
+    }
+    seen: dict = {}
+
+    monkeypatch.setattr(engine, "run_migration", lambda *args, **kwargs: migration_result)
+    monkeypatch.setattr(generators, "build_generator", lambda name: object())
+    monkeypatch.setattr(report, "save_report", lambda *args, **kwargs: None)
+    monkeypatch.setattr(report, "result_to_dict", lambda result: result_dict)
+    monkeypatch.setattr(report, "render_markdown", lambda *args: "# report")
+
+    def fake_execute(plan, *, cwd, create, push, dedupe, prepare_files):
+        seen["plan"] = plan
+        seen["prepare_files"] = prepare_files
+        return ["dry run"]
+
+    monkeypatch.setattr(github, "execute_plan", fake_execute)
+
+    ok, _ = _act_on_trigger(
+        "demo/workflow",
+        wf,
+        "provider/new:model",
+        generator_name="none",
+        create=False,
+        seed=0,
+        cwd=tmp_path,
+    )
+
+    assert ok
+    assert config_path.read_bytes() == original_config
+    assert seen["plan"].files == ["llm.yml"]
+    assert seen["plan"].kind == "pr"
+    assert seen["prepare_files"] is None
 
 
 def test_open_pr_create_invokes_execute_plan(tmp_path, monkeypatch):
@@ -208,8 +267,9 @@ workflows:
 
     seen: dict = {}
 
-    def fake_execute(plan, *, cwd, create, push, dedupe):
+    def fake_execute(plan, *, cwd, create, push, dedupe, prepare_files):
         seen.update(create=create, push=push, dedupe=dedupe, kind=plan.kind, title=plan.title)
+        assert prepare_files is None
         return ["create branch: x", "PR created"]
 
     monkeypatch.setattr(github, "execute_plan", fake_execute)

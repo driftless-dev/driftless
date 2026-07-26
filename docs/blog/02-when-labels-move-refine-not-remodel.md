@@ -1,11 +1,29 @@
-# When labels move, refine — don't re-model
+# Support changed the labeling policy — model stays put
 
-**Use case:** Support ops decides charge reversals are **refunds**, not
-**billing**. Nobody touches the model string. Accuracy on the eval set drops
-anyway — because "correct" changed, not because GPT got worse.
+## The use case
 
-**What driftless does:** pin the model, re-optimize allowed prompt files against
-the new gold labels, validate on holdout, open a PR.
+Same support classifier as [post 1](./01-model-swap-is-not-a-migration.md): every
+ticket gets a gold category so you can measure quality offline. For a long time,
+tickets like *"Please reverse the payment on my latest invoice"* are labeled
+**billing** — the team treated a charge correction as a billing adjustment, not
+a refund.
+
+Then support ops updates the labeling policy. After a product decision, those
+charge-reversal tickets should be **refund**, not billing. An engineer runs a
+script (or an annotator edits the JSONL), commits ~25 relabeled rows, and merges.
+Nobody changes the model ID in config. Production still calls the same model with
+the same prompt.
+
+On the next eval run, accuracy drops. Dashboards look like a model regression.
+Someone proposes swapping to a "smarter" model. That is the wrong diagnosis: the
+oracle moved. The prompt still teaches the *old* definition of billing vs refund,
+so the pinned model is now wrong for the new definition of "correct."
+
+This is dataset drift, not model drift. The job is to re-tune the prompt against
+the updated labels while keeping the model fixed — not to chase a new model ID.
+
+**What driftless does here:** pin the model, re-optimize allowed prompt files
+against the new gold labels (`refine`), validate on holdout, and open a PR.
 
 Again we use
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)

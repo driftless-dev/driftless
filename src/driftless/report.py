@@ -489,7 +489,7 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
             parts.append(f"- Edited `{f}`")
         if committed_diff is not None:
             parts.append(f"- Edit size: {committed_diff} changed line(s) vs. the original.")
-        parts.append("- Output schema and read-only files were preserved.")
+        parts.append("- No files outside the explicit `files.editable` allowlist were changed.")
     elif result.status == MigrationStatus.MODEL_CHANGE_ONLY:
         parts.append("- Updated model ID only. No prompt/config changes were required.")
     elif result.status == MigrationStatus.NO_CHANGE:

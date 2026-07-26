@@ -43,9 +43,11 @@ Recently improved:
 
 Still not fully self-serve:
 
-- Screenshots are missing for the scorecard, report, run viewer, and PR body.
-- Saved review fixtures now cover both blocked issue and successful PR paths,
-  but they are not yet real public GitHub screenshots.
+- Genuine captures now cover executed CLI output, a real public GitHub PR and
+  diff, and the run viewer.
+- The public PR #4 proof is explicitly separated from the bundled four-row
+  saved success fixture; the published CLI does not include the testbed-specific
+  deterministic patch tooling used to prepare PR #4.
 
 ## P0 Before Wider Launch
 
@@ -54,9 +56,9 @@ Still not fully self-serve:
 Status: implemented in [`docs/GETTING_STARTED.md`](./GETTING_STARTED.md) and the
 README via `driftless copy-example`.
 
-Create a short "Try Driftless in 5 minutes" path using a bundled fixture.
-Recommended fixture: `examples/rag-qa`, because it demonstrates non-classifier
-scoring, cost, and prompt/config-only migration scope without provider keys.
+Create a short "Try Driftless in 5 minutes" path using the bundled
+`support-classifier` fixture. It demonstrates deterministic quality and cost
+gates, then continues through a key-free blocked migration.
 
 Acceptance criteria:
 
@@ -85,9 +87,9 @@ Acceptance criteria:
 
 ### 3. Screenshots and visual proof
 
-Status: partially implemented via
-[`docs/VISUAL_PROOF_PLAN.md`](./VISUAL_PROOF_PLAN.md). Checked-in SVG excerpts
-are available, but actual PNG/browser screenshots are still open.
+Status: implemented via [`docs/VISUAL_PROOF_PLAN.md`](./VISUAL_PROOF_PLAN.md).
+Genuine PNG captures cover the executed comparison, public successful PR and
+files-changed view, and run viewer.
 
 Capture the product surfaces that make the value obvious.
 
@@ -119,12 +121,12 @@ Acceptance criteria:
 
 ### 5. One complete example PR
 
-Status: implemented via saved fixtures:
+Status: implemented via separate public and bundled artifacts:
 [`docs/EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) captures the
 blocked issue/report path, and
 [`docs/EXAMPLE_SUCCESS_PR.md`](./EXAMPLE_SUCCESS_PR.md) captures the successful
-PR path with prompt diff, scorecard, thresholds, report body, and reviewer
-instructions.
+paths: public testbed PR #4 and a different bundled four-row saved fixture with
+prompt diff, scorecard, thresholds, report body, and reviewer instructions.
 
 Create or capture a canonical evidence-backed PR.
 
@@ -136,7 +138,7 @@ Acceptance criteria:
 
 ### 6. Release/version polish
 
-Status: implemented. Version references are aligned to the `0.2.15` release
+Status: implemented. Version references are aligned to the `0.3.0` release
 line, and `scripts/release-check.sh` verifies that `action.yml` matches
 `src/driftless/__init__.py`.
 
@@ -207,7 +209,7 @@ These do not block showing the project to early users:
   side-effect-free.
 - Statistical significance reporting.
 
-## Suggested Order
+## Ongoing Maintenance
 
-1. Screenshots for README/blog.
-2. Public demo PR or issue screenshots once a testbed run is available.
+Keep generated blog HTML fresh in CI, run the static site link check, and label
+future captures with their fixture, dataset size, and reproduction requirements.

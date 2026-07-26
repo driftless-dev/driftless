@@ -81,6 +81,8 @@ jobs:
           python tools/refresh_catalog.py --validate
 
       - name: Open PR if the catalog changed
+        id: catalog_pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "chore(catalog): refresh model lifecycle data"
@@ -93,3 +95,16 @@ jobs:
           delete-branch: true
           add-paths: |
             src/driftless/data/model_lifecycle.json
+
+      - name: Report catalog branch when PR creation is disabled
+        if: steps.catalog_pr.outcome == 'failure'
+        run: |
+          {
+            echo "## Catalog updated, PR creation unavailable"
+            echo
+            echo "The update branch was pushed, but this repository currently blocks"
+            echo "GitHub Actions from creating pull requests. Enable **Allow GitHub"
+            echo "Actions to create and approve pull requests** in repository Actions"
+            echo "settings, then open a PR from \`chore/refresh-catalog\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Catalog PR not created::Enable repository Actions PR creation; update branch chore/refresh-catalog was pushed."

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+---
+
+## [0.3.0] - 2026-07-25
+
+This minor release contains a breaking contract-schema correction. Existing
+contracts that use `migration.allow_*` must migrate to exact `files.editable`
+paths before upgrading. See the [0.3 upgrade guide](docs/UPGRADING.md).
+
+### Added
+
 - **RAG and agent workflow guide/examples** — contract patterns plus runnable
   deterministic retrieval QA and tool-agent fixtures.
 - **Support classifier example** — runnable bundled gold-label classification
@@ -29,9 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no-key product walkthroughs.
 - **Cost and budget guidance** — practical defaults for eval sizes, RAG, agents,
   and judge-graded workflows.
+- **Security baseline** — vulnerability reporting policy, Dependabot updates,
+  and CodeQL scanning.
+- **Live product proof** — genuine CLI output plus public GitHub PR/report and
+  files-changed screenshots from the deterministic testbed migration.
 
 ### Changed
 
+- **Unified onboarding** — README, site docs, and example guides now use one
+  key-free support-classifier path with the same expected gated output.
+- **Exact edit policy** — `files.editable` is now the sole deterministic repair
+  boundary; generated contracts, reports, and repair docs use exact paths.
+- **Public site and blog** — redesigned around dependency synchronization,
+  scoped repair, holdout gating, and evidence-backed updates.
 - **`validate` success guidance** — successful validation now prints likely next
   commands, including the first configured target candidate when available.
 - **First-run error hints** — command-not-found and missing-label failures now
@@ -39,8 +63,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Workflow examples** — repository-local policy workflows no longer run on
+  schedules without a root contract, and catalog refresh reports disabled PR
+  permissions without failing the refresh.
+- **Landing CTA contrast** — primary navigation and hero button labels remain
+  visible under the landing-page link color rules.
+- **Safe PR previews and creation** — dry-run PR paths no longer modify model
+  configuration, and real config updates are deferred until after deduplication
+  and branch creation.
+- **Model-only config migrations** — successful naive swaps now propose the
+  configured model file as a PR instead of incorrectly requesting an
+  environment-variable update.
+- **Repository path containment** — editable, context, patch, and model config
+  paths that resolve outside the repository are rejected.
+- **Generated branch safety** — workflow and target model identifiers are
+  sanitized before being used in Git branch names.
+
 ### Removed
 
+- **Unenforceable migration category flags** — legacy `migration.allow_*`
+  options now fail with guidance to use explicit `files.editable` paths.
+
+### Upgrade notes
+
+- Replace every legacy `migration.allow_*` field with the complete list of
+  exact repository-relative paths Driftless may modify under `files.editable`.
+  Globs, directories, and file-type categories are not accepted. See the
+  [before/after migration example](docs/UPGRADING.md).
 ---
 
 ## [0.2.15] - 2026-07-01
@@ -273,14 +322,23 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.2.15...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/driftless-dev/driftless/compare/v0.2.15...v0.3.0
 [0.2.15]: https://github.com/driftless-dev/driftless/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.14
-[0.2.13]: https://github.com/driftless-dev/driftless/compare/v0.2.13...v0.2.14
-[0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
-[0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
-[0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
+[0.2.13]: https://github.com/driftless-dev/driftless/compare/v0.2.12...v0.2.13
+[0.2.12]: https://github.com/driftless-dev/driftless/compare/v0.2.11...v0.2.12
+[0.2.11]: https://github.com/driftless-dev/driftless/compare/v0.2.10...v0.2.11
+[0.2.10]: https://github.com/driftless-dev/driftless/compare/v0.2.9...v0.2.10
+[0.2.9]: https://github.com/driftless-dev/driftless/compare/v0.2.8...v0.2.9
+[0.2.8]: https://github.com/driftless-dev/driftless/compare/v0.2.7...v0.2.8
+[0.2.7]: https://github.com/driftless-dev/driftless/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/driftless-dev/driftless/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/driftless-dev/driftless/compare/v0.2.4...v0.2.5
+[0.2.4]: https://github.com/driftless-dev/driftless/compare/v0.2.3...v0.2.4
+[0.2.3]: https://github.com/driftless-dev/driftless/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/driftless-dev/driftless/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.1
-[0.2.0]: https://github.com/driftless-dev/driftless/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.0
 [0.1.1]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.1
 [0.1.0]: https://github.com/driftless-dev/driftless/releases/tag/v0.1.0

@@ -1,19 +1,38 @@
-# Dependabot for prompts in GitHub Actions
+# Prompt repair that doesn’t wait for someone to remember
 
-**Use case:** You have LLM workflows in git — prompts, eval JSONL, a harness
-command — but migrations only happen when someone forwards a provider
-deprecation email. Dataset updates merge without re-tuning. Nobody sees the
-same triage table twice.
+## The use case
 
-**What driftless does:** composite Action + scaffolder workflows: scan, plan,
-migrate/refine, open PRs — Dependabot-shaped, but the "dependency" is your
-prompt's **model + eval data**.
+Your LLM app already looks "done" from a git perspective: prompts live in the
+repo, gold labels live in JSONL, and a harness command can score quality offline.
+You can migrate a model or refine after a label change *when someone remembers
+to*.
 
-Artifact reference: the saved
-[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) fixture shows the PR body,
-prompt diff, and reviewer instructions produced by the same `open-pr` path.
+In practice, nobody owns that loop. Deprecations arrive as a Slack forward of a
+provider email. Someone bumps the model ID under deadline pressure (see
+[post 1](./01-model-swap-is-not-a-migration.md)). Separately, annotators merge
+label updates and CI never re-tunes the prompt (see
+[post 2](./02-when-labels-move-refine-not-remodel.md)). Cost opportunities sit
+unnoticed because no one runs a weekly triage. Each incident invents a one-off
+runbook; the next person cannot see the same decision table.
 
-![Successful PR artifact excerpt](../visuals/successful-pr-artifact.svg)
+What you want is Dependabot's shape applied to prompts: something that
+**watches** model lifecycle and eval data, **tests** candidates through your
+real harness, and **opens a PR or issue with evidence** — without requiring a
+hero engineer every Monday.
+
+**What driftless does here:** scaffold GitHub Actions (`init-ci`), apply a policy
+file for when to propose changes, and run `scan` / `plan` / `migrate` / `refine`
+through a composite Action so triage is scheduled and reviewable.
+
+Artifact reference:
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) distinguishes public
+testbed PR #4 from the different bundled four-row saved success fixture. Both
+show the `open-pr` evidence shape, but the published CLI does not ship the
+testbed-specific deterministic patch tooling used to prepare PR #4.
+
+![Real GitHub pull request containing Driftless migration evidence](../visuals/github-migration-pr.png)
+
+[Open the public draft PR and inspect the generated report and diff.](https://github.com/driftless-dev/support-classifier-svc/pull/4)
 
 This post maps each layer to the
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
@@ -72,7 +91,7 @@ driftless init-ci        # .github/workflows/driftless-*.yml
 ```
 
 The testbed instead **dogfoods** hand-written workflows pinned to
-`driftless==0.2.15` — copy patterns from
+`driftless==0.3.0` — copy patterns from
 [`.github/workflows/`](https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows).
 
 ---

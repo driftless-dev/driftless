@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Driftless compare scorecard excerpt</title>
+  <desc id="desc">Terminal-style scorecard showing a target model regression and cost savings.</desc>
+  <rect width="1280" height="720" fill="#0b1020"/>
+  <rect x="64" y="56" width="1152" height="608" rx="18" fill="#111827" stroke="#334155"/>
+  <text x="96" y="112" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="28" font-weight="700">support_classifier: gpt-4 -> gpt-4o-mini</text>
+  <text x="96" y="154" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">driftless compare -w support_classifier --to gpt-4o-mini</text>
+
+  <rect x="96" y="190" width="1088" height="314" rx="12" fill="#0f172a" stroke="#475569"/>
+  <text x="130" y="236" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">Metric</text>
+  <text x="602" y="236" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">Current</text>
+  <text x="812" y="236" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">Target (orig files)</text>
+  <line x1="112" y1="260" x2="1168" y2="260" stroke="#334155"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">
+    <text x="130" y="306" fill="#e5e7eb">F1</text>
+    <text x="622" y="306" fill="#46d39a">1.000</text>
+    <text x="884" y="306" fill="#ff6b81">0.000</text>
+    <text x="130" y="356" fill="#e5e7eb">Accuracy</text>
+    <text x="622" y="356" fill="#46d39a">1.000</text>
+    <text x="884" y="356" fill="#ff6b81">0.000</text>
+    <text x="130" y="406" fill="#e5e7eb">Schema error rate</text>
+    <text x="622" y="406" fill="#e5e7eb">0.0%</text>
+    <text x="884" y="406" fill="#e5e7eb">0.0%</text>
+    <text x="130" y="456" fill="#e5e7eb">Total cost</text>
+    <text x="622" y="456" fill="#e5e7eb">0.024</text>
+    <text x="884" y="456" fill="#46d39a">0.004</text>
+  </g>
+
+  <rect x="96" y="536" width="520" height="70" rx="12" fill="#2a1219" stroke="#7f1d1d"/>
+  <text x="128" y="580" fill="#fecdd3" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">FAIL min_f1: 0.000 &gt;= 0.9</text>
+  <rect x="648" y="536" width="536" height="70" rx="12" fill="#10251d" stroke="#166534"/>
+  <text x="680" y="580" fill="#bbf7d0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">PASS cost: -83.3% &lt;= +20%</text>
+</svg>
+
