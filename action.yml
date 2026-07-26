@@ -22,9 +22,9 @@ inputs:
     required: false
     default: ""
   version:
-    description: "driftless version/spec to install (e.g. '==0.3.0' or a git URL)."
+    description: "driftless version/spec to install (e.g. '==0.3.1' or a git URL)."
     required: false
-    default: "==0.3.0"
+    default: "==0.3.1"
 
 runs:
   using: "composite"

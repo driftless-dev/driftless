@@ -15,6 +15,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] - 2026-07-26
+
+### Added
+
+- **Hosted public-alpha site deployment** — GitHub Pages now publishes the
+  committed landing page, documentation, blog, and run viewer from `site/`.
+
+### Changed
+
+- **Cold-user documentation path** — PyPI-safe absolute links, explicit
+  public-alpha framing, CI adoption guidance, and proof reproducibility notes
+  now match across the README and hosted site.
+- **Dependabot self-reference policy** — automated Action updates ignore this
+  repository's own release pin instead of treating floating `v1` as an upgrade.
+
+### Fixed
+
+- **No-change refinement automation** — `poll --act` records a processed dataset
+  without opening a misleading model-migration issue when refinement makes no
+  changes.
+- **GitHub artifact reliability** — config preparation rolls back on pre-commit
+  failure, generated branches resist sanitized-name collisions, and dedupe
+  fails closed when GitHub queries are unavailable.
+
+---
+
 ## [0.3.0] - 2026-07-25
 
 This minor release contains a breaking contract-schema correction. Existing
@@ -322,7 +348,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/driftless-dev/driftless/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/driftless-dev/driftless/compare/v0.2.15...v0.3.0
 [0.2.15]: https://github.com/driftless-dev/driftless/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/driftless-dev/driftless/releases/tag/v0.2.14

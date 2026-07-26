@@ -6,7 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from driftless import engine, generators, github, report
-from driftless.cli import _act_on_trigger, app
+from driftless.cli import _act_on_trigger, _model_change_preparer, app
 from driftless.contract import Workflow
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
@@ -230,6 +230,64 @@ def test_plan_act_dry_run_does_not_change_model_config(tmp_path, monkeypatch):
     assert seen["plan"].files == ["llm.yml"]
     assert seen["plan"].kind == "pr"
     assert seen["prepare_files"] is None
+
+
+def test_model_config_preparation_restores_file_when_git_add_fails(tmp_path, monkeypatch):
+    config_path = tmp_path / "llm.yml"
+    config_path.write_text("model: provider/old-model\n")
+    original = config_path.read_bytes()
+    wf = Workflow.model_validate(
+        {
+            "run": {"command": "true", "input_path": "i", "output_path": "o"},
+            "model": {
+                "current": "provider/old-model",
+                "config_file": "llm.yml",
+                "config_path": "model",
+            },
+        }
+    )
+    plan = github.build_pr_plan(
+        {
+            "workflow": "demo",
+            "current_model": "provider/old-model",
+            "target_model": "provider/new-model",
+            "status": "pass",
+            "succeeded": True,
+        },
+        "# report",
+        committed_files=["llm.yml"],
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(args, *, cwd):
+        calls.append(args)
+        if args[:2] == ["git", "add"]:
+            from driftless.errors import DriftlessError
+
+            raise DriftlessError("git add failed")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(github, "_run", fake_run)
+
+    from driftless.errors import DriftlessError
+
+    try:
+        github.execute_plan(
+            plan,
+            cwd=tmp_path,
+            create=True,
+            dedupe=False,
+            prepare_files=_model_change_preparer(
+                wf, "provider/new-model", cwd=tmp_path
+            ),
+        )
+    except DriftlessError:
+        pass
+    else:
+        raise AssertionError("expected git add failure")
+
+    assert config_path.read_bytes() == original
+    assert calls[-1] == ["git", "reset", "--", "llm.yml"]
 
 
 def test_open_pr_create_invokes_execute_plan(tmp_path, monkeypatch):

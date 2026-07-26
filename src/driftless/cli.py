@@ -604,6 +604,28 @@ _URGENCY_STYLE = {
 _ACTION_STYLE = {"pr": "green", "issue": "yellow", "notify": "cyan", "skip": "dim"}
 
 
+def _model_change_preparer(
+    wf: Workflow, target_model: str, *, cwd: Path
+) -> Callable[[], object]:
+    """Build a deferred model-config edit with an exact file rollback."""
+    from .github import apply_model_change, model_change_file
+
+    def prepare() -> Callable[[], None]:
+        changed = model_change_file(wf, cwd=cwd)
+        if changed is None:
+            return lambda: None
+        path = cwd / changed
+        original = path.read_bytes()
+        apply_model_change(wf, target_model, cwd=cwd)
+
+        def rollback() -> None:
+            path.write_bytes(original)
+
+        return rollback
+
+    return prepare
+
+
 def _act_on_trigger(
     name: str,
     wf,
@@ -623,7 +645,7 @@ def _act_on_trigger(
     """
     from .engine import run_migration
     from .generators import build_generator
-    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
+    from .github import build_pr_plan, execute_plan, model_change_file
     from .report import render_markdown, result_to_dict, save_report
 
     try:
@@ -639,7 +661,7 @@ def _act_on_trigger(
             if changed and changed not in committed:
                 committed.append(changed)
             if create and changed:
-                prepare_files = lambda: apply_model_change(
+                prepare_files = _model_change_preparer(
                     wf, result_dict["target_model"], cwd=cwd
                 )
         plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
@@ -654,6 +676,8 @@ def _act_on_trigger(
     except DriftlessError as exc:
         return False, f"{name} -> {candidate_model}: error: {exc.message}"
 
+    if plan_obj.kind == "skip":
+        return True, f"{name} -> {candidate_model}: {result.status.value} -> no changes"
     verb = "opened" if create else "would open"
     tail = f" [{actions[-1]}]" if actions else ""
     return True, (
@@ -691,8 +715,9 @@ def _act_on_data_change(
         )
         save_report(result, workflow=wf, cwd=cwd)
         report_md = render_markdown(result, wf)
-        committed = list(result_to_dict(result).get("edited_files", []))
-        plan_obj = build_pr_plan(result_to_dict(result), report_md, committed_files=committed)
+        result_dict = result_to_dict(result)
+        committed = list(result_dict.get("edited_files", []))
+        plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
         actions = execute_plan(plan_obj, cwd=cwd, create=create, push=True, dedupe=True)
         # Only mark the dataset processed once we've actually acted on it.
         if create:
@@ -700,6 +725,8 @@ def _act_on_data_change(
     except DriftlessError as exc:
         return False, f"{name} (refine): error: {exc.message}"
 
+    if plan_obj.kind == "skip":
+        return True, f"{name} (refine): {result.status.value} -> no changes; nothing to open"
     verb = "opened" if create else "would open"
     tail = f" [{actions[-1]}]" if actions else ""
     return True, f"{name} (refine): {result.status.value} -> {verb} {plan_obj.kind}{tail}"
@@ -1272,7 +1299,7 @@ def open_pr(
     """Open a PR (or issue) from the latest migration result for a workflow."""
     import json
 
-    from .github import apply_model_change, build_pr_plan, execute_plan, model_change_file
+    from .github import build_pr_plan, execute_plan, model_change_file
 
     cwd = Path.cwd()
     result_path = cwd / ".driftless" / "migrations" / f"{workflow}.json"
@@ -1297,7 +1324,7 @@ def open_pr(
             if changed and changed not in committed:
                 committed.append(changed)
             if create and changed:
-                prepare_files = lambda: apply_model_change(
+                prepare_files = _model_change_preparer(
                     wf, result["target_model"], cwd=cwd
                 )
         plan = build_pr_plan(result, report_md, committed_files=committed)
@@ -1311,6 +1338,10 @@ def open_pr(
         )
     except DriftlessError as exc:
         _fail(exc)
+        return
+
+    if plan.kind == "skip":
+        console.print("[bold]No changes[/] — no PR or issue needed.")
         return
 
     console.print(f"[bold]{'Creating' if create else 'Dry run'}[/] — {plan.kind.upper()}")

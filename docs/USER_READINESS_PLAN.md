@@ -1,11 +1,13 @@
 # User Readiness Plan
 
-Driftless is ready to show to design partners and technical early adopters. It
-is not yet ready to be treated as fully self-serve for users arriving cold from a
-README, package page, or blog post.
+Driftless is a public alpha for design partners and technical early adopters.
+The package, Action, hosted site, genuine captures, and key-free tour make the
+first evaluation much clearer, but cold self-serve is not complete for users
+bringing an arbitrary existing workflow.
 
-This plan tracks the missing pieces between "impressive prototype/product alpha"
-and "a new user can understand the value, try it, and know what to do next."
+This plan tracks the remaining work between public alpha and "a new user can
+understand the value, integrate a real workflow, and operate it safely without
+project-specific help."
 
 ## Readiness Goal
 
@@ -24,6 +26,8 @@ Strong enough to show:
 - Clear core value prop: run the real eval, repair allowed prompt/config files,
   validate on holdout, and open evidence-backed PRs.
 - Published package and composite GitHub Action.
+- Committed GitHub Pages site and deployment workflow; after Pages is enabled,
+  landing, docs, blog, and run viewer are available from the project site.
 - CLI covers local and CI workflows: `validate`, `compare`, `migrate`, `refine`,
   `plan`, `open-pr`, `init-ci`.
 - Examples now cover classification, RAG, tool agents, judge-grading outlines,
@@ -43,11 +47,16 @@ Recently improved:
 
 Still not fully self-serve:
 
-- Genuine captures now cover executed CLI output, a real public GitHub PR and
-  diff, and the run viewer.
-- The public PR #4 proof is explicitly separated from the bundled four-row
-  saved success fixture; the published CLI does not include the testbed-specific
-  deterministic patch tooling used to prepare PR #4.
+- Existing-repository adoption still assumes the user can supply a reliable eval
+  command, model override, exact editable-file scope, labels/scorer, and
+  thresholds.
+- There is no hosted bot or onboarding flow; users review `init-ci` output and
+  manage provider credentials, permissions, and budget in their own CI.
+- The public PR #4 proof used testbed-specific deterministic patch tooling. That
+  tooling is not shipped in the CLI, so the public-alpha docs must not imply an
+  exact key-free reproduction of the successful repair.
+- More cold-user feedback is needed across repositories whose harnesses differ
+  from the bundled classifier, RAG, and tool-agent examples.
 
 ## P0 Before Wider Launch
 
@@ -138,7 +147,7 @@ Acceptance criteria:
 
 ### 6. Release/version polish
 
-Status: implemented. Version references are aligned to the `0.3.0` release
+Status: implemented. Version references are aligned to the `0.3.1` release
 line, and `scripts/release-check.sh` verifies that `action.yml` matches
 `src/driftless/__init__.py`.
 
@@ -146,7 +155,7 @@ Make version references boringly consistent.
 
 Acceptance criteria:
 
-- README, site docs, blog drafts, and Action examples all reference the current
+- README, site docs, published guides, and Action examples all reference the current
   release line.
 - `action.yml` default `version` matches `src/driftless/__init__.py`.
 - Release notes call out RAG and agent examples.

@@ -49,7 +49,7 @@ llm = [
 [project.urls]
 Homepage = "https://github.com/driftless-dev/driftless"
 Repository = "https://github.com/driftless-dev/driftless"
-Documentation = "https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md"
+Documentation = "https://driftless-dev.github.io/driftless/docs.html"
 Issues = "https://github.com/driftless-dev/driftless/issues"
 
 [project.scripts]

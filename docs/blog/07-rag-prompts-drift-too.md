@@ -1,6 +1,6 @@
 # RAG QA: new answer model, same knowledge base
 
-**Status:** publishable draft — uses the in-repo deterministic
+**Status:** published guide — uses the in-repo deterministic
 [`examples/rag-qa`](../../examples/rag-qa) fixture and includes a run-viewer
 capture.
 

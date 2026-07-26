@@ -44,8 +44,47 @@ def test_branch_components_are_sanitized_deterministically():
     first = build_pr_plan(result, "REPORT", committed_files=["prompt.md"])
     second = build_pr_plan(result, "REPORT", committed_files=["prompt.md"])
 
-    assert first.branch == "driftless/support-classifier-prod-to-openai-gpt-5-mini-2026-07"
+    assert first.branch.startswith("driftless/support-classifier-prod-")
+    assert "-to-openai-gpt-5-mini-2026-07-" in first.branch
     assert second.branch == first.branch
+
+
+def test_sanitized_branch_components_resist_collisions():
+    slash = _result()
+    slash["workflow"] = "foo/bar"
+    hyphen = _result()
+    hyphen["workflow"] = "foo-bar"
+
+    slash_plan = build_pr_plan(slash, "REPORT", committed_files=["prompt.md"])
+    hyphen_plan = build_pr_plan(hyphen, "REPORT", committed_files=["prompt.md"])
+
+    assert slash_plan.branch != hyphen_plan.branch
+    assert "foo-bar-" in slash_plan.branch
+    assert "foo-bar-to-" in hyphen_plan.branch
+
+
+def test_no_change_builds_skip_plan_and_never_executes(tmp_path, monkeypatch):
+    plan = build_pr_plan(
+        _result(status="no_change", succeeded=True), "REPORT", committed_files=[]
+    )
+    assert plan.kind == "skip"
+
+    monkeypatch.setattr(
+        github,
+        "_run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not execute")),
+    )
+    monkeypatch.setattr(
+        github,
+        "existing_open_item",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not query")),
+    )
+    assert execute_plan(plan, cwd=tmp_path, create=False) == [
+        "no changes; no PR or issue needed"
+    ]
+    assert execute_plan(plan, cwd=tmp_path, create=True) == [
+        "no changes; no PR or issue needed"
+    ]
 
 
 def test_success_without_files_builds_operational_issue():
@@ -147,11 +186,24 @@ def test_existing_open_item_none_when_no_match(tmp_path, monkeypatch):
     assert existing_open_item(plan, cwd=tmp_path) is None
 
 
-def test_gh_json_none_when_gh_missing(tmp_path, monkeypatch):
-    # A missing/failed gh must not block creation: best-effort returns None.
+def test_existing_open_item_fails_closed_when_gh_query_fails(tmp_path, monkeypatch):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
     monkeypatch.setattr(github, "_gh_json", lambda args, *, cwd: None)
-    assert existing_open_item(plan, cwd=tmp_path) is None
+    with pytest.raises(DriftlessError, match="could not check"):
+        existing_open_item(plan, cwd=tmp_path)
+
+
+def test_execute_plan_create_fails_closed_when_dedupe_query_fails(tmp_path, monkeypatch):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    monkeypatch.setattr(github, "_gh_json", lambda args, *, cwd: None)
+    monkeypatch.setattr(
+        github,
+        "_run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not create")),
+    )
+
+    with pytest.raises(DriftlessError, match="could not check"):
+        execute_plan(plan, cwd=tmp_path, create=True, dedupe=True)
 
 
 def test_execute_plan_dedupes_against_open_item(tmp_path, monkeypatch):
@@ -212,6 +264,68 @@ def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
     assert "--body-file" in calls[4]
 
 
+@pytest.mark.parametrize("failing_command", [("git", "add"), ("git", "commit")])
+def test_execute_plan_rolls_back_and_unstages_precommit_failure(
+    tmp_path, monkeypatch, failing_command
+):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[object] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if tuple(args[:2]) == failing_command:
+            raise DriftlessError("expected failure")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    def prepare():
+        events.append("prepare")
+
+        def rollback():
+            events.append("rollback")
+
+        return rollback
+
+    monkeypatch.setattr(github, "_run", fake_run)
+
+    with pytest.raises(DriftlessError, match="expected failure"):
+        execute_plan(
+            plan, cwd=tmp_path, create=True, dedupe=False, prepare_files=prepare
+        )
+
+    assert events[0] == ["git", "checkout", "-b", plan.branch]
+    assert events[1] == "prepare"
+    assert events[-2] == "rollback"
+    assert events[-1] == ["git", "reset", "--", "p.md"]
+
+
+def test_execute_plan_does_not_rollback_after_commit_succeeds(tmp_path, monkeypatch):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[object] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if args[:2] == ["git", "push"]:
+            raise DriftlessError("push failed")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    def prepare():
+        events.append("prepare")
+        return lambda: events.append("rollback")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+
+    with pytest.raises(DriftlessError, match="push failed"):
+        execute_plan(
+            plan, cwd=tmp_path, create=True, dedupe=False, prepare_files=prepare
+        )
+
+    assert "rollback" not in events
+    assert not any(
+        isinstance(event, list) and event[:2] == ["git", "reset"]
+        for event in events
+    )
+
+
 def test_execute_plan_dedupe_skips_file_preparation(tmp_path, monkeypatch):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
     monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: "PR #7")
@@ -262,6 +376,7 @@ def test_execute_plan_create_issue_runs_gh(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "_gh_json", lambda args, *, cwd: [])
 
     actions = execute_plan(plan, cwd=tmp_path, create=True)
 

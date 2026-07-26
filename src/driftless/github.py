@@ -12,6 +12,7 @@ auto-merge and never push to the base branch.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -28,7 +29,7 @@ from .errors import DriftlessError
 
 @dataclass
 class PullRequestPlan:
-    kind: str  # "pr" | "issue"
+    kind: str  # "pr" | "issue" | "skip"
     title: str
     body: str
     branch: str = ""
@@ -103,7 +104,11 @@ def _branch_component(value: str) -> str:
     """Make an identifier safe for use as one Git branch path component."""
     sanitized = re.sub(r"[^A-Za-z0-9_-]+", "-", value)
     sanitized = re.sub(r"-+", "-", sanitized).strip("-")
-    return sanitized or "unknown"
+    if sanitized and sanitized == value:
+        return sanitized
+    readable = sanitized or "unknown"
+    suffix = hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+    return f"{readable}-{suffix}"
 
 
 def build_pr_plan(
@@ -117,6 +122,13 @@ def build_pr_plan(
     current = result["current_model"]
     target = result["target_model"]
     branch = f"driftless/{_branch_component(workflow)}-to-{_branch_component(target)}"
+
+    if result.get("status") == "no_change":
+        return PullRequestPlan(
+            kind="skip",
+            title=f"No refinement changes: {workflow}",
+            body=report_md,
+        )
 
     if result["succeeded"] and committed_files:
         title = f"chore: migrate {workflow} from {current} to {target}"
@@ -159,8 +171,8 @@ def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
 def _gh_json(args: list[str], *, cwd: Path) -> list | None:
     """Run a read-only ``gh`` query returning JSON; ``None`` if it can't be run.
 
-    Best-effort: a missing/unauthenticated ``gh`` returns ``None`` so dedupe never
-    blocks a legitimate creation on a transient query failure.
+    Callers decide whether query unavailability is fatal. Create operations use
+    it fail-closed so a transient failure cannot silently produce duplicates.
     """
     try:
         proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
@@ -179,7 +191,8 @@ def existing_open_item(plan: PullRequestPlan, *, cwd: Path) -> str | None:
     """Return a human-readable ref to an already-open PR/issue for this plan.
 
     Dedupe key: the deterministic branch for PRs (``driftless/<wf>-to-<model>``)
-    and the exact title for issues. ``None`` means "none found / couldn't check".
+    and the exact title for issues. Query failures raise rather than allowing a
+    create operation to continue without duplicate protection.
     """
     if plan.kind == "pr" and plan.branch:
         rows = _gh_json(
@@ -187,6 +200,12 @@ def existing_open_item(plan: PullRequestPlan, *, cwd: Path) -> str | None:
              "--json", "number,url"],
             cwd=cwd,
         )
+        if rows is None:
+            raise DriftlessError(
+                "could not check for an existing pull request",
+                hint="Verify that gh is installed and authenticated, then retry; "
+                "use --no-dedupe only if duplicate creation is acceptable.",
+            )
         if rows:
             return f"PR #{rows[0].get('number')} ({rows[0].get('url', plan.branch)})"
         return None
@@ -196,6 +215,12 @@ def existing_open_item(plan: PullRequestPlan, *, cwd: Path) -> str | None:
          "--json", "number,title,url"],
         cwd=cwd,
     )
+    if rows is None:
+        raise DriftlessError(
+            "could not check for an existing issue",
+            hint="Verify that gh is installed and authenticated, then retry; "
+            "use --no-dedupe only if duplicate creation is acceptable.",
+        )
     if rows:
         for row in rows:
             if row.get("title") == plan.title:
@@ -220,6 +245,9 @@ def execute_plan(
     cwd = (cwd or Path.cwd()).resolve()
     actions: list[str] = []
 
+    if plan.kind == "skip":
+        return ["no changes; no PR or issue needed"]
+
     if create and dedupe:
         existing = existing_open_item(plan, cwd=cwd)
         if existing:
@@ -232,7 +260,13 @@ def execute_plan(
             with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
                 fh.write(plan.body)
                 body_file = fh.name
-            _run(["gh", "issue", "create", "--title", plan.title, "--body-file", body_file], cwd=cwd)
+            try:
+                _run(
+                    ["gh", "issue", "create", "--title", plan.title, "--body-file", body_file],
+                    cwd=cwd,
+                )
+            finally:
+                Path(body_file).unlink(missing_ok=True)
             actions.append("issue created")
         return actions
 
@@ -243,10 +277,26 @@ def execute_plan(
         return actions
 
     _run(["git", "checkout", "-b", plan.branch], cwd=cwd)
-    if prepare_files is not None:
-        prepare_files()
-    _run(["git", "add", *plan.files], cwd=cwd)
-    _run(["git", "commit", "-m", plan.commit_message], cwd=cwd)
+    rollback: Callable[[], object] | None = None
+    try:
+        if prepare_files is not None:
+            prepared = prepare_files()
+            if callable(prepared):
+                rollback = prepared
+        _run(["git", "add", *plan.files], cwd=cwd)
+        _run(["git", "commit", "-m", plan.commit_message], cwd=cwd)
+    except (DriftlessError, OSError):
+        if rollback is not None:
+            try:
+                rollback()
+            except Exception:
+                # Preserve the git failure and still attempt to clear the index.
+                pass
+        try:
+            _run(["git", "reset", "--", *plan.files], cwd=cwd)
+        except (DriftlessError, OSError):
+            pass
+        raise
     if push:
         _run(["git", "push", "-u", "origin", plan.branch], cwd=cwd)
 
@@ -258,6 +308,9 @@ def execute_plan(
         gh_args += ["--base", plan.base]
     if plan.draft:
         gh_args += ["--draft"]
-    _run(gh_args, cwd=cwd)
+    try:
+        _run(gh_args, cwd=cwd)
+    finally:
+        Path(body_file).unlink(missing_ok=True)
     actions.append("PR created")
     return actions

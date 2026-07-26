@@ -1,6 +1,6 @@
 # Launch Check
 
-Last run: 2026-07-25
+Last run: 2026-07-26
 
 This records the local checks used before showing Driftless beyond design
 partners. Commands should be run from the repository root unless noted.
@@ -10,9 +10,9 @@ partners. Commands should be run from the repository root unless noted.
 | Check | Result |
 |---|---|
 | `env PYTHONPATH=src .venv/bin/python -m mypy` | Pass: no issues in 28 source files. |
-| `env PYTHONPATH=src .venv/bin/python -m pytest` | Pass: 345 passed, 12 skipped, coverage 82.91%. |
-| `./scripts/release-check.sh` | Pass: version `0.3.0`, changelog section, and Action default aligned. |
-| `.venv/bin/python -m build` | Pass: built sdist and wheel for `0.3.0`. |
+| `env PYTHONPATH=src .venv/bin/python -m pytest` | Pass: 355 passed, 12 skipped, coverage 82.81%. |
+| `./scripts/release-check.sh` | Pass: version `0.3.1`, changelog section, and Action default aligned. |
+| `.venv/bin/python -m build` | Pass: built sdist and wheel for `0.3.1`. |
 | `.venv/bin/python -m twine check <temporary-dist>/*` | Pass: sdist and wheel metadata valid. |
 | Cold install from wheel | Pass: copied the support-classifier example, validated it, reproduced the gated comparison, ran the expected `BLOCKED` no-generator migration, rendered its report, and previewed the issue dry-run. |
 
@@ -56,7 +56,7 @@ target, `FAIL min_score`.
 
 ## Packaging
 
-The `0.3.0` sdist and wheel include:
+The `0.3.1` sdist and wheel include:
 
 - `examples/support-classifier`
 - `examples/rag-qa`

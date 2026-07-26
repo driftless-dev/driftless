@@ -91,7 +91,7 @@ driftless init-ci        # .github/workflows/driftless-*.yml
 ```
 
 The testbed instead **dogfoods** hand-written workflows pinned to
-`driftless==0.3.0` — copy patterns from
+`driftless==0.3.1` — copy patterns from
 [`.github/workflows/`](https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows).
 
 ---
