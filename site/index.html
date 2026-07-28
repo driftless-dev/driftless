@@ -49,7 +49,7 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-grid">
         <div class="hero-copy">
-          <div class="release-pill"><span></span> Dependabot-style automation for LLM workflows</div>
+          <div class="release-pill"><span></span> Public alpha · Dependabot-style automation for LLM workflows</div>
           <h1 id="hero-title">Keep models, prompts, and eval data <em>in sync.</em></h1>
           <p class="hero-lede">
             Driftless watches your workflow’s dependencies in CI, repairs prompts
@@ -294,6 +294,7 @@
             <span>PUBLIC TESTBED PROOF · PR #4</span>
             <strong>Inspect the real draft PR</strong>
             <p>A captured testbed run with generated report, untouched holdout result, one prompt repair, and a separate model configuration update in the PR.</p>
+            <p><strong>Reproduction limit:</strong> PR #4 used testbed-specific deterministic patch tooling that is not shipped in the CLI. The published LLM generator requires provider credentials and may produce a different repair.</p>
             <b>Open PR #4 on GitHub →</b>
           </div>
           <img src="visuals/github-migration-pr.png" alt="Public GitHub draft PR created from a passing Driftless migration" loading="lazy" />

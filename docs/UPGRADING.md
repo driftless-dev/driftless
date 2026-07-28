@@ -59,13 +59,13 @@ driftless validate -w <workflow>
 Then update package and Action pins:
 
 ```bash
-pip install "driftless==0.3.0"
+pip install "driftless==0.3.1"
 ```
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.0
+- uses: driftless-dev/driftless@v0.3.1
   with:
-    version: "==0.3.0"
+    version: "==0.3.1"
     command: validate
     workflow: <workflow>
 ```

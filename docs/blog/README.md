@@ -24,11 +24,9 @@ git) who hit model deprecation or eval drift.
 | 7 | [RAG QA: new answer model, same knowledge base](./07-rag-prompts-drift-too.md) | `examples/rag-qa`: fixed KB, `score_field`, prompt/config-only edits |
 | 8 | [Tool-calling agent: new planner, same tools](./08-agent-tool-selection-drift.md) | `examples/tool-agent`: fake tools, `score_field`, planner edit scope |
 
-Posts **1–6** are full drafts. **7–8** cover RAG/agent fixtures (see also
+All eight posts are published as hosted use-case guides. Posts **7–8** cover the
+RAG and agent fixtures (see also
 [`docs/rag-and-agents.md`](../rag-and-agents.md)).
-
-Before publishing any post: pin `@vX.Y.Z`, add one screenshot, note token cost
-for live runs.
 
 ---
 
@@ -63,9 +61,10 @@ cost row (see post for details).
 
 ---
 
-## Publishing checklist
+## Maintenance checklist
 
-- [ ] Screenshot: `compare` / `plan` / `audit-labels` / `judge-check` as relevant
-- [ ] Screenshot: migration PR body from testbed Actions (posts 1–3)
-- [ ] Pin `driftless==X.Y.Z` / `@vX.Y.Z` to current release
-- [ ] Note token cost for live `migrate`/`refine` on 290 tickets
+- Keep `driftless==X.Y.Z` / `@vX.Y.Z` pinned to the current release.
+- Keep genuine CLI, run-viewer, and testbed PR captures tied to their fixtures.
+- Note token cost and credential requirements for live `migrate`/`refine` runs.
+- Preserve the PR #4 note: its testbed-specific deterministic repair tooling is
+  not shipped as a CLI generator.

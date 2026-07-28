@@ -149,7 +149,7 @@ Emits a workflow that re-runs when the rubric or calibration file changes, using
 the composite Action:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.0
+- uses: driftless-dev/driftless@v0.3.1
   with:
     command: judge-check
     workflow: support_summary

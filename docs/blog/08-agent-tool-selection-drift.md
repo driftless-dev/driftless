@@ -1,6 +1,6 @@
 # Tool-calling support agent: new planner, same tools
 
-**Status:** publishable draft — uses the in-repo deterministic
+**Status:** published guide — uses the in-repo deterministic
 [`examples/tool-agent`](../../examples/tool-agent) fixture and includes a
 run-viewer capture.
 

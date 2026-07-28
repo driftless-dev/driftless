@@ -1,11 +1,12 @@
-# Visual Proof Plan
+# Visual Proof Inventory
 
-Status: genuine CLI and GitHub screenshots captured on 2026-07-25, alongside
-browser captures of the landing page and run viewer.
+Status: public-alpha proof is captured. Genuine CLI and GitHub screenshots were
+captured on 2026-07-25, alongside browser captures of the landing page and run
+viewer.
 
-Use this before publishing README images or blog posts externally. The primary
-proof now comes from executed commands and a real public testbed PR; SVGs remain
-only as clearly labeled historical design excerpts.
+Use this inventory to keep externally published claims tied to their source.
+The primary proof comes from executed commands and a real public testbed PR;
+SVGs remain only as clearly labeled historical design excerpts.
 
 The public testbed PR and the bundled saved success fixture are separate
 artifacts. PR #4 used the 290-label public testbed and testbed-specific
@@ -117,11 +118,14 @@ Use in:
 - Blog post 3.
 - Blog post 4.
 
-## Acceptance Criteria
+## Current Acceptance State
 
-- Scorecard screenshot from `compare`.
-- Migration/report screenshot or markdown-rendered excerpt.
-- Run viewer screenshot.
-- Real GitHub PR body and files-changed screenshots.
-- Blog posts 1, 3, 7, and 8 each link to or include at least one relevant
-  visual.
+- Captured: scorecard screenshot from `compare`.
+- Captured: migration/report evidence and blocked-path markdown artifact.
+- Captured: run viewer screenshot.
+- Captured: real GitHub PR body and files-changed screenshots.
+- Published guides 1, 3, 7, and 8 link to or include relevant genuine visuals.
+
+These captures improve public-alpha evaluation; they do not by themselves make
+arbitrary workflows cold self-serve. Keep fixture, dataset size, credentials,
+and deterministic-tooling limitations beside each claim.

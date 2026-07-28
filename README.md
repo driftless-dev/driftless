@@ -10,9 +10,9 @@ and opens a PR with evidence.
 > Also described as *Dependabot for LLM models* — same automation shape, different
 > core insight: prompts are lockfiles, not just config files.
 
-> Status: early development — `0.3.x` release line on [PyPI](https://pypi.org/project/driftless/).
+> Status: **public alpha** — `0.3.x` release line on [PyPI](https://pypi.org/project/driftless/).
 > Upgrading from 0.2.x? Version 0.3.0 rejects legacy `migration.allow_*`
-> fields; follow the [upgrade guide](./docs/UPGRADING.md) before updating.
+> fields; follow the [upgrade guide](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) before updating.
 
 ## Install
 
@@ -58,14 +58,19 @@ unless you explicitly pass `--create`.
 
 This is the actual output of the cold-install quickstart:
 
-![Terminal output from Driftless compare showing a cheaper target blocked by the F1 gate](./docs/visuals/compare-terminal.png)
+![Terminal output from Driftless compare showing a cheaper target blocked by the F1 gate](https://raw.githubusercontent.com/driftless-dev/driftless/main/docs/visuals/compare-terminal.png)
 
 A deterministic offline migration was also run against the public
 [`support-classifier-svc`](https://github.com/driftless-dev/support-classifier-svc)
 testbed. It produced [draft PR #4](https://github.com/driftless-dev/support-classifier-svc/pull/4)
 with the generated scorecard, holdout evidence, prompt diff, and model update:
 
-![Real GitHub pull request created from a passing Driftless migration](./docs/visuals/github-migration-pr.png)
+![Real GitHub pull request created from a passing Driftless migration](https://raw.githubusercontent.com/driftless-dev/driftless/main/docs/visuals/github-migration-pr.png)
+
+PR #4 used testbed-specific deterministic patch tooling that is not shipped as
+a Driftless CLI generator. It is genuine historical proof of the orchestration
+and review artifact, not a claim that the published CLI reproduces that exact
+repair without provider credentials.
 
 Other bundled examples are available for retrieval QA and tool-using agents:
 
@@ -144,27 +149,29 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 `plan --act` triage, and manually-triggered migration workflows.
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.0
+- uses: driftless-dev/driftless@v0.3.1
   with:
     command: scan
 ```
 
 ## Documentation
 
-- [Blog series: common use cases](./docs/blog/README.md) — drafts for model migration, dataset refine, CI automation, cost, label audit, and LLM judges.
-- [Getting started](./docs/GETTING_STARTED.md) — run the bundled classifier, RAG, and agent examples.
-- [Upgrading to 0.3](./docs/UPGRADING.md) — replace legacy `migration.allow_*` fields with exact `files.editable` paths.
-- [Command chooser](./docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
-- [Known limits](./docs/LIMITS.md) — current boundaries before broad rollout.
-- [Cost and budget guidance](./docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
-- [Launch check](./docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
-- [Visual proof plan](./docs/VISUAL_PROOF_PLAN.md) — checked-in visual excerpts and screenshot targets before public launch.
-- [Example review artifact](./docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
-- [Example successful PR artifact](./docs/EXAMPLE_SUCCESS_PR.md) — dry-run PR/report from a passing migration.
-- [RAG and agent workflows](./docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
-- [User readiness plan](./docs/USER_READINESS_PLAN.md) — what remains before a broader self-serve launch.
-- [Release process](./docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
-- [Changelog](./CHANGELOG.md) — version history.
-- [Repair prompts & custom generators](./docs/repair-and-generators.md) — customize
+- [Landing page](https://driftless-dev.github.io/driftless/) — product overview and public-alpha proof.
+- [Hosted documentation](https://driftless-dev.github.io/driftless/docs.html) — installation, adoption path, concepts, and reference.
+- [Run viewer](https://driftless-dev.github.io/driftless/runs.html) — inspect optimization attempts, metrics, and diffs.
+- [Use-case guides](https://driftless-dev.github.io/driftless/blog/) — model migration, dataset refine, CI automation, cost, label audit, judges, RAG, and agents.
+- [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — run the bundled classifier, RAG, and agent examples.
+- [Upgrading to 0.3](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) — replace legacy `migration.allow_*` fields with exact `files.editable` paths.
+- [Command chooser](https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
+- [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — current public-alpha boundaries.
+- [Cost and budget guidance](https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
+- [Launch check](https://github.com/driftless-dev/driftless/blob/main/docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
+- [Visual proof inventory](https://github.com/driftless-dev/driftless/blob/main/docs/VISUAL_PROOF_PLAN.md) — genuine captures, provenance, and reproduction notes.
+- [Example review artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
+- [Example successful PR artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md) — public testbed PR and separate saved fixture.
+- [RAG and agent workflows](https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
+- [User readiness plan](https://github.com/driftless-dev/driftless/blob/main/docs/USER_READINESS_PLAN.md) — what remains before cold self-serve is complete.
+- [Release process](https://github.com/driftless-dev/driftless/blob/main/docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
+- [Changelog](https://github.com/driftless-dev/driftless/blob/main/CHANGELOG.md) — version history.
+- [Repair prompts & custom generators](https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md) — customize
   the LLM repair prompt or plug in your own patch generator.
-- [Run viewer](./site/runs.html) — inspect optimization attempts, metrics, and diffs.
