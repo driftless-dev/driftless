@@ -73,9 +73,16 @@ contains an LLM workflow, discover it and scaffold a contract separately:
 cd your-existing-repo
 driftless scan
 driftless configure <workflow>
+# Complete TODOs in .driftless/configure/<workflow>.yml,
+# then manually merge that workflow into root driftless.yml.
 driftless validate -w <workflow>
 driftless compare -w <workflow> --to <model>
 ```
+
+`configure` writes a reviewable draft at
+`.driftless/configure/<workflow>.yml`; it does not modify the root
+`driftless.yml`. Fill in every `TODO` and merge the workflow block manually
+before running `validate` or `init-ci`.
 
 See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for an example
 issue body and dry-run GitHub action produced by the same blocked path.

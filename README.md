@@ -80,8 +80,10 @@ driftless copy-example tool-agent
 ```
 
 To adopt Driftless in an existing repository, start there with `driftless scan`,
-then run `driftless configure <workflow>` for a detected workflow before
-validating and comparing it.
+then run `driftless configure <workflow>` for a detected workflow. That command
+writes a draft at `.driftless/configure/<workflow>.yml`; it does **not** update
+the root contract. Complete every `TODO`, manually merge the workflow block into
+the root `driftless.yml`, and only then run `validate` or `init-ci`.
 
 ## How it works
 
@@ -116,7 +118,7 @@ optimizes against it, with your team owning the definition of "good":
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
 | `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |
-| `configure <workflow>` | Turn a detected workflow into a migration-ready contract. |
+| `configure <workflow>` | Write `.driftless/configure/<workflow>.yml`; complete its TODOs and manually merge it into root `driftless.yml`. |
 | `calibrate -w <w>` | Measure the baseline and suggest starting thresholds. |
 | `compare -w <w> --to <model>` | Baseline vs target scorecard. |
 | `migrate -w <w> --to <model>` | Repair + validate + produce migrated files. |
@@ -170,7 +172,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Example review artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
 - [Example successful PR artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md) — public testbed PR and separate saved fixture.
 - [RAG and agent workflows](https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
-- [User readiness plan](https://github.com/driftless-dev/driftless/blob/main/docs/USER_READINESS_PLAN.md) — what remains before cold self-serve is complete.
+- [User readiness plan](https://github.com/driftless-dev/driftless/blob/main/docs/USER_READINESS_PLAN.md) — current adoption boundaries and wider-launch follow-up.
 - [Release process](https://github.com/driftless-dev/driftless/blob/main/docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
 - [Changelog](https://github.com/driftless-dev/driftless/blob/main/CHANGELOG.md) — version history.
 - [Repair prompts & custom generators](https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md) — customize

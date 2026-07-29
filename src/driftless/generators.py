@@ -338,8 +338,16 @@ def _substitute(template: str, variables: dict[str, str]) -> str:
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", repl, template)
 
 
-def _read_relative(path_str: str, cwd: Path) -> str:
-    path = (cwd / path_str).resolve()
+def _read_relative(path_str: str, cwd: Path, *, setting: str) -> str:
+    root = cwd.resolve()
+    path = (root / path_str).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise DriftlessError(
+            f"{setting} path escapes the repository: {path_str}",
+            hint="Use a repository-relative path that resolves inside the project root.",
+        )
     if not path.is_file():
         raise DriftlessError(f"repair prompt file not found: {path_str}")
     return path.read_text(encoding="utf-8")
@@ -349,7 +357,9 @@ def resolve_system_prompt(repair: RepairSpec, cwd: Path) -> str:
     if repair.system_prompt is not None:
         base = repair.system_prompt
     elif repair.system_prompt_path:
-        base = _read_relative(repair.system_prompt_path, cwd)
+        base = _read_relative(
+            repair.system_prompt_path, cwd, setting="repair.system_prompt_path"
+        )
     else:
         base = _SYSTEM_PROMPT
     if repair.guidance:
@@ -360,7 +370,11 @@ def resolve_system_prompt(repair: RepairSpec, cwd: Path) -> str:
 def resolve_user_prompt(context: PatchContext, repair: RepairSpec) -> str:
     template = repair.user_template
     if template is None and repair.user_template_path:
-        template = _read_relative(repair.user_template_path, context.cwd)
+        template = _read_relative(
+            repair.user_template_path,
+            context.cwd,
+            setting="repair.user_template_path",
+        )
     if template is None:
         return build_user_prompt(context)
     return _substitute(template, _context_vars(context))

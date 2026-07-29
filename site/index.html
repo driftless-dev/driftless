@@ -326,6 +326,7 @@
           <p class="eyebrow">Try it locally</p>
           <h2>See the synchronization loop in under a minute.</h2>
           <p>The bundled demo deterministically shows a model dependency change, the resulting quality regression, and a blocked key-free analysis. It is separate from public testbed PR #4 and does not ship a deterministic repair generator.</p>
+          <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt;</code> writes a draft to <code>.driftless/configure/&lt;workflow&gt;.yml</code>; complete every <code>TODO</code>, then manually merge its workflow block into root <code>driftless.yml</code> before running <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
             <span>✓ Reproducible fixture</span>
@@ -339,7 +340,14 @@
 <span>$</span> driftless copy-example support-classifier --out-dir demo
 <span>$</span> cd demo
 <span>$</span> driftless validate -w support_classifier
-<span>$</span> driftless compare -w support_classifier --to gpt-4o-mini</code>
+<span>$</span> driftless compare -w support_classifier --to gpt-4o-mini
+
+<span>$</span> driftless migrate -w support_classifier --to gpt-4o-mini --generator none
+<span class="tok-c"># Expected: BLOCKED with a non-zero exit; continue below.</span>
+<span>$</span> driftless report -w support_classifier
+<span>$</span> driftless open-pr -w support_classifier
+<span class="tok-c"># Dry run: no PR or issue is created without --create.</span></code>
+          <p class="quickstart-note"><code>migrate</code> exits non-zero by design because the cheaper target fails the quality gate. It still saves evidence for <code>report</code> and the dry-run <code>open-pr</code> preview.</p>
         </div>
       </div>
     </section>

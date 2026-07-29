@@ -196,6 +196,19 @@ a:focus-visible, button:focus-visible {
   text-transform: uppercase;
 }
 .article-meta span:first-child { color: var(--mint-deep); }
+.guide-start {
+  margin: 0 0 34px;
+  padding: 16px 18px;
+  border: 1px solid #b8d8cf;
+  border-radius: 10px;
+  background: #ebf6f2;
+  color: #30534c;
+  font-size: .9rem;
+  line-height: 1.55;
+}
+.guide-start strong { color: var(--ink); }
+.guide-start code { font-family: var(--mono); font-size: .86em; }
+.guide-start a { color: #087966; text-underline-offset: 3px; }
 
 .blog-content h1 {
   margin: 0 0 34px;

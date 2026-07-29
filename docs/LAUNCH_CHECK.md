@@ -1,9 +1,10 @@
 # Launch Check
 
-Last run: 2026-07-26
+Last full suite run: 2026-07-26. Hosted cold-user UX checks: 2026-07-29.
 
-This records the local checks used before showing Driftless beyond design
-partners. Commands should be run from the repository root unless noted.
+This records the local checks used to keep the public-alpha release line ready
+for technical early adopters. Commands should be run from the repository root
+unless noted.
 
 ## Suite
 
@@ -18,6 +19,16 @@ partners. Commands should be run from the repository root unless noted.
 
 The full pytest run needs permission to bind a local HTTP server for the run
 viewer test.
+
+## Hosted UX Checks
+
+The 2026-07-29 cold-user pass regenerated all eight blog pages and verified:
+
+- `python scripts/check_site_links.py` — pass; all local links and fragments are
+  valid.
+- `mypy` — pass; no issues in 28 source files.
+- `node --check site/assets/runs.js` and `site/assets/app.js` — pass.
+- `git diff --check` — pass.
 
 ## Example Commands
 

@@ -96,3 +96,32 @@ def test_user_template_from_file(tmp_path: Path):
     ctx = _context(tmp_path, repair={"user_template_path": "u.md"})
     user = resolve_user_prompt(ctx, ctx.workflow.repair)
     assert user.startswith("clusters: [")
+
+
+@pytest.mark.parametrize("field", ["system_prompt_path", "user_template_path"])
+def test_repair_prompt_path_cannot_escape_repository(tmp_path: Path, field: str):
+    outside = tmp_path.parent / f"{tmp_path.name}-{field}.md"
+    outside.write_text("SECRET")
+    spec = RepairSpec.model_validate({field: f"../{outside.name}"})
+
+    with pytest.raises(DriftlessError, match="escapes the repository"):
+        if field == "system_prompt_path":
+            resolve_system_prompt(spec, tmp_path)
+        else:
+            ctx = _context(tmp_path)
+            resolve_user_prompt(ctx, spec)
+
+
+@pytest.mark.parametrize("field", ["system_prompt_path", "user_template_path"])
+def test_repair_prompt_symlink_cannot_escape_repository(tmp_path: Path, field: str):
+    outside = tmp_path.parent / f"{tmp_path.name}-{field}-outside.md"
+    outside.write_text("SECRET")
+    (tmp_path / "prompt-link.md").symlink_to(outside)
+    spec = RepairSpec.model_validate({field: "prompt-link.md"})
+
+    with pytest.raises(DriftlessError, match="escapes the repository"):
+        if field == "system_prompt_path":
+            resolve_system_prompt(spec, tmp_path)
+        else:
+            ctx = _context(tmp_path)
+            resolve_user_prompt(ctx, spec)

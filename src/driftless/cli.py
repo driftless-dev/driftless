@@ -635,6 +635,7 @@ def _act_on_trigger(
     create: bool,
     seed: int,
     cwd: Path,
+    base_branch: str | None = None,
 ) -> tuple[bool, str]:
     """Run the full migration for one trigger and open (or preview) its PR/issue.
 
@@ -645,10 +646,29 @@ def _act_on_trigger(
     """
     from .engine import run_migration
     from .generators import build_generator
-    from .github import build_pr_plan, execute_plan, model_change_file
+    from .github import (
+        build_pr_plan,
+        checkout_git_branch,
+        current_git_branch,
+        ensure_pr_branch_available,
+        execute_plan,
+        existing_open_item,
+        model_change_file,
+        planned_pr_identity,
+    )
     from .report import render_markdown, result_to_dict, save_report
 
+    original_branch: str | None = None
     try:
+        if create and base_branch is not None:
+            original_branch = current_git_branch(cwd=cwd)
+            identity = planned_pr_identity(name, wf.model.current, candidate_model)
+            existing = existing_open_item(identity, cwd=cwd)
+            if existing:
+                return True, f"{name} -> {candidate_model}: skipped: already open {existing}"
+            ensure_pr_branch_available(identity, cwd=cwd, push=True)
+            if original_branch != base_branch:
+                checkout_git_branch(base_branch, cwd=cwd)
         gen = build_generator(generator_name)
         result = run_migration(name, wf, candidate_model, generator=gen, cwd=cwd, seed=seed)
         save_report(result, workflow=wf, cwd=cwd)
@@ -665,6 +685,7 @@ def _act_on_trigger(
                     wf, result_dict["target_model"], cwd=cwd
                 )
         plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
+        plan_obj.base = base_branch
         actions = execute_plan(
             plan_obj,
             cwd=cwd,
@@ -672,9 +693,16 @@ def _act_on_trigger(
             push=True,
             dedupe=True,
             prepare_files=prepare_files,
+            base_branch=base_branch,
         )
     except DriftlessError as exc:
         return False, f"{name} -> {candidate_model}: error: {exc.message}"
+    finally:
+        if (
+            original_branch is not None
+            and current_git_branch(cwd=cwd) != original_branch
+        ):
+            checkout_git_branch(original_branch, cwd=cwd)
 
     if plan_obj.kind == "skip":
         return True, f"{name} -> {candidate_model}: {result.status.value} -> no changes"
@@ -694,6 +722,7 @@ def _act_on_data_change(
     create: bool,
     seed: int,
     cwd: Path,
+    base_branch: str | None = None,
 ) -> tuple[bool, str]:
     """Run `refine` for one data-change trigger and open (or preview) its PR.
 
@@ -704,10 +733,32 @@ def _act_on_data_change(
     from .datastate import dataset_signature, record_dataset_state
     from .engine import Objective, run_migration
     from .generators import build_generator
-    from .github import build_pr_plan, execute_plan
+    from .github import (
+        build_pr_plan,
+        checkout_git_branch,
+        current_git_branch,
+        ensure_pr_branch_available,
+        execute_plan,
+        existing_open_item,
+        planned_pr_identity,
+    )
     from .report import render_markdown, result_to_dict, save_report
 
+    original_branch: str | None = None
     try:
+        signature = dataset_signature(wf, cwd=cwd)
+        if create and base_branch is not None:
+            original_branch = current_git_branch(cwd=cwd)
+            identity = planned_pr_identity(name, wf.model.current, wf.model.current)
+            existing = existing_open_item(identity, cwd=cwd)
+            if existing:
+                if original_branch != base_branch:
+                    checkout_git_branch(base_branch, cwd=cwd)
+                record_dataset_state(name, signature, cwd=cwd)
+                return True, f"{name} (refine): skipped: already open {existing}"
+            ensure_pr_branch_available(identity, cwd=cwd, push=True)
+            if original_branch != base_branch:
+                checkout_git_branch(base_branch, cwd=cwd)
         gen = build_generator(generator_name)
         result = run_migration(
             name, wf, wf.model.current, generator=gen, cwd=cwd, seed=seed,
@@ -718,12 +769,26 @@ def _act_on_data_change(
         result_dict = result_to_dict(result)
         committed = list(result_dict.get("edited_files", []))
         plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
-        actions = execute_plan(plan_obj, cwd=cwd, create=create, push=True, dedupe=True)
+        plan_obj.base = base_branch
+        actions = execute_plan(
+            plan_obj,
+            cwd=cwd,
+            create=create,
+            push=True,
+            dedupe=True,
+            base_branch=base_branch,
+        )
         # Only mark the dataset processed once we've actually acted on it.
         if create:
-            record_dataset_state(name, dataset_signature(wf, cwd=cwd), cwd=cwd)
+            record_dataset_state(name, signature, cwd=cwd)
     except DriftlessError as exc:
         return False, f"{name} (refine): error: {exc.message}"
+    finally:
+        if (
+            original_branch is not None
+            and current_git_branch(cwd=cwd) != original_branch
+        ):
+            checkout_git_branch(original_branch, cwd=cwd)
 
     if plan_obj.kind == "skip":
         return True, f"{name} (refine): {result.status.value} -> no changes; nothing to open"
@@ -879,6 +944,15 @@ def plan(
                 f"{len(actionable_triggers)} trigger(s)..."
             )
             any_fail = False
+            base_branch = None
+            if create:
+                from .github import current_git_branch
+
+                try:
+                    base_branch = current_git_branch(cwd=Path.cwd())
+                except DriftlessError as exc:
+                    _fail(exc)
+                    return
             for dt in actionable_triggers:
                 wf = contract.workflow(dt.workflow)
                 ok, summary = _act_on_trigger(
@@ -889,6 +963,7 @@ def plan(
                     create=create,
                     seed=0,
                     cwd=Path.cwd(),
+                    base_branch=base_branch,
                 )
                 console.print(f"  [{'green' if ok else 'red'}]•[/] {summary}", markup=True)
                 any_fail = any_fail or not ok
@@ -1262,10 +1337,25 @@ def poll(
             f"{len(triggers)} dataset change(s)..."
         )
         any_fail = False
+        base_branch = None
+        if create:
+            from .github import current_git_branch
+
+            try:
+                base_branch = current_git_branch(cwd=cwd)
+            except DriftlessError as exc:
+                _fail(exc)
+                return
         for dt in triggers:
             wf = contract.workflow(dt.workflow)
             ok, summary = _act_on_data_change(
-                dt.workflow, wf, generator_name=generator, create=create, seed=seed, cwd=Path.cwd()
+                dt.workflow,
+                wf,
+                generator_name=generator,
+                create=create,
+                seed=seed,
+                cwd=cwd,
+                base_branch=base_branch,
             )
             console.print(f"  [{'green' if ok else 'red'}]•[/] {summary}", markup=True)
             any_fail = any_fail or not ok

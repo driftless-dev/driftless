@@ -11,6 +11,13 @@
   var emptyState = document.getElementById("emptyState");
   var runPanel = document.getElementById("runPanel");
   var dropZone = document.getElementById("dropZone");
+  var viewerStatus = document.getElementById("viewerStatus");
+
+  function setStatus(message, kind) {
+    viewerStatus.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
+    viewerStatus.textContent = message;
+    viewerStatus.className = "viewer-status" + (kind ? " " + kind : "");
+  }
 
   function pct(v) {
     if (v == null || isNaN(v)) return "n/a";
@@ -40,7 +47,7 @@
     return metrics.accuracy;
   }
 
-  function renderRun(data) {
+  function renderRun(data, source) {
     emptyState.hidden = true;
     runPanel.hidden = false;
 
@@ -62,6 +69,10 @@
     renderAttemptLog(data);
     renderRemaining(data);
     renderThresholds(data);
+    var prefix = source === "sample"
+      ? "Loaded saved passing fixture (separate from the key-free BLOCKED quickstart): "
+      : "Loaded run: ";
+    setStatus(prefix + (data.workflow || "unknown") + ", status " + (data.status || "unknown") + ".", "success");
   }
 
   function renderKpis(data, refine) {
@@ -166,6 +177,9 @@
       extras.push({ y: traj.holdout, label: "Holdout F1 " + num(traj.holdout), color: "#f5b454" });
     }
     document.getElementById("metricChart").innerHTML = lineChart({
+      ariaLabel: "Primary metric by iteration. Best accepted tuning " + METRIC_LABEL + ": " +
+        traj.points.map(function (p) { return p.label + " " + num(p.y); }).join(", ") +
+        (traj.holdout != null ? "; final holdout " + num(traj.holdout) : "") + ".",
       series: series,
       scatter: traj.candidates,
       hlines: extras,
@@ -196,6 +210,10 @@
     });
     var maxY = Math.max(1, Math.max.apply(null, keys.flatMap(function (k) { return traj[k]; })));
     document.getElementById("clusterChart").innerHTML = lineChart({
+      ariaLabel: "Failure cluster counts by iteration. " +
+        series.map(function (s) {
+          return s.name + ": " + s.points.map(function (p) { return p.y; }).join(", ");
+        }).join("; ") + ".",
       series: series,
       yMin: 0,
       yMax: maxY + 1,
@@ -386,7 +404,9 @@
       return pad.t + ih - t * ih;
     }
 
-    var parts = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="chart">'];
+    var ariaLabel = opts.ariaLabel || "Line chart";
+    var parts = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' +
+      escapeHtml(ariaLabel) + '"><title>' + escapeHtml(ariaLabel) + "</title>"];
 
     // grid
     for (var g = 0; g <= 4; g++) {
@@ -432,11 +452,11 @@
     return parts.join("");
   }
 
-  function loadJson(obj) {
+  function loadJson(obj, source) {
     try {
-      renderRun(obj);
+      renderRun(obj, source);
     } catch (e) {
-      alert("Could not render run: " + e.message);
+      setStatus("Could not render run: " + e.message, "error");
     }
   }
 
@@ -444,9 +464,9 @@
     var reader = new FileReader();
     reader.onload = function () {
       try {
-        loadJson(JSON.parse(reader.result));
+        loadJson(JSON.parse(reader.result), "file");
       } catch (e) {
-        alert("Invalid JSON file");
+        setStatus("Invalid JSON file. Choose a Driftless migration result JSON.", "error");
       }
     };
     reader.readAsText(file);
@@ -458,18 +478,26 @@
 
   loadSample.addEventListener("click", function () {
     fetch("assets/sample-run.json")
-      .then(function (r) { return r.json(); })
-      .then(loadJson)
-      .catch(function () { alert("Could not load sample (open via driftless view or a local server)"); });
+      .then(function (r) {
+        if (!r.ok) throw new Error("sample unavailable");
+        return r.json();
+      })
+      .then(function (data) { loadJson(data, "sample"); })
+      .catch(function () {
+        setStatus("Could not load the saved fixture. Open the viewer through driftless view or a local server.", "error");
+      });
   });
 
   runSelect.addEventListener("change", function () {
     var wf = runSelect.value;
     if (!wf) return;
     fetch("/api/runs/" + encodeURIComponent(wf))
-      .then(function (r) { return r.json(); })
-      .then(loadJson)
-      .catch(function () { alert("Could not load run"); });
+      .then(function (r) {
+        if (!r.ok) throw new Error("run unavailable");
+        return r.json();
+      })
+      .then(function (data) { loadJson(data, "project"); })
+      .catch(function () { setStatus("Could not load the selected project run.", "error"); });
   });
 
   // Drag and drop

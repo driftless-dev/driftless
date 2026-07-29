@@ -155,6 +155,24 @@ def build_pr_plan(
     return PullRequestPlan(kind="issue", title=title, body=report_md)
 
 
+def planned_pr_identity(
+    workflow: str,
+    current_model: str,
+    target_model: str,
+) -> PullRequestPlan:
+    """Build the deterministic PR identity available before a migration runs."""
+    branch = (
+        f"driftless/{_branch_component(workflow)}-to-"
+        f"{_branch_component(target_model)}"
+    )
+    return PullRequestPlan(
+        kind="pr",
+        title=f"chore: migrate {workflow} from {current_model} to {target_model}",
+        body="",
+        branch=branch,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Execution (git + gh)
 # --------------------------------------------------------------------------- #
@@ -185,6 +203,86 @@ def _gh_json(args: list[str], *, cwd: Path) -> list | None:
     except json.JSONDecodeError:
         return None
     return data if isinstance(data, list) else None
+
+
+def current_git_branch(*, cwd: Path) -> str:
+    """Return the checked-out branch, rejecting detached HEAD."""
+    proc = subprocess.run(
+        ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    branch = proc.stdout.strip()
+    if proc.returncode != 0 or not branch:
+        raise DriftlessError(
+            "could not determine the current git branch",
+            hint="Run automation from a named branch (not detached HEAD) in a git repository.",
+        )
+    return branch
+
+
+def checkout_git_branch(branch: str, *, cwd: Path) -> None:
+    """Checkout a known branch."""
+    _run(["git", "checkout", branch], cwd=cwd)
+
+
+def _git_ref_exists(ref: str, *, cwd: Path) -> bool:
+    proc = subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", ref],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    return proc.returncode == 0
+
+
+def ensure_pr_branch_available(
+    plan: PullRequestPlan,
+    *,
+    cwd: Path,
+    push: bool = True,
+) -> None:
+    """Fail before mutation when a planned branch already exists."""
+    if plan.kind != "pr" or not plan.branch:
+        return
+    if _git_ref_exists(f"refs/heads/{plan.branch}", cwd=cwd):
+        raise DriftlessError(
+            f"local branch already exists: {plan.branch}",
+            hint="Inspect or remove the branch manually, then retry. Driftless will not "
+            "overwrite or reuse unknown local work.",
+        )
+    if not push:
+        return
+
+    remote = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if remote.returncode != 0:
+        raise DriftlessError(
+            "git remote 'origin' is not configured",
+            hint="Configure origin, or use --no-push for local-only execution.",
+        )
+    probe = subprocess.run(
+        ["git", "ls-remote", "--exit-code", "--heads", "origin", plan.branch],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode == 0:
+        raise DriftlessError(
+            f"remote branch already exists: origin/{plan.branch}",
+            hint="Inspect the remote branch and its PR, then remove it or choose a "
+            "different migration target. Driftless will not overwrite it.",
+        )
+    if probe.returncode not in (2,):
+        raise DriftlessError(
+            f"could not inspect remote branch origin/{plan.branch}",
+            hint=(probe.stderr or probe.stdout or "Verify origin access and retry.").strip()[:500],
+        )
 
 
 def existing_open_item(plan: PullRequestPlan, *, cwd: Path) -> str | None:
@@ -236,6 +334,7 @@ def execute_plan(
     push: bool = True,
     dedupe: bool = True,
     prepare_files: Callable[[], object] | None = None,
+    base_branch: str | None = None,
 ) -> list[str]:
     """Execute (or dry-run) a plan. Returns a list of human-readable actions.
 
@@ -276,41 +375,52 @@ def execute_plan(
     if not create:
         return actions
 
-    _run(["git", "checkout", "-b", plan.branch], cwd=cwd)
+    original_branch = current_git_branch(cwd=cwd)
+    base_branch = base_branch or original_branch
+    ensure_pr_branch_available(plan, cwd=cwd, push=push)
     rollback: Callable[[], object] | None = None
+    committed = False
     try:
+        if original_branch != base_branch:
+            checkout_git_branch(base_branch, cwd=cwd)
+        _run(["git", "checkout", "-b", plan.branch, base_branch], cwd=cwd)
         if prepare_files is not None:
             prepared = prepare_files()
             if callable(prepared):
                 rollback = prepared
         _run(["git", "add", *plan.files], cwd=cwd)
         _run(["git", "commit", "-m", plan.commit_message], cwd=cwd)
+        committed = True
+        if push:
+            _run(["git", "push", "-u", "origin", plan.branch], cwd=cwd)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+            fh.write(plan.body)
+            body_file = fh.name
+        gh_args = ["gh", "pr", "create", "--title", plan.title, "--body-file", body_file]
+        if plan.base:
+            gh_args += ["--base", plan.base]
+        if plan.draft:
+            gh_args += ["--draft"]
+        try:
+            _run(gh_args, cwd=cwd)
+        finally:
+            Path(body_file).unlink(missing_ok=True)
     except (DriftlessError, OSError):
-        if rollback is not None:
+        if not committed and rollback is not None:
             try:
                 rollback()
             except Exception:
                 # Preserve the git failure and still attempt to clear the index.
                 pass
-        try:
-            _run(["git", "reset", "--", *plan.files], cwd=cwd)
-        except (DriftlessError, OSError):
-            pass
+        if not committed:
+            try:
+                _run(["git", "reset", "--", *plan.files], cwd=cwd)
+            except (DriftlessError, OSError):
+                pass
         raise
-    if push:
-        _run(["git", "push", "-u", "origin", plan.branch], cwd=cwd)
-
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
-        fh.write(plan.body)
-        body_file = fh.name
-    gh_args = ["gh", "pr", "create", "--title", plan.title, "--body-file", body_file]
-    if plan.base:
-        gh_args += ["--base", plan.base]
-    if plan.draft:
-        gh_args += ["--draft"]
-    try:
-        _run(gh_args, cwd=cwd)
     finally:
-        Path(body_file).unlink(missing_ok=True)
+        if current_git_branch(cwd=cwd) != original_branch:
+            checkout_git_branch(original_branch, cwd=cwd)
     actions.append("PR created")
     return actions

@@ -208,7 +208,9 @@ def test_plan_act_dry_run_does_not_change_model_config(tmp_path, monkeypatch):
     monkeypatch.setattr(report, "result_to_dict", lambda result: result_dict)
     monkeypatch.setattr(report, "render_markdown", lambda *args: "# report")
 
-    def fake_execute(plan, *, cwd, create, push, dedupe, prepare_files):
+    def fake_execute(
+        plan, *, cwd, create, push, dedupe, prepare_files, base_branch
+    ):
         seen["plan"] = plan
         seen["prepare_files"] = prepare_files
         return ["dry run"]
@@ -268,6 +270,10 @@ def test_model_config_preparation_restores_file_when_git_add_fails(tmp_path, mon
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "current_git_branch", lambda *, cwd: "main")
+    monkeypatch.setattr(
+        github, "ensure_pr_branch_available", lambda plan, *, cwd, push: None
+    )
 
     from driftless.errors import DriftlessError
 

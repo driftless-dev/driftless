@@ -13,6 +13,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236ea8fe'/%3E%3Cstop offset='.5' stop-color='%238b7bff'/%3E%3Cstop offset='1' stop-color='%2343e0c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%230a0b0f'/%3E%3Cpath d='M9 21V11l7 6 7-6v10' fill='none' stroke='url(%23g)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
 <body class="runs-page">
+<a class="skip-link" href="#main-content">Skip to run viewer</a>
 
 <header class="nav" id="nav">
   <div class="container nav-inner">
@@ -36,7 +37,7 @@
   </div>
 </header>
 
-<main class="runs-main container">
+<main class="runs-main container" id="main-content" tabindex="-1">
   <header class="runs-header">
     <div>
       <p class="eyebrow">Optimization observability</p>
@@ -46,19 +47,24 @@
     <div class="runs-load">
       <label class="btn btn-primary runs-file-btn">
         Load JSON
-        <input type="file" id="fileInput" accept="application/json,.json" hidden />
+        <input type="file" id="fileInput" class="visually-hidden" accept="application/json,.json" />
       </label>
       <select id="runSelect" class="runs-select" hidden aria-label="Select run from project"></select>
-      <button type="button" class="btn btn-ghost" id="loadSample">Load sample</button>
+      <button type="button" class="btn btn-ghost" id="loadSample">Load saved passing fixture</button>
     </div>
   </header>
+
+  <div id="viewerStatus" class="viewer-status" role="status" aria-live="polite" aria-atomic="true">
+    No run loaded. The saved passing fixture is separate from the key-free quickstart, which intentionally ends BLOCKED.
+  </div>
 
   <div id="dropZone" class="runs-drop" hidden>
     <p>Drop a migration JSON here</p>
   </div>
 
   <div id="emptyState" class="runs-empty">
-    <p>Load a migration result JSON, pick a run from the current project, or try the bundled sample.</p>
+    <p>Load a migration result JSON, pick a run from the current project, or try the saved passing fixture.</p>
+    <p class="dim">The fixture demonstrates a successful viewer result. It is not the key-free quickstart, which intentionally ends <strong>BLOCKED</strong>.</p>
     <p class="dim">From your repo: <code>driftless view</code> then open <code>http://localhost:8777/runs.html</code></p>
   </div>
 

@@ -1007,11 +1007,26 @@ body.landing {
 .quickstart .eyebrow { color: #0a5749; }
 .quickstart h2 { font-size: clamp(2.3rem, 4vw, 3.7rem); }
 .quickstart-copy > p { color: #275a50; }
+.quickstart-copy .quickstart-adoption {
+  margin-top: 18px;
+  font-size: .88rem;
+  line-height: 1.6;
+}
+.quickstart-adoption code { font-family: var(--mono); font-size: .88em; }
+.quickstart-adoption a { color: #0a5749; font-weight: 600; }
 .quickstart-meta { margin-top: 25px; display: flex; flex-wrap: wrap; gap: 10px 20px; color: #205248; font-size: 0.76rem; }
 .install-card { border: 1px solid rgba(7, 43, 36, 0.28); border-radius: 14px; background: var(--night); color: #deebe7; box-shadow: 0 25px 50px rgba(13, 66, 55, 0.22); overflow: hidden; }
 .install-head { height: 42px; padding: 0 14px; display: flex; align-items: center; border-bottom: 1px solid var(--night-line); color: #78908a; font-family: var(--mono); font-size: 0.65rem; }
 .install-card > code { padding: 23px; display: block; color: #d4e0dc; font-family: var(--mono); font-size: 0.71rem; line-height: 1.85; white-space: pre-wrap; }
 .install-card > code span { color: var(--mint); }
+.install-card .quickstart-note {
+  margin: 0;
+  padding: 0 23px 23px;
+  color: #a9bbb6;
+  font-size: .78rem;
+  line-height: 1.55;
+}
+.install-card .quickstart-note code { color: var(--mint); font-family: var(--mono); }
 
 .site-footer { padding: 75px max(24px, calc((100vw - 1180px) / 2)) 28px; background: var(--night); color: #d7e1de; }
 .site-footer .wordmark { color: white; }

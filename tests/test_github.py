@@ -16,6 +16,14 @@ from driftless.github import (
 )
 
 
+@pytest.fixture
+def mocked_git_context(monkeypatch):
+    monkeypatch.setattr(github, "current_git_branch", lambda *, cwd: "main")
+    monkeypatch.setattr(
+        github, "ensure_pr_branch_available", lambda plan, *, cwd, push: None
+    )
+
+
 def _result(status="pass", succeeded=True, edited=None):
     return {
         "workflow": "support_classifier",
@@ -228,7 +236,9 @@ def test_execute_plan_no_dedupe_when_disabled(tmp_path, monkeypatch):
     assert any("create branch" in a for a in actions)
 
 
-def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
+def test_execute_plan_create_pr_runs_git_and_gh(
+    tmp_path, monkeypatch, mocked_git_context
+):
     """create=True must invoke the full git checkout -> commit -> push -> gh pr path."""
     (tmp_path / "prompts").mkdir()
     (tmp_path / "prompts" / "p.md").write_text("hello\n")
@@ -253,7 +263,7 @@ def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
 
     assert actions[-1] == "PR created"
     calls = [event for event in events if isinstance(event, list)]
-    assert calls[0] == ["git", "checkout", "-b", plan.branch]
+    assert calls[0] == ["git", "checkout", "-b", plan.branch, "main"]
     assert events[1] == "prepare files"
     assert calls[1] == ["git", "add", "prompts/p.md"]
     assert calls[2][:2] == ["git", "commit"]
@@ -266,7 +276,7 @@ def test_execute_plan_create_pr_runs_git_and_gh(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("failing_command", [("git", "add"), ("git", "commit")])
 def test_execute_plan_rolls_back_and_unstages_precommit_failure(
-    tmp_path, monkeypatch, failing_command
+    tmp_path, monkeypatch, failing_command, mocked_git_context
 ):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
     events: list[object] = []
@@ -292,13 +302,15 @@ def test_execute_plan_rolls_back_and_unstages_precommit_failure(
             plan, cwd=tmp_path, create=True, dedupe=False, prepare_files=prepare
         )
 
-    assert events[0] == ["git", "checkout", "-b", plan.branch]
+    assert events[0] == ["git", "checkout", "-b", plan.branch, "main"]
     assert events[1] == "prepare"
     assert events[-2] == "rollback"
     assert events[-1] == ["git", "reset", "--", "p.md"]
 
 
-def test_execute_plan_does_not_rollback_after_commit_succeeds(tmp_path, monkeypatch):
+def test_execute_plan_does_not_rollback_after_commit_succeeds(
+    tmp_path, monkeypatch, mocked_git_context
+):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
     events: list[object] = []
 
@@ -348,7 +360,9 @@ def test_execute_plan_dedupe_skips_file_preparation(tmp_path, monkeypatch):
     assert not prepared
 
 
-def test_execute_plan_create_pr_no_push_skips_push(tmp_path, monkeypatch):
+def test_execute_plan_create_pr_no_push_skips_push(
+    tmp_path, monkeypatch, mocked_git_context
+):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
     calls: list[list[str]] = []
 
@@ -394,3 +408,131 @@ def test_apply_model_change_env_var_returns_none(tmp_path: Path):
         }
     )
     assert apply_model_change(wf, "gpt-5-mini", cwd=tmp_path) is None
+
+
+def _git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _init_repo(path: Path) -> None:
+    init = subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=path,
+        capture_output=True,
+        text=True,
+    )
+    if init.returncode != 0 and "Operation not permitted" in init.stderr:
+        pytest.skip("sandbox does not permit creating nested git repositories")
+    init.check_returncode()
+    _git(path, "config", "user.email", "tests@example.com")
+    _git(path, "config", "user.name", "Driftless Tests")
+    (path / "one.txt").write_text("base one\n")
+    (path / "two.txt").write_text("base two\n")
+    _git(path, "add", ".")
+    _git(path, "commit", "-m", "base")
+
+
+def test_execute_two_real_git_plans_are_isolated_and_restore_base(
+    tmp_path: Path, monkeypatch
+):
+    _init_repo(tmp_path)
+    _git(tmp_path, "checkout", "-b", "caller")
+    real_run = github._run
+
+    def run_without_gh(args: list[str], *, cwd: Path):
+        if args[0] == "gh":
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return real_run(args, cwd=cwd)
+
+    monkeypatch.setattr(github, "_run", run_without_gh)
+
+    first = github.PullRequestPlan(
+        kind="pr",
+        title="first",
+        body="body",
+        branch="driftless/first",
+        base="main",
+        commit_message="first",
+        files=["one.txt"],
+    )
+    second = github.PullRequestPlan(
+        kind="pr",
+        title="second",
+        body="body",
+        branch="driftless/second",
+        base="main",
+        commit_message="second",
+        files=["two.txt"],
+    )
+
+    execute_plan(
+        first,
+        cwd=tmp_path,
+        create=True,
+        push=False,
+        dedupe=False,
+        base_branch="main",
+        prepare_files=lambda: (tmp_path / "one.txt").write_text("first\n"),
+    )
+    assert _git(tmp_path, "branch", "--show-current") == "caller"
+    execute_plan(
+        second,
+        cwd=tmp_path,
+        create=True,
+        push=False,
+        dedupe=False,
+        base_branch="main",
+        prepare_files=lambda: (tmp_path / "two.txt").write_text("second\n"),
+    )
+
+    assert _git(tmp_path, "branch", "--show-current") == "caller"
+    assert _git(tmp_path, "diff", "--name-only", "main..driftless/first") == "one.txt"
+    assert _git(tmp_path, "diff", "--name-only", "main..driftless/second") == "two.txt"
+    assert _git(tmp_path, "show", "driftless/second:one.txt") == "base one"
+
+
+def test_existing_local_branch_is_rejected_before_mutation(tmp_path: Path):
+    _init_repo(tmp_path)
+    _git(tmp_path, "branch", "driftless/existing")
+    plan = github.PullRequestPlan(
+        kind="pr",
+        title="x",
+        body="x",
+        branch="driftless/existing",
+        commit_message="x",
+        files=["one.txt"],
+    )
+
+    with pytest.raises(DriftlessError, match="local branch already exists"):
+        execute_plan(plan, cwd=tmp_path, create=True, push=False, dedupe=False)
+
+    assert _git(tmp_path, "branch", "--show-current") == "main"
+    assert _git(tmp_path, "status", "--porcelain") == ""
+
+
+def test_existing_remote_branch_is_rejected_before_mutation(tmp_path: Path):
+    repo = tmp_path / "repo"
+    remote = tmp_path / "origin.git"
+    repo.mkdir()
+    _git(tmp_path, "init", "--bare", str(remote))
+    _init_repo(repo)
+    _git(repo, "remote", "add", "origin", str(remote))
+    _git(repo, "branch", "driftless/existing")
+    _git(repo, "push", "origin", "driftless/existing")
+    _git(repo, "branch", "-D", "driftless/existing")
+    plan = github.PullRequestPlan(
+        kind="pr",
+        title="x",
+        body="x",
+        branch="driftless/existing",
+        commit_message="x",
+        files=["one.txt"],
+    )
+
+    with pytest.raises(DriftlessError, match="remote branch already exists"):
+        execute_plan(plan, cwd=repo, create=True, push=True, dedupe=False)
+
+    assert _git(repo, "branch", "--show-current") == "main"
+    assert _git(repo, "status", "--porcelain") == ""

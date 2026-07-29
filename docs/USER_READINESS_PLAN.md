@@ -2,12 +2,13 @@
 
 Driftless is a public alpha for design partners and technical early adopters.
 The package, Action, hosted site, genuine captures, and key-free tour make the
-first evaluation much clearer, but cold self-serve is not complete for users
-bringing an arbitrary existing workflow.
+first evaluation self-serve. Existing-repository adoption is documented
+end-to-end, but users bringing an arbitrary workflow still own the reliability
+of its eval, model override, thresholds, credentials, and budget.
 
-This plan tracks the remaining work between public alpha and "a new user can
-understand the value, integrate a real workflow, and operate it safely without
-project-specific help."
+This plan records completed readiness work and the remaining boundaries between
+public alpha and "a new user can understand the value, integrate a real
+workflow, and operate it safely without project-specific help."
 
 ## Readiness Goal
 
@@ -26,8 +27,8 @@ Strong enough to show:
 - Clear core value prop: run the real eval, repair allowed prompt/config files,
   validate on holdout, and open evidence-backed PRs.
 - Published package and composite GitHub Action.
-- Committed GitHub Pages site and deployment workflow; after Pages is enabled,
-  landing, docs, blog, and run viewer are available from the project site.
+- Hosted GitHub Pages landing, docs, blog, and run viewer, backed by the
+  committed site and deployment workflow.
 - CLI covers local and CI workflows: `validate`, `compare`, `migrate`, `refine`,
   `plan`, `open-pr`, `init-ci`.
 - Examples now cover classification, RAG, tool agents, judge-grading outlines,
@@ -44,6 +45,11 @@ Recently improved:
   commands.
 - [`docs/LIMITS.md`](./LIMITS.md) collects the main launch boundaries in one
   user-facing page.
+- Hosted docs now summarize the command chooser, known limits, provider-cost
+  budgets, and upgrade path instead of requiring a GitHub-doc detour.
+- `configure` onboarding states that the generated
+  `.driftless/configure/<workflow>.yml` draft must have its TODOs completed and
+  be manually merged into root `driftless.yml`.
 
 Still not fully self-serve:
 
@@ -58,7 +64,7 @@ Still not fully self-serve:
 - More cold-user feedback is needed across repositories whose harnesses differ
   from the bundled classifier, RAG, and tool-agent examples.
 
-## P0 Before Wider Launch
+## Completed Readiness Foundations
 
 ### 1. Golden quickstart
 
@@ -126,7 +132,7 @@ Acceptance criteria:
 - LLM repair and judge modes may need provider keys and can incur cost.
 - Small eval sets can be noisy; use holdout/multi-split guidance where possible.
 
-## P1 Shortly After
+## Completed Follow-Through
 
 ### 5. One complete example PR
 
@@ -176,7 +182,7 @@ Acceptance criteria:
 - `validate` points to the next likely command when it succeeds.
 - Example docs include "if this fails" notes for common local environment issues.
 
-## P2 Product Confidence
+## Product Confidence Checks
 
 ### 8. Full-suite launch check
 
