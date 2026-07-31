@@ -7,6 +7,8 @@ network and (with create=False) no git/gh side effects.
 
 from pathlib import Path
 
+import pytest
+
 from driftless.cli import _act_on_trigger
 from scenarios import build_scenario
 
@@ -61,3 +63,30 @@ def test_act_reports_hard_error_as_not_ok(tmp_path: Path):
     )
     assert not ok
     assert "error" in summary
+
+
+def test_act_existing_planned_pr_skips_migration(tmp_path: Path, monkeypatch):
+    wf = build_scenario(tmp_path, current="old-model")
+    monkeypatch.setattr("driftless.github.current_git_branch", lambda *, cwd: "main")
+    monkeypatch.setattr(
+        "driftless.github.existing_open_item",
+        lambda plan, *, cwd: "PR #42 (https://example.test/42)",
+    )
+    monkeypatch.setattr(
+        "driftless.engine.run_migration",
+        lambda *args, **kwargs: pytest.fail("migration must be skipped"),
+    )
+
+    ok, summary = _act_on_trigger(
+        "ticket_classifier",
+        wf,
+        "new-model",
+        generator_name="none",
+        create=True,
+        seed=1,
+        cwd=tmp_path,
+        base_branch="main",
+    )
+
+    assert ok
+    assert "already open PR #42" in summary

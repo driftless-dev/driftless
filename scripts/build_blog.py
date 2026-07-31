@@ -90,7 +90,15 @@ def _page(title: str, body: str, *, active: str | None = None) -> str:
       <div class="article-meta">
         <span>Use-case guide {active_index:02d}</span>
         <span>Driftless field notes</span>
-      </div>"""
+      </div>
+      <aside class="guide-start" aria-label="First-time reader guidance">
+        <strong>New to Driftless?</strong>
+        Start with the bundled, key-free
+        <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
+        It intentionally ends <strong>BLOCKED</strong>. References in this guide to
+        <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
+        are a separate external testbed, not the bundled demo.
+      </aside>"""
         previous = POSTS[active_index - 2] if active_index > 1 else None
         following = POSTS[active_index] if active_index < len(POSTS) else None
         links = []
@@ -236,6 +244,13 @@ def build() -> None:
           Each guide shows how to keep the model, prompt, and eval data in sync
           with a reproducible example.
         </p>
+        <aside class="guide-start" aria-label="First-time reader guidance">
+          <strong>Start key-free:</strong>
+          run <a href="../index.html#quickstart"><code>driftless copy-example support-classifier</code></a>.
+          The bundled demo intentionally ends <strong>BLOCKED</strong>. The larger
+          <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
+          used in some guides is a separate external testbed.
+        </aside>
       </header>
       <div class="blog-grid">
 {"".join(cards)}
@@ -445,6 +460,19 @@ a:focus-visible, button:focus-visible {
   text-transform: uppercase;
 }
 .article-meta span:first-child { color: var(--mint-deep); }
+.guide-start {
+  margin: 0 0 34px;
+  padding: 16px 18px;
+  border: 1px solid #b8d8cf;
+  border-radius: 10px;
+  background: #ebf6f2;
+  color: #30534c;
+  font-size: .9rem;
+  line-height: 1.55;
+}
+.guide-start strong { color: var(--ink); }
+.guide-start code { font-family: var(--mono); font-size: .86em; }
+.guide-start a { color: #087966; text-underline-offset: 3px; }
 
 .blog-content h1 {
   margin: 0 0 34px;

@@ -1,10 +1,23 @@
 # Driftless blog series
 
-Use-case posts grounded in the
+Use-case posts about model and data drift. If this is your first visit, begin
+with the bundled, key-free demo:
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+```
+
+That bundled demo intentionally ends at a blocked quality gate. Several guides
+also use the separate
 **[support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)**
-testbed — a fictional B2B ticket classifier (290 labeled tickets, strict JSON,
-LiteLLM, simulator + real API paths). Every post includes **repro commands** you
-can run locally.
+external testbed — a fictional B2B ticket classifier with 290 labeled tickets,
+LiteLLM, and simulator plus real-API paths. It is not installed by
+`copy-example`, and its historical passing PR used testbed-specific repair
+tooling that is not shipped in the Driftless CLI.
 
 **Audience:** engineers with an offline eval (JSONL + harness command + prompts in
 git) who hit model deprecation or eval drift.
@@ -30,7 +43,9 @@ RAG and agent fixtures (see also
 
 ---
 
-## Quick reproduce
+## External testbed reproductions
+
+Use these after the bundled demo when you want the larger, separate testbed:
 
 ```bash
 git clone https://github.com/driftless-dev/support-classifier-svc

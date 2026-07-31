@@ -62,6 +62,7 @@
       <a href="#contract">The workflow contract</a>
 
       <h5>Concepts</h5>
+      <a href="#command-chooser">Command chooser</a>
       <a href="#loop">The migration loop</a>
       <a href="#statuses">Migration statuses</a>
       <a href="#safety">Safety guarantees</a>
@@ -74,10 +75,9 @@
 
       <h5>Guides</h5>
       <a href="runs.html">Run viewer</a>
-      <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md">Command chooser</a>
-      <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">Known limits</a>
-      <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">Cost &amp; budgets</a>
-      <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">Upgrading</a>
+      <a href="#limits">Known limits</a>
+      <a href="#costs">Cost &amp; budgets</a>
+      <a href="#upgrading">Upgrading</a>
       <a href="#measuring">Measuring migration gains</a>
       <a href="#repair">Repair &amp; generators</a>
       <a href="#github">GitHub Action</a>
@@ -97,7 +97,7 @@
 
       <section id="public-alpha">
         <h2>Public alpha</h2>
-        <p>Driftless is published for technical early adopters who already have an executable LLM eval. The bundled example is key-free, and the CLI plus composite Action support real local and CI adoption. Cold self-serve is still in progress: integrating your own workflow requires a contract, a reliable eval harness, and deliberate provider-cost and secret handling.</p>
+        <p>Driftless is published for technical early adopters who already have an executable LLM eval. The bundled example is key-free, and the CLI plus composite Action support real local and CI adoption. Integrating your own workflow requires a contract, a reliable eval harness, and deliberate provider-cost and secret handling.</p>
         <div class="callout warn">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <p>Before wiring Driftless into CI, review the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">known limits</a> and <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a>. Existing 0.2.x users should follow the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">0.3 upgrade guide</a>.</p>
@@ -168,9 +168,15 @@ driftless open-pr -w support_classifier</code></pre>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>cd your-existing-repo
 driftless scan
 driftless configure &lt;workflow&gt;
+<span class="tok-c"># Complete TODOs in .driftless/configure/&lt;workflow&gt;.yml,
+# then manually merge that workflow into root driftless.yml.</span>
 driftless validate -w &lt;workflow&gt;
 driftless compare -w &lt;workflow&gt; --to &lt;model&gt;
 driftless init-ci</code></pre>
+        <div class="callout warn">
+          <span class="ci" aria-hidden="true">!</span>
+          <p><code class="inline">configure</code> writes a draft to <code class="inline">.driftless/configure/&lt;workflow&gt;.yml</code>; it does not update the root contract. Complete every <code class="inline">TODO</code> and manually merge the workflow block into root <code class="inline">driftless.yml</code> before <code class="inline">validate</code> or <code class="inline">init-ci</code>.</p>
+        </div>
         <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template.</p>
       </section>
 
@@ -213,6 +219,17 @@ driftless init-ci</code></pre>
           <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a dotted path into a JSON/YAML config file. Used when opening a PR, to write the new model ID into the repo.</li>
         </ul>
         <p>Percentages are ergonomic: <code class="inline">60%</code>, <code class="inline">60</code>, and <code class="inline">0.6</code> all parse to <code class="inline">0.6</code>.</p>
+      </section>
+
+      <section id="command-chooser">
+        <h2>Command chooser</h2>
+        <ul>
+          <li><strong>Try it without keys:</strong> <code class="inline">copy-example support-classifier</code>, then follow the <a href="#quickstart">blocked quickstart</a>.</li>
+          <li><strong>Check setup:</strong> <code class="inline">validate</code>. <strong>Measure a model swap:</strong> <code class="inline">compare</code>.</li>
+          <li><strong>Repair for a model change:</strong> <code class="inline">migrate</code>. <strong>Re-optimize after data changes:</strong> <code class="inline">refine</code>.</li>
+          <li><strong>Triage in CI:</strong> <code class="inline">plan</code>. <strong>Preview the resulting PR/issue:</strong> <code class="inline">open-pr</code> without <code class="inline">--create</code>.</li>
+        </ul>
+        <p>See the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md">complete command chooser</a> for label audits, judge checks, and automation variants.</p>
       </section>
 
       <!-- LOOP -->
@@ -320,6 +337,28 @@ driftless init-ci</code></pre>
         </ul>
       </section>
 
+      <section id="limits">
+        <h2>Known limits</h2>
+        <ul>
+          <li>There is no hosted bot: run the composite Action in infrastructure you control.</li>
+          <li>Embedding migrations and vector-index rebuilds are out of scope; RAG migrations keep retrieval fixed.</li>
+          <li>Agent tools should be fake or sandboxed, and provider lifecycle data is bundled/CI-refreshed rather than a live hosted catalog.</li>
+          <li>Small evals can produce noisy passes. Use representative data, meaningful holdout, and multiple seeds for high-risk changes.</li>
+        </ul>
+        <p>Read the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">full limits and ownership boundaries</a> before broad rollout.</p>
+      </section>
+
+      <section id="costs">
+        <h2>Cost &amp; budgets</h2>
+        <p><code class="inline">compare</code> runs current and target workflows. <code class="inline">migrate</code> adds candidate evaluations and holdout; judge grading can add one provider call per output on every evaluation. Start with a representative sample, <code class="inline">migration.max_iterations: 2–3</code>, one candidate at a time, and a required holdout. Expand only after the report shows useful progress.</p>
+        <p>Estimate rows × models × candidates × iterations (plus judge/tool calls), set provider-side spend limits, and keep <code class="inline">open-pr</code> dry-run until the result is understood. See <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost shapes and suggested starting budgets</a>.</p>
+      </section>
+
+      <section id="upgrading">
+        <h2>Upgrading</h2>
+        <p>Read the changelog before changing release lines. Version 0.3 rejects legacy <code class="inline">migration.allow_*</code> fields: replace them with exact <code class="inline">files.editable</code> paths, run <code class="inline">validate</code> locally, preview one <code class="inline">compare</code>, and only then update CI. Follow the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">complete 0.3 upgrade guide</a>.</p>
+      </section>
+
       <!-- POLICY -->
       <section id="policy">
         <h2>Triggers &amp; policy</h2>
@@ -351,7 +390,7 @@ driftless init-ci</code></pre>
             <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions workflows for scan, migration, refine, policy, label-audit, and judge checks.</td></tr>
             <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
-            <tr><td><code>configure &lt;workflow&gt;</code></td><td>Turn a detected workflow into a migration-ready contract.</td></tr>
+            <tr><td><code>configure &lt;workflow&gt;</code></td><td>Write <code>.driftless/configure/&lt;workflow&gt;.yml</code>; complete its TODOs and manually merge it into root <code>driftless.yml</code>.</td></tr>
             <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check the contract parses and the harness runs.</td></tr>
             <tr><td><code>audit-labels -w &lt;w&gt;</code></td><td>Find duplicate inputs with disagreeing gold labels (<code>--fail</code> for CI).</td></tr>
             <tr><td><code>judge-check -w &lt;w&gt;</code></td><td>Measure judge↔human agreement on a calibration set (<code>--enforce</code> to gate).</td></tr>
@@ -430,7 +469,7 @@ driftless init-ci</code></pre>
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <p>Report migration repair relative to <strong>(B)</strong> — target model + source-optimized prompt — not the raw hand prompt. If baseline is far below your bar, run <code class="inline">refine</code> on the source model first, then <code class="inline">compare --to</code> again. Offline simulator regressions in the testbed do not reproduce on real <code class="inline">gpt-4o-mini</code>; validate model-switch claims on live APIs.</p>
         </div>
-        <p>Full write-up and repro steps: <code class="inline">docs/repair-and-generators.md</code> § "Measuring migration gains honestly".</p>
+        <p>Full write-up and repro steps: <a href="https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md#measuring-migration-gains-honestly">Measuring migration gains honestly</a>.</p>
       </section>
 
       <!-- RUN VIEWER -->
@@ -439,7 +478,7 @@ driftless init-ci</code></pre>
         <p>After <code class="inline">migrate</code> or <code class="inline">refine</code>, inspect the optimization trajectory in a local web UI — iteration metrics chart, failure-cluster trends, and a full attempt log (rationales, scores, diff sizes, accept/reject).</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless view                    <span class="tok-c"># opens http://localhost:8777/runs.html</span>
 driftless view -w support_classifier</code></pre>
-        <p>The viewer reads <code class="inline">.driftless/migrations/&lt;workflow&gt;.json</code> from the current project. You can also load any result JSON via file picker or drag-and-drop. Static demo: <a href="runs.html">runs.html</a> → <strong>Load sample</strong>.</p>
+        <p>The viewer reads <code class="inline">.driftless/migrations/&lt;workflow&gt;.json</code> from the current project. You can also load any result JSON via file picker or drag-and-drop. Static demo: <a href="runs.html">runs.html</a> → <strong>Load saved passing fixture</strong>. That fixture demonstrates viewer fields and is separate from the key-free quickstart, which intentionally ends <code class="inline">BLOCKED</code>.</p>
       </section>
 
       <!-- REPAIR -->
@@ -454,7 +493,7 @@ driftless view -w support_classifier</code></pre>
         <p>A generator only ever <em>proposes</em> — the engine owns acceptance. See <a href="#loop">The migration loop</a> for the full algorithm (sandboxing, crash isolation, the minimal-change tie-breaker, stall-escalation, and holdout gating).</p>
         <div class="callout">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
-          <p>See the in-repo guide <code class="inline">docs/repair-and-generators.md</code> for writing your own deterministic, rule-based generator.</p>
+          <p>See <a href="https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md">Repair prompts &amp; custom generators</a> for writing your own deterministic, rule-based generator.</p>
         </div>
       </section>
 
@@ -462,21 +501,21 @@ driftless view -w support_classifier</code></pre>
       <section id="github">
         <h2>GitHub Action</h2>
         <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. The same commands you run locally run unchanged in a workflow. After validating locally, run <code class="inline">driftless init-ci</code> to scaffold the available workflows, then review and commit only the automation your repository needs.</p>
-<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/llm-model-scan.yml</span>
-<span class="tok-k">name</span>: llm-model-scan
+<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/driftless-plan-preview.yml</span>
+<span class="tok-k">name</span>: Driftless plan preview
 <span class="tok-k">on</span>:
   <span class="tok-k">schedule</span>: [{ <span class="tok-k">cron</span>: <span class="tok-s">"0 9 * * 1"</span> }]
   <span class="tok-k">workflow_dispatch</span>: {}
 
 <span class="tok-k">jobs</span>:
-  <span class="tok-k">scan</span>:
+  <span class="tok-k">plan</span>:
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v4
       - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.1
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
-        <p>A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>
+        <p>This is a policy <code class="inline">plan</code> preview, not the dependency-only <code class="inline">scan</code> workflow. A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>
         <div class="callout good" style="margin-top:28px;">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <p>Ready to try it? Head back to the <a href="#quickstart">quickstart</a>, or explore the project on <a href="https://github.com/driftless-dev/driftless" target="_blank" rel="noopener">GitHub</a>.</p>

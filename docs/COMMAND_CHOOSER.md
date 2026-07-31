@@ -54,5 +54,8 @@ The migration is expected to exit non-zero. The final command is a dry run by
 default.
 
 For an existing repository, use `driftless scan`, then
-`driftless configure <workflow>` before `validate` and `compare`.
+`driftless configure <workflow>`. The latter writes
+`.driftless/configure/<workflow>.yml`; complete its `TODO`s and manually merge
+the workflow into root `driftless.yml` before `validate`, `compare`, or
+`init-ci`.
 

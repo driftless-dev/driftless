@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GA automation branch safety** — multi-trigger plan/poll runs now branch from
+  and return to the original base, reject unknown local/remote retry branches,
+  persist poll debounce state on the base branch, and skip migrations for
+  already-open deterministic artifacts.
+- **Repair prompt path containment** — configured system and user prompt files
+  can no longer escape the repository, including through symlinks.
+
 ---
 
 ## [0.3.1] - 2026-07-26
