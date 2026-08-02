@@ -30,20 +30,29 @@ runs:
   using: "composite"
   steps:
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "3.11"
 
     - name: Install driftless
       shell: bash
       env:
+        INPUT_COMMAND: ${{ inputs.command }}
         INPUT_VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
+        package="driftless"
+        case "$INPUT_COMMAND" in
+          plan|migrate|refine|poll|judge-check) package="driftless[llm]" ;;
+        esac
         if [ -f "pyproject.toml" ] && grep -q 'name = "driftless"' pyproject.toml; then
-          pip install -e .
+          if [ "$package" = "driftless[llm]" ]; then
+            pip install -e ".[llm]"
+          else
+            pip install -e .
+          fi
         else
-          pip install "driftless${INPUT_VERSION}"
+          pip install "${package}${INPUT_VERSION}"
         fi
 
     - name: Run driftless

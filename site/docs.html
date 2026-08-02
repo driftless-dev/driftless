@@ -171,15 +171,14 @@ driftless open-pr -w support_classifier</code></pre>
         </ol>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>cd your-existing-repo
 driftless scan
-driftless configure &lt;workflow&gt;
-<span class="tok-c"># Complete TODOs in .driftless/configure/&lt;workflow&gt;.yml,
-# then manually merge that workflow into root driftless.yml.</span>
+driftless configure &lt;workflow&gt; --apply
+<span class="tok-c"># Complete every reported TODO or placeholder.</span>
 driftless validate -w &lt;workflow&gt;
 driftless compare -w &lt;workflow&gt; --to &lt;model&gt;
-driftless init-ci</code></pre>
+driftless init-ci --setup-command 'pip install -e ".[dev]"'</code></pre>
         <div class="callout warn">
           <span class="ci" aria-hidden="true">!</span>
-          <p><code class="inline">configure</code> writes a draft to <code class="inline">.driftless/configure/&lt;workflow&gt;.yml</code>; it does not update the root contract. Complete every <code class="inline">TODO</code> and manually merge the workflow block into root <code class="inline">driftless.yml</code> before <code class="inline">validate</code> or <code class="inline">init-ci</code>.</p>
+          <p><code class="inline">configure</code> always writes a reviewable draft. Add <code class="inline">--apply</code> to create or safely append root <code class="inline">driftless.yml</code> without rewriting existing comments. Driftless refuses to run until every placeholder is resolved.</p>
         </div>
         <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template. The <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository">guided repository walkthrough</a> includes a concrete draft-to-contract before/after, provider-cost guidance, and a staged safety checklist.</p>
       </section>
@@ -394,18 +393,22 @@ driftless init-ci</code></pre>
           <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
           <tbody>
             <tr><td><code>copy-example &lt;name&gt;</code></td><td>Copy a bundled project: <code>support-classifier</code>, <code>rag-qa</code>, or <code>tool-agent</code>.</td></tr>
-            <tr><td><code>init</code></td><td>Scaffold a <code>driftless.yml</code>.</td></tr>
-            <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions workflows for scan, migration, refine, policy, label-audit, and judge checks.</td></tr>
+            <tr><td><code>init</code></td><td>Scaffold a neutral <code>driftless.yml</code> with explicit placeholders.</td></tr>
+            <tr><td><code>init-policy</code></td><td>Scaffold migration-trigger policy.</td></tr>
+            <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions; pass <code>--setup-command</code> for app dependencies and opt into <code>--refine-on-push</code>.</td></tr>
             <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
-            <tr><td><code>configure &lt;workflow&gt;</code></td><td>Write <code>.driftless/configure/&lt;workflow&gt;.yml</code>; complete its TODOs and manually merge it into root <code>driftless.yml</code>.</td></tr>
+            <tr><td><code>configure &lt;workflow&gt; --apply</code></td><td>Write a reviewable draft and safely create or append root <code>driftless.yml</code>.</td></tr>
             <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check the contract parses and the harness runs.</td></tr>
             <tr><td><code>audit-labels -w &lt;w&gt;</code></td><td>Find duplicate inputs with disagreeing gold labels (<code>--fail</code> for CI).</td></tr>
             <tr><td><code>judge-check -w &lt;w&gt;</code></td><td>Measure judge↔human agreement on a calibration set (<code>--enforce</code> to gate).</td></tr>
-            <tr><td><code>compare -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Baseline vs. target scorecard + threshold checks.</td></tr>
+            <tr><td><code>calibrate -w &lt;w&gt;</code></td><td>Measure the baseline and suggest starting thresholds.</td></tr>
+            <tr><td><code>compare -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Baseline vs. target scorecard; add <code>--enforce</code> for a failing CI exit.</td></tr>
             <tr><td><code>migrate -w &lt;w&gt; --to &lt;model&gt;</code></td><td>Repair + validate + produce migrated files.</td></tr>
             <tr><td><code>refine -w &lt;w&gt;</code></td><td>Re-optimize the prompt for a changed dataset (model pinned).</td></tr>
+            <tr><td><code>poll [--act]</code></td><td>Detect external eval changes and optionally refine.</td></tr>
             <tr><td><code>report [-w &lt;w&gt;]</code></td><td>Render the latest migration report(s).</td></tr>
+            <tr><td><code>view [-w &lt;w&gt;]</code></td><td>Open the local optimization run viewer.</td></tr>
             <tr><td><code>open-pr -w &lt;w&gt;</code></td><td>Open a PR (or issue) whose body is the evidence report: summary, scorecard, unified diffs, attempt log, holdout checks.</td></tr>
           </tbody>
         </table>
@@ -508,7 +511,7 @@ driftless view -w support_classifier</code></pre>
       <!-- GITHUB -->
       <section id="github">
         <h2>GitHub Action</h2>
-        <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. The same commands you run locally run unchanged in a workflow. After validating locally, run <code class="inline">driftless init-ci</code> to scaffold the available workflows, then review and commit only the automation your repository needs.</p>
+        <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. After validating locally, run <code class="inline">driftless init-ci --setup-command '&lt;install your app&gt;'</code>, review the generated files, and commit only the automation you need. Refinement remains manually dispatched unless <code class="inline">--refine-on-push</code> is explicit.</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/driftless-plan-preview.yml</span>
 <span class="tok-k">name</span>: Driftless plan preview
 <span class="tok-k">on</span>:

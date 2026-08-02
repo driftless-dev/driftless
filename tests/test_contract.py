@@ -9,8 +9,8 @@ from driftless.templates import CONTRACT_TEMPLATE
 
 def test_template_parses():
     contract = Contract.model_validate(__import__("yaml").safe_load(CONTRACT_TEMPLATE))
-    wf = contract.workflow("support_classifier")
-    assert wf.model.current == "gpt-4o-mini"
+    wf = contract.workflow("my_workflow")
+    assert wf.model.current == "<current-model>"
     assert wf.model.has_override()
     assert wf.eval.split.tuning == pytest.approx(0.7)
     assert wf.eval.split.holdout == pytest.approx(0.3)

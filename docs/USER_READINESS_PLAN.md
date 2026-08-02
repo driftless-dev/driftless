@@ -47,9 +47,9 @@ Recently improved:
   user-facing page.
 - Hosted docs now summarize the command chooser, known limits, provider-cost
   budgets, and upgrade path instead of requiring a GitHub-doc detour.
-- `configure` onboarding states that the generated
-  `.driftless/configure/<workflow>.yml` draft must have its TODOs completed and
-  be manually merged into root `driftless.yml`.
+- `configure --apply` keeps the reviewable
+  `.driftless/configure/<workflow>.yml` draft while safely creating or appending
+  root `driftless.yml`; unresolved placeholders block execution.
 
 Still not fully self-serve:
 
@@ -153,9 +153,10 @@ Acceptance criteria:
 
 ### 6. Release/version polish
 
-Status: implemented. Version references are aligned to the `0.3.2` release
-line, and `scripts/release-check.sh` verifies that `action.yml` matches
-`src/driftless/__init__.py`.
+Status: implemented locally for the `0.3.2` release candidate. Publication is
+not complete until the matching GitHub tag and PyPI wheel exist;
+`scripts/release-check.sh --remote` verifies both in addition to local version
+alignment.
 
 Make version references boringly consistent.
 

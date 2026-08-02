@@ -471,6 +471,16 @@ def load_contract(path: Path | None = None) -> Contract:
     if not isinstance(raw, dict):
         raise ContractError(f"{contract_path} must contain a YAML mapping")
 
+    from .configure import placeholder_paths
+
+    placeholders = placeholder_paths(raw)
+    if placeholders:
+        raise ContractError(
+            f"unresolved scaffold placeholders in {contract_path}: "
+            + ", ".join(placeholders),
+            hint="replace every TODO and <placeholder> value before running Driftless",
+        )
+
     try:
         return Contract.model_validate(raw)
     except ValidationError as exc:

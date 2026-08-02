@@ -42,11 +42,47 @@ while IFS= read -r ref; do
     || die "workflow Action ref ($ref) does not match version ($EXPECTED_ACTION_REF)"
 done <<< "$WORKFLOW_REFS"
 
-if [[ "${1:-}" == "--tag" ]]; then
-  TAG="${2:-}"
-  [[ -n "$TAG" ]] || die "usage: $0 --tag vX.Y.Z"
+TAG=""
+REMOTE=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tag)
+      TAG="${2:-}"
+      [[ -n "$TAG" ]] || die "usage: $0 [--tag vX.Y.Z] [--remote]"
+      shift 2
+      ;;
+    --remote)
+      REMOTE=true
+      shift
+      ;;
+    *)
+      die "unknown argument: $1"
+      ;;
+  esac
+done
+
+if [[ -n "$TAG" ]]; then
   EXPECTED="v${VERSION}"
   [[ "$TAG" == "$EXPECTED" ]] || die "tag $TAG does not match __version__ ($EXPECTED)"
 fi
 
-echo "release-check ok: version $VERSION, changelog, action default, and workflow refs aligned"
+if [[ "$REMOTE" == true ]]; then
+  git ls-remote --exit-code --tags https://github.com/driftless-dev/driftless.git \
+    "refs/tags/v${VERSION}" >/dev/null \
+    || die "GitHub tag v${VERSION} is not published"
+  python - "$VERSION" <<'PY' || exit 1
+import json
+import sys
+import urllib.request
+
+version = sys.argv[1]
+with urllib.request.urlopen("https://pypi.org/pypi/driftless/json", timeout=15) as response:
+    releases = json.load(response)["releases"]
+if version not in releases or not releases[version]:
+    raise SystemExit(f"release-check: PyPI driftless {version} is not published")
+PY
+fi
+
+scope="local metadata"
+[[ "$REMOTE" == true ]] && scope="local metadata plus GitHub/PyPI publication"
+echo "release-check ok: version $VERSION, $scope aligned"

@@ -22,7 +22,7 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Audit gold labels
         uses: driftless-dev/driftless@v0.3.2
@@ -32,6 +32,8 @@ jobs:
           args: "--fail"
 
       - name: Attempt migration
+        id: migrate
+        continue-on-error: true
         uses: driftless-dev/driftless@v0.3.2
         with:
           command: migrate
@@ -48,3 +50,7 @@ jobs:
           command: open-pr
           workflow: ${{ github.event.inputs.workflow }}
           args: "--create"
+
+      - name: Preserve blocked migration status
+        if: steps.migrate.outcome == 'failure'
+        run: exit 1

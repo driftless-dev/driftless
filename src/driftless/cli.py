@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 import typer
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -153,6 +154,16 @@ def init_ci(
     refine: bool = typer.Option(
         True, "--refine/--no-refine", help="Scaffold dataset refine workflow(s)."
     ),
+    refine_on_push: bool = typer.Option(
+        False,
+        "--refine-on-push/--no-refine-on-push",
+        help="Run paid refinement automatically when eval files change (default: manual only).",
+    ),
+    setup_command: str = typer.Option(
+        None,
+        "--setup-command",
+        help="Override the inferred command that installs app/eval dependencies in CI.",
+    ),
     poll: bool | None = typer.Option(
         None,
         "--poll/--no-poll",
@@ -184,10 +195,12 @@ def init_ci(
             include_scan=scan,
             include_migrate=migrate,
             include_refine=refine,
+            refine_on_push=refine_on_push,
             include_poll=poll,
             include_plan=plan,
             include_audit_labels=audit_labels,
             include_judge_check=judge_check,
+            setup_command=setup_command,
         )
     except DriftlessError as exc:
         _fail(exc)
@@ -382,9 +395,24 @@ def scan(
 def configure(
     workflow: str = typer.Argument(..., help="Name for the workflow to scaffold."),
     path: Path = typer.Argument(Path("."), help="Directory to scan for prefill."),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Safely add the generated workflow to driftless.yml.",
+    ),
+    contract_path: Path = typer.Option(
+        Path(CONTRACT_FILENAMES[0]),
+        "--contract",
+        help="Contract to create or update when --apply is used.",
+    ),
 ) -> None:
     """Scaffold a migration-ready workflow contract from scan detections."""
-    from .configure import build_workflow_scaffold, save_scaffold
+    from .configure import (
+        apply_scaffold,
+        build_workflow_scaffold,
+        placeholder_paths,
+        save_scaffold,
+    )
 
     snippet, primary = build_workflow_scaffold(workflow, path.resolve())
     out_path = save_scaffold(workflow, snippet, cwd=Path.cwd())
@@ -398,8 +426,29 @@ def configure(
         console.print("[yellow]No model auto-detected[/]; generated a generic skeleton.")
 
     console.print(f"\n[dim]saved scaffold: {out_path}[/]")
-    console.print("Add this workflow to your [bold]driftless.yml[/]:\n")
-    console.print(snippet)
+    placeholders = placeholder_paths(yaml.safe_load(snippet))
+    if apply:
+        try:
+            applied_path = apply_scaffold(
+                workflow,
+                snippet,
+                contract_path=contract_path,
+            )
+        except DriftlessError as exc:
+            _fail(exc)
+            return
+        console.print(f"[green]applied workflow[/] to {applied_path}")
+    else:
+        console.print("Add this workflow to your [bold]driftless.yml[/]:\n")
+        console.print(snippet)
+        console.print(
+            "[dim]or re-run with --apply to create/merge the root contract safely[/]"
+        )
+    if placeholders:
+        console.print(
+            f"[yellow]{len(placeholders)} unresolved placeholder(s)[/] — "
+            + ", ".join(placeholders)
+        )
 
 
 def _preflight(wf: Workflow, target_model: str) -> None:
@@ -475,6 +524,11 @@ def compare(
     workflow: str = typer.Option(..., "--workflow", "-w"),
     to: str = typer.Option(..., "--to", help="Target model."),
     contract_path: Path = typer.Option(None, "--contract", help="Path to driftless.yml."),
+    enforce: bool = typer.Option(
+        False,
+        "--enforce",
+        help="Exit non-zero when the target fails contract quality gates.",
+    ),
 ) -> None:
     """Run baseline vs target through the real workflow and score both."""
     try:
@@ -514,6 +568,8 @@ def compare(
             "\n[yellow]Naive target does not pass[/] - run "
             f"[bold]driftless migrate -w {workflow} --to {to}[/] to attempt prompt/config repair."
         )
+        if enforce:
+            raise typer.Exit(code=1)
 
 
 @app.command()

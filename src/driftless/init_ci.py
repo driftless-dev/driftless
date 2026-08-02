@@ -16,6 +16,21 @@ def default_action_ref() -> str:
     return DEFAULT_ACTION_REF
 
 
+def infer_setup_command(root: Path) -> str | None:
+    """Infer conservative dependency setup from common repository manifests."""
+    commands: list[str] = []
+    if (root / "pyproject.toml").is_file():
+        commands.append("python -m pip install -e .")
+    elif (root / "requirements.txt").is_file():
+        commands.append("python -m pip install -r requirements.txt")
+
+    if (root / "package-lock.json").is_file():
+        commands.append("npm ci")
+    elif (root / "package.json").is_file():
+        commands.append("npm install")
+    return "\n".join(commands) or None
+
+
 def _sanitize_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "-" for c in name).strip("-").lower()
 
@@ -43,15 +58,18 @@ def _provider_env_block(indent: str = "          ") -> str:
     )
 
 
-def _audit_labels_step(action_ref: str, workflow: str, *, indent: str = "      ") -> str:
-    """Pre-flight gold-label audit (no provider keys required)."""
+def _setup_step(command: str | None, *, indent: str = "      ") -> str:
+    """Render an optional customer-application setup step."""
+    if not command or not command.strip():
+        return ""
+    body = "\n".join(f"{indent}    {line}" for line in command.strip().splitlines())
     return f"""\
-{indent}- name: Audit gold labels
-{indent}  uses: {action_ref}
-{indent}  with:
-{indent}    command: audit-labels
-{indent}    workflow: {workflow}
-{indent}    args: "--fail"
+{indent}- name: Set up application
+{indent}  shell: bash
+{indent}  run: |
+{indent}    set -euo pipefail
+{body}
+
 """
 
 
@@ -72,7 +90,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Scan for at-risk model dependencies
         uses: {action_ref}
@@ -81,7 +99,10 @@ jobs:
 """
 
 
-def render_migrate_workflow(action_ref: str) -> str:
+def render_migrate_workflow(
+    action_ref: str,
+    setup_command: str | None = None,
+) -> str:
     return f"""\
 name: driftless model migrate
 
@@ -106,10 +127,12 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-{_audit_labels_step(action_ref, "${{{{ github.event.inputs.workflow }}}}")}\
+{_setup_step(setup_command)}\
       - name: Attempt migration
+        id: migrate
+        continue-on-error: true
         uses: {action_ref}
         with:
           command: migrate
@@ -124,6 +147,10 @@ jobs:
           command: open-pr
           workflow: ${{{{ github.event.inputs.workflow }}}}
           args: "--create"
+
+      - name: Preserve blocked migration status
+        if: steps.migrate.outcome == 'failure'
+        run: exit 1
 """
 
 
@@ -131,18 +158,25 @@ def render_refine_workflow(
     action_ref: str,
     workflow_name: str,
     paths: list[str],
+    setup_command: str | None = None,
+    *,
+    on_push: bool = False,
 ) -> str:
-    safe = _sanitize_filename(workflow_name)
+    push_trigger = ""
+    if on_push:
+        push_trigger = f"""\
+  push:
+    branches: [main]
+    paths:
+{_path_filter_block(paths)}\
+"""
     return f"""\
 name: driftless prompt refine ({workflow_name})
 
 # Re-optimize the prompt when this workflow's eval dataset changes in git.
 # Model stays pinned; only editable files may change.
 on:
-  push:
-    branches: [main]
-    paths:
-{_path_filter_block(paths)}\
+{push_trigger}\
   workflow_dispatch:
     inputs:
       workflow:
@@ -161,10 +195,12 @@ jobs:
   refine:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-{_audit_labels_step(action_ref, "${{{{ env.WORKFLOW }}}}")}\
+{_setup_step(setup_command)}\
       - name: Refine prompt toward the updated dataset
+        id: refine
+        continue-on-error: true
         uses: {action_ref}
         with:
           command: refine
@@ -178,10 +214,17 @@ jobs:
           command: open-pr
           workflow: ${{{{ env.WORKFLOW }}}}
           args: "--create"
+
+      - name: Preserve blocked refinement status
+        if: steps.refine.outcome == 'failure'
+        run: exit 1
 """
 
 
-def render_poll_workflow(action_ref: str) -> str:
+def render_poll_workflow(
+    action_ref: str,
+    setup_command: str | None = None,
+) -> str:
     return f"""\
 name: driftless external dataset poll
 
@@ -199,8 +242,9 @@ jobs:
   poll:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+{_setup_step(setup_command)}\
       - name: Poll datasets and refine on meaningful change
         uses: {action_ref}
         with:
@@ -305,7 +349,7 @@ jobs:
     runs-on: ubuntu-latest
 {matrix_block}\
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 {workflow_step}\
 """
 
@@ -416,12 +460,15 @@ jobs:
     runs-on: ubuntu-latest
 {matrix_block}\
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 {workflow_step}\
 """
 
 
-def render_plan_workflow(action_ref: str) -> str:
+def render_plan_workflow(
+    action_ref: str,
+    setup_command: str | None = None,
+) -> str:
     return f"""\
 name: driftless plan (deprecation triage)
 
@@ -440,8 +487,9 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+{_setup_step(setup_command)}\
       - name: Plan and act on migration triggers
         uses: {action_ref}
         with:
@@ -467,10 +515,12 @@ def scaffold_ci(
     include_scan: bool = True,
     include_migrate: bool = True,
     include_refine: bool = True,
+    refine_on_push: bool = False,
     include_poll: bool | None = None,
     include_plan: bool = False,
     include_audit_labels: bool | None = None,
     include_judge_check: bool | None = None,
+    setup_command: str | None = None,
 ) -> list[Path]:
     """Write GitHub workflow YAML files under ``out_dir``."""
     action_ref = action_ref or default_action_ref()
@@ -490,7 +540,10 @@ def scaffold_ci(
         write(out_dir / "driftless-model-scan.yml", render_scan_workflow(action_ref))
 
     if include_migrate:
-        write(out_dir / "driftless-model-migrate.yml", render_migrate_workflow(action_ref))
+        write(
+            out_dir / "driftless-model-migrate.yml",
+            render_migrate_workflow(action_ref, setup_command),
+        )
 
     if include_refine:
         for name, wf in contract.workflows.items():
@@ -502,16 +555,31 @@ def scaffold_ci(
                 if len(contract.workflows) == 1
                 else f"driftless-prompt-refine-{_sanitize_filename(name)}.yml"
             )
-            write(out_dir / fname, render_refine_workflow(action_ref, name, paths))
+            write(
+                out_dir / fname,
+                render_refine_workflow(
+                    action_ref,
+                    name,
+                    paths,
+                    setup_command,
+                    on_push=refine_on_push,
+                ),
+            )
 
     poll_needed = include_poll
     if poll_needed is None:
         poll_needed = any(_has_external_data_source(wf) for wf in contract.workflows.values())
     if poll_needed:
-        write(out_dir / "driftless-prompt-refine-poll.yml", render_poll_workflow(action_ref))
+        write(
+            out_dir / "driftless-prompt-refine-poll.yml",
+            render_poll_workflow(action_ref, setup_command),
+        )
 
     if include_plan:
-        write(out_dir / "driftless-plan-act.yml", render_plan_workflow(action_ref))
+        write(
+            out_dir / "driftless-plan-act.yml",
+            render_plan_workflow(action_ref, setup_command),
+        )
 
     audit_names = label_audit_workflows(contract)
     audit_needed = include_audit_labels
@@ -573,6 +641,8 @@ def scaffold_ci_from_path(
             "no driftless.yml found",
             hint="run `driftless init` first or pass --contract",
         )
+    if kwargs.get("setup_command") is None:
+        kwargs["setup_command"] = infer_setup_command(path.resolve().parent)
     contract = load_contract(path)
     return scaffold_ci(contract, **kwargs)
 
@@ -580,10 +650,10 @@ def scaffold_ci_from_path(
 CHECKLIST = """\
 Next steps:
   1. Add repository secrets: OPENAI_API_KEY (and/or ANTHROPIC_API_KEY).
-  2. For poll workflows: DRIFTLESS_DATASOURCE_TOKEN if eval.data_source URLs need auth.
-  3. Confirm workflow path filters match your eval dataset paths in driftless.yml.
-  4. Run driftless validate -w <workflow> locally before enabling scheduled jobs.
-  5. Run driftless audit-labels -w <workflow> locally; migrate/refine CI runs audit-labels --fail first, then --strict-label-audit.
-  6. For judge-graded workflows: driftless judge-check -w <workflow> --enforce when gates are set.
+  2. Review the inferred application setup step; override it with --setup-command if needed.
+  3. For poll workflows: DRIFTLESS_DATASOURCE_TOKEN if eval.data_source URLs need auth.
+  4. Refinement is manual unless --refine-on-push was explicitly enabled.
+  5. Run driftless validate -w <workflow> locally before enabling scheduled jobs.
+  6. Run driftless audit-labels locally for classification workflows; migrate/refine enforce it internally.
   7. Pin the Action ref when upgrading: uses: driftless-dev/driftless@vX.Y.Z
 """

@@ -1,0 +1,29 @@
+version: 1
+workflows:
+  incident_brief:
+    description: "Creates structured incident briefs."
+    run:
+      command: python3 evals/run_eval.py
+      input_path: evals/cases.jsonl
+      output_path: evals/outputs.jsonl
+    model:
+      provider: openai
+      current: gpt-4o
+      env_var: BRIEF_MODEL
+      target_candidates: [gpt-4o-mini]
+    files:
+      editable: [prompts/system.md]
+      readonly: [src/, evals/]
+    eval:
+      id_field: id
+      score_field: score
+      cost_field: cost
+      split:
+        tuning: 50%
+        holdout: 50%
+    thresholds:
+      min_score: 0.9
+      max_cost_increase: 0
+    migration:
+      max_iterations: 1
+      holdout_required: true

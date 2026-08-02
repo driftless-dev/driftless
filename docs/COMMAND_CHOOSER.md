@@ -9,11 +9,11 @@ to run.
 |---|---|---|
 | Show the installed release or command help. | `driftless --version`, `driftless --help`, or `driftless <command> --help` | Help is the authoritative option list for the installed wheel. |
 | Try the golden-path bundled example. | `driftless copy-example support-classifier --out-dir <dir>` | Also accepts `rag-qa` and `tool-agent`; `--force` overwrites an existing destination. |
-| Scaffold a contract manually. | `driftless init [--path driftless.yml]` | Refuses to overwrite unless `--force` is supplied. |
+| Scaffold a neutral contract manually. | `driftless init [--path driftless.yml]` | Contains explicit placeholders and refuses to run until they are resolved. |
 | Find probable LLM usage and lifecycle risk. | `driftless scan [path]` | Use `--no-files` for a shorter result. Discovery does not edit the repo. |
-| Turn a detected workflow into a draft contract. | `driftless configure <workflow> [path]` | Writes `.driftless/configure/<workflow>.yml`; complete TODOs and manually merge into root `driftless.yml`. |
+| Turn a detected workflow into a contract. | `driftless configure <workflow> [path] --apply` | Always writes a reviewable draft; `--apply` safely creates/appends root `driftless.yml`. |
 | Scaffold migration-trigger policy. | `driftless init-policy` | Writes `.driftless/policy.yml`; use `--path` or `--force` when needed. |
-| Generate GitHub Actions after local validation. | `driftless init-ci` | Review generated files before committing. Use `--help` to choose scan, migrate, refine, poll, plan, label-audit, and judge-check variants. |
+| Generate GitHub Actions after local validation. | `driftless init-ci --setup-command '<install command>'` | Review generated files before committing. Refinement is manual unless `--refine-on-push` is explicit. |
 
 ## Validate, Measure, and Repair
 
@@ -21,7 +21,7 @@ to run.
 |---|---|---|
 | Check parsing and run the harness. | `driftless validate -w <workflow>` | Omit `-w` for all workflows; `--no-run` checks configuration without executing the harness. |
 | Establish a baseline and starting thresholds. | `driftless calibrate -w <workflow>` | `--margin` adjusts suggested headroom. Suggestions still require human review. |
-| Measure a target before editing files. | `driftless compare -w <workflow> --to <model>` | Runs current and target through the real harness and can incur provider cost. |
+| Measure a target before editing files. | `driftless compare -w <workflow> --to <model> [--enforce]` | Default is informational; `--enforce` exits non-zero when gates fail. |
 | Repair exact editable paths for a model switch. | `driftless migrate -w <workflow> --to <model>` | Default `--generator llm` needs provider credentials. `--generator none` makes no repair and is useful for a blocked, key-free orchestration check. |
 | Re-optimize after eval data changes with the model pinned. | `driftless refine -w <workflow>` | Same repair/cost caveats as `migrate`, but no `--to` model. |
 | Check classification labels before optimization. | `driftless audit-labels -w <workflow>` | `--fail` exits non-zero on conflicts; tune near-duplicate matching with `--near-threshold`. |
@@ -79,8 +79,6 @@ The migration is expected to exit non-zero. The final command is a dry run by
 default.
 
 For an existing repository, use `driftless scan`, then
-`driftless configure <workflow>`. The latter writes
-`.driftless/configure/<workflow>.yml`; complete its `TODO`s and manually merge
-the workflow into root `driftless.yml` before `validate`, `compare`, or
-`init-ci`.
+`driftless configure <workflow> --apply`. Complete every reported placeholder
+before `validate`, `compare`, or `init-ci`.
 

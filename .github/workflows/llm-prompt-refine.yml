@@ -31,7 +31,7 @@ jobs:
   refine:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Audit gold labels
         uses: driftless-dev/driftless@v0.3.2
@@ -41,6 +41,8 @@ jobs:
           args: "--fail"
 
       - name: Refine prompt toward the updated dataset
+        id: refine
+        continue-on-error: true
         uses: driftless-dev/driftless@v0.3.2
         with:
           command: refine
@@ -56,3 +58,7 @@ jobs:
           command: open-pr
           workflow: ${{ env.WORKFLOW }}
           args: "--create"
+
+      - name: Preserve blocked refinement status
+        if: steps.refine.outcome == 'failure'
+        run: exit 1

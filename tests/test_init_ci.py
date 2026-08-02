@@ -7,6 +7,7 @@ from driftless.init_ci import (
     STRICT_LABEL_AUDIT_ARGS,
     dataset_paths,
     default_action_ref,
+    infer_setup_command,
     judge_check_targets,
     label_audit_paths,
     label_audit_workflows,
@@ -17,6 +18,13 @@ from driftless.init_ci import (
 )
 
 runner = CliRunner()
+
+
+def test_infer_setup_command_from_common_manifests(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'app'\n")
+    (tmp_path / "package-lock.json").write_text("{}\n")
+
+    assert infer_setup_command(tmp_path) == "python -m pip install -e .\nnpm ci"
 
 
 def test_init_ci_scaffolds_workflows(tmp_path, monkeypatch):
@@ -38,7 +46,17 @@ workflows:
 """.lstrip()
     )
     out = tmp_path / ".github" / "workflows"
-    result = runner.invoke(app, ["init-ci", "--out-dir", str(out)])
+    result = runner.invoke(
+        app,
+        [
+            "init-ci",
+            "--out-dir",
+            str(out),
+            "--refine-on-push",
+            "--setup-command",
+            'pip install -e ".[dev]"',
+        ],
+    )
 
     assert result.exit_code == 0
     assert (out / "driftless-model-scan.yml").is_file()
@@ -49,13 +67,19 @@ workflows:
     audit = (out / "driftless-label-audit.yml").read_text()
     assert "data/labels.jsonl" in refine
     assert "data/inputs.jsonl" in refine
+    assert "Set up application" in refine
+    assert 'pip install -e ".[dev]"' in refine
     assert "data/labels.jsonl" in audit
     assert "audit-labels" in audit
     assert '--fail' in audit or '"--fail"' in audit
     migrate = (out / "driftless-model-migrate.yml").read_text()
-    assert "audit-labels" in migrate
+    assert "command: audit-labels" not in migrate
     assert "--strict-label-audit" in migrate
     assert "--strict-label-audit" in refine
+    assert "continue-on-error: true" in migrate
+    assert "steps.migrate.outcome == 'failure'" in migrate
+    assert "${{{{" not in migrate
+    assert "${{{{" not in refine
     assert default_action_ref() in refine
     assert "OPENAI_API_KEY" in result.output
 
@@ -159,6 +183,63 @@ workflows:
 
     assert result.exit_code == 0
     assert not any(p.name.startswith("driftless-label-audit") for p in out.iterdir())
+
+
+def test_init_ci_score_workflow_does_not_add_failing_label_audit_steps(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: echo ok
+      input_path: data/inputs.jsonl
+      output_path: .driftless/out.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: MODEL
+    eval:
+      score_field: score
+""".lstrip()
+    )
+    out = tmp_path / "workflows"
+    result = runner.invoke(app, ["init-ci", "--out-dir", str(out)])
+
+    assert result.exit_code == 0
+    migrate = (out / "driftless-model-migrate.yml").read_text()
+    refine = (out / "driftless-prompt-refine.yml").read_text()
+    assert "command: audit-labels" not in migrate
+    assert "command: audit-labels" not in refine
+    assert "--strict-label-audit" in migrate
+    assert "--strict-label-audit" in refine
+
+
+def test_init_ci_refine_is_manual_by_default(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: echo ok
+      input_path: data/inputs.jsonl
+      output_path: .driftless/out.jsonl
+    model:
+      current: gpt-4o-mini
+      env_var: MODEL
+    eval:
+      score_field: score
+""".lstrip()
+    )
+    out = tmp_path / "workflows"
+    result = runner.invoke(app, ["init-ci", "--out-dir", str(out)])
+
+    assert result.exit_code == 0
+    refine = (out / "driftless-prompt-refine.yml").read_text()
+    assert "workflow_dispatch:" in refine
+    assert "\n  push:" not in refine
 
 
 def test_init_ci_audit_matrix_for_multiple_workflows(tmp_path, monkeypatch):
@@ -342,13 +423,13 @@ def test_rendered_workflows_use_action_ref():
     ref = "driftless-dev/driftless@v9.9.9"
     assert ref in render_migrate_workflow(ref)
     migrate = render_migrate_workflow(ref)
-    assert "audit-labels" in migrate
+    assert "command: audit-labels" not in migrate
     assert STRICT_LABEL_AUDIT_ARGS in migrate
     refine = render_refine_workflow(
         ref, "support_classifier", ["data/labels.jsonl"]
     )
     assert "support_classifier" in refine
-    assert "audit-labels" in refine
+    assert "command: audit-labels" not in refine
     assert STRICT_LABEL_AUDIT_ARGS in refine
     audit = render_audit_labels_workflow(ref, ["support_classifier"], ["data/labels.jsonl"])
     assert ref in audit

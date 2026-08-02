@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cold-user adoption guidance** — bundled examples, command selection,
   existing-repository setup, and public testbed reproduction now follow one
   documented path.
+- **Enforceable comparisons and adoption battletest** — `compare --enforce`
+  provides CI exit semantics, while a clean-wheel fixture exercises the full
+  existing-repository journey before publication.
 
 ### Changed
 
@@ -34,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Composite Action input handling** — Action inputs now cross into Bash through
   environment variables, with command validation and non-evaluating argument
   parsing.
+- **Safer CI defaults** — generated refinement is manual unless
+  `--refine-on-push` is explicit, and `--setup-command` installs customer
+  application dependencies before provider-backed work.
+- **Guided contract adoption** — `configure --apply` safely creates or appends
+  workflows, while `init` is neutral and unresolved placeholders block execution.
 
 ### Fixed
 
@@ -48,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Failed PR recovery** — a branch newly pushed by Driftless is removed when PR
   creation fails, and the matching local retry branch is cleaned up only when
   remote cleanup succeeds.
+- **Generated migration delivery** — blocked migrations continue to
+  `open-pr`, create their evidence issue, then restore the failing job status.
+- **Grading-aware generated CI** — score and judge workflows no longer receive
+  classification-only label-audit steps or malformed GitHub expressions.
 
 ---
 

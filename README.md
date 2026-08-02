@@ -87,10 +87,11 @@ driftless copy-example tool-agent
 
 To adopt Driftless in an existing repository, follow the
 [guided existing-repository walkthrough](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository).
-It starts with `scan` and `configure`, then gives a concrete draft-to-contract
-example, exact editable-path rules, provider-cost guidance, and safety checks
-before repair or CI. `configure` only writes
-`.driftless/configure/<workflow>.yml`; it never updates root `driftless.yml`.
+It starts with `scan` and `configure --apply`, then gives a concrete
+draft-to-contract example, exact editable-path rules, provider-cost guidance,
+and safety checks before repair or CI. `configure` always saves a reviewable
+draft; `--apply` also creates or safely appends the workflow to root
+`driftless.yml` without rewriting existing comments.
 
 ## How it works
 
@@ -125,9 +126,9 @@ optimizes against it, with your team owning the definition of "good":
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
 | `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |
-| `configure <workflow>` | Write `.driftless/configure/<workflow>.yml`; complete its TODOs and manually merge it into root `driftless.yml`. |
+| `configure <workflow>` | Write `.driftless/configure/<workflow>.yml`; add `--apply` to create or safely merge root `driftless.yml`. |
 | `calibrate -w <w>` | Measure the baseline and suggest starting thresholds. |
-| `compare -w <w> --to <model>` | Baseline vs target scorecard. |
+| `compare -w <w> --to <model>` | Baseline vs target scorecard; add `--enforce` for a failing CI exit code. |
 | `migrate -w <w> --to <model>` | Repair + validate + produce migrated files. |
 | | `--strict-label-audit` warns/blocks on duplicate-label conflicts. |
 | `refine -w <w>` | Re-optimize the prompt for a changed eval dataset (model pinned). |

@@ -85,7 +85,9 @@ Then on GitHub: **Releases → Draft a new release**
 - **Description:** paste the `## [0.3.2]` section from `CHANGELOG.md`
 - **Publish release** (not draft — `publish.yml` listens for `release: published`)
 
-The **Publish to PyPI** workflow builds sdist + wheel, runs checks, and uploads.
+The **Publish to PyPI** workflow builds sdist + wheel, runs checks, uploads, then
+waits for both the GitHub tag and PyPI release to become public. Its final job
+cold-installs the published wheel.
 
 ### 3. Verify PyPI
 
@@ -98,6 +100,12 @@ pipx install driftless==0.3.2   # optional smoke test
 ```
 
 Confirm https://pypi.org/project/driftless/ shows the new version.
+
+The same remote check is available locally:
+
+```bash
+./scripts/release-check.sh --tag v0.3.2 --remote
+```
 
 ### 4. Post-release
 
@@ -148,11 +156,19 @@ Run before tagging. Fails if:
 - `CHANGELOG.md` has no `## [X.Y.Z]` section for the current version
 - `action.yml` or an in-repository `llm-*.yml` Action pin does not match
 - (with `--tag vX.Y.Z`) the git tag argument doesn't match `__version__`
+- (with `--remote`) the matching GitHub tag or PyPI release is not public
 
 ```bash
 ./scripts/release-check.sh
 ./scripts/release-check.sh --tag v0.3.2
+./scripts/release-check.sh --tag v0.3.2 --remote
 ```
+
+Before publishing, CI also builds a wheel and runs
+`scripts/battletest-new-repo.sh`. The battletest installs that wheel in a clean
+virtual environment, copies an unrelated LLM application fixture, and exercises
+scan, validation, calibration, enforced comparison, blocked migration,
+reporting, dry-run delivery, and CI generation.
 
 ---
 
