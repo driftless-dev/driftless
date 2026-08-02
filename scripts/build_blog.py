@@ -95,9 +95,10 @@ def _page(title: str, body: str, *, active: str | None = None) -> str:
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        It intentionally ends <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only, and it intentionally ends
+        <strong>BLOCKED</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are a separate external testbed, not the bundled demo.
+        are an optional external testbed, not the bundled demo.
       </aside>"""
         previous = POSTS[active_index - 2] if active_index > 1 else None
         following = POSTS[active_index] if active_index < len(POSTS) else None
@@ -247,9 +248,10 @@ def build() -> None:
         <aside class="guide-start" aria-label="First-time reader guidance">
           <strong>Start key-free:</strong>
           run <a href="../index.html#quickstart"><code>driftless copy-example support-classifier</code></a>.
-          The bundled demo intentionally ends <strong>BLOCKED</strong>. The larger
+          The four-row bundled demo proves smoke-demo plumbing only and intentionally
+          ends <strong>BLOCKED</strong>. The larger
           <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-          used in some guides is a separate external testbed.
+          used in some guides is an optional external testbed.
         </aside>
       </header>
       <div class="blog-grid">

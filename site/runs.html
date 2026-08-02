@@ -27,8 +27,10 @@
       </svg>
       driftless
     </a>
-    <nav class="nav-links">
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="index.html">Home</a>
       <a href="docs.html">Docs</a>
+      <a href="blog/index.html">Blog</a>
       <a href="runs.html" class="active">Run viewer</a>
     </nav>
     <div class="nav-cta">
@@ -44,7 +46,7 @@
       <h1>Run viewer</h1>
       <p class="runs-lede">Inspect a <code>.driftless/migrations/&lt;workflow&gt;.json</code> artifact: metrics across iterations, failure-cluster trends, and every candidate the optimizer tried.</p>
     </div>
-    <div class="runs-load">
+    <div class="runs-load" role="group" aria-label="Load a run">
       <label class="btn btn-primary runs-file-btn">
         Load JSON
         <input type="file" id="fileInput" class="visually-hidden" accept="application/json,.json" />
@@ -58,7 +60,7 @@
     No run loaded. The saved passing fixture is separate from the key-free quickstart, which intentionally ends BLOCKED.
   </div>
 
-  <div id="dropZone" class="runs-drop" hidden>
+  <div id="dropZone" class="runs-drop" role="status" aria-live="polite" hidden>
     <p>Drop a migration JSON here</p>
   </div>
 
@@ -69,7 +71,7 @@
   </div>
 
   <div id="runPanel" class="runs-panel" hidden>
-    <section class="runs-summary card">
+    <section class="runs-summary card" aria-labelledby="runTitle">
       <div class="runs-summary-top">
         <div>
           <h2 id="runTitle">—</h2>
@@ -81,35 +83,35 @@
     </section>
 
     <div class="runs-grid">
-      <section class="card runs-chart-card">
-        <h3>Primary metric by iteration</h3>
+      <section class="card runs-chart-card" aria-labelledby="metricChartTitle">
+        <h3 id="metricChartTitle">Primary metric by iteration</h3>
         <p class="chart-caption">Baseline (tuning) and best accepted candidate per iteration. Light dots are rejected candidates.</p>
         <div class="chart-wrap" id="metricChart"></div>
         <div class="chart-legend" id="metricLegend"></div>
       </section>
 
-      <section class="card runs-chart-card">
-        <h3>Failure clusters</h3>
+      <section class="card runs-chart-card" aria-labelledby="clusterChartTitle">
+        <h3 id="clusterChartTitle">Failure clusters</h3>
         <p class="chart-caption">Count per cluster across iterations (from the running best prompt).</p>
         <div class="chart-wrap" id="clusterChart"></div>
         <div class="chart-legend" id="clusterLegend"></div>
       </section>
     </div>
 
-    <section class="card">
-      <h3>Scorecard</h3>
+    <section class="card" aria-labelledby="scorecardTitle">
+      <h3 id="scorecardTitle">Scorecard</h3>
       <div class="table-scroll">
-        <table class="doc-table" id="scorecard"></table>
+        <table class="doc-table" id="scorecard" aria-labelledby="scorecardTitle"></table>
       </div>
     </section>
 
-    <section class="card" id="holdoutSection" hidden>
-      <h3>Holdout validation</h3>
+    <section class="card" id="holdoutSection" aria-labelledby="holdoutTitle" hidden>
+      <h3 id="holdoutTitle">Holdout validation</h3>
       <ul id="holdoutChecks" class="checks-list"></ul>
     </section>
 
-    <section class="card">
-      <h3>Attempt log</h3>
+    <section class="card" aria-labelledby="attemptLogTitle">
+      <h3 id="attemptLogTitle">Attempt log</h3>
       <p class="chart-caption">Grouped by iteration — rationale, scores, diff size, and outcome for each candidate.</p>
       <div id="attemptLog"></div>
     </section>

@@ -71,10 +71,12 @@ agent execution.
 
 ## Reproduce the naive regression
 
-From the repo root:
+Install the published wheel and copy its bundled example:
 
 ```bash
-cd examples/tool-agent
+pip install driftless
+driftless copy-example tool-agent --out-dir driftless-agent-demo
+cd driftless-agent-demo
 driftless validate -w support_agent
 driftless compare -w support_agent --to gpt-4o-mini
 ```

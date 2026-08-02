@@ -334,7 +334,7 @@ workflows:
     assert result.exit_code == 0
     plan = (out / "driftless-plan-act.yml").read_text()
     assert "command: plan" in plan
-    assert "--act" in plan
+    assert 'args: "--act --create"' in plan
     assert "GH_TOKEN" in plan
 
 

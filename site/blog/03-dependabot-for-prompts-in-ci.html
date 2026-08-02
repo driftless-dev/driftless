@@ -60,9 +60,10 @@
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        It intentionally ends <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only, and it intentionally ends
+        <strong>BLOCKED</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are a separate external testbed, not the bundled demo.
+        are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="prompt-repair-that-doesnt-wait-for-someone-to-remember">Prompt repair that doesn’t wait for someone to remember</h1>
 <h2 id="the-use-case">The use case</h2>
@@ -84,6 +85,20 @@ hero engineer every Monday.</p>
 <p><strong>What driftless does here:</strong> scaffold GitHub Actions (<code>init-ci</code>), apply a policy<br />
 file for when to propose changes, and run <code>scan</code> / <code>plan</code> / <code>migrate</code> / <code>refine</code><br />
 through a composite Action so triage is scheduled and reviewable.</p>
+<h2 id="reproduce-locally-before-adding-ci">Reproduce locally before adding CI</h2>
+<pre><code class="language-bash">pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+driftless init-policy
+driftless init-ci
+</code></pre>
+<p>Review generated policy and workflow files; do not commit automation until the<br />
+local contract and expected <code>BLOCKED</code> four-row smoke result make sense. The<br />
+fixture needs no provider key, but it does not prove provider behavior or a<br />
+successful repair. Acting on plans and LLM-backed repair require credentials;<br />
+<code>--create</code> adds GitHub side effects.</p>
 <p>Artifact reference:<br />
 <a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> distinguishes public<br />
 testbed PR #4 from the different bundled four-row saved success fixture. Both<br />
@@ -91,7 +106,8 @@ show the <code>open-pr</code> evidence shape, but the published CLI does not shi
 testbed-specific deterministic patch tooling used to prepare PR #4.</p>
 <p><img alt="Real GitHub pull request containing Driftless migration evidence" src="../visuals/github-migration-pr.png" /></p>
 <p><a href="https://github.com/driftless-dev/support-classifier-svc/pull/4">Open the public draft PR and inspect the generated report and diff.</a></p>
-<p>This post maps each layer to the<br />
+<h2 id="optional-full-testbed-appendix">Optional full testbed appendix</h2>
+<p>The remaining sections map each layer to the external<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
 workflows you can run today.</p>
 <hr />
@@ -177,7 +193,7 @@ has work</strong> — useful for demoing CI.</p>
 driftless init-ci        # .github/workflows/driftless-*.yml
 </code></pre>
 <p>The testbed instead <strong>dogfoods</strong> hand-written workflows pinned to<br />
-<code>driftless==0.3.1</code> — copy patterns from<br />
+<code>driftless==0.3.2</code> — copy patterns from<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows"><code>.github/workflows/</code></a>.</p>
 <hr />
 <h2 id="layer-1-weekly-plan-simulator-free">Layer 1: Weekly <code>plan</code> (simulator, free)</h2>

@@ -293,7 +293,8 @@ def test_model_config_preparation_restores_file_when_git_add_fails(tmp_path, mon
         raise AssertionError("expected git add failure")
 
     assert config_path.read_bytes() == original
-    assert calls[-1] == ["git", "reset", "--", "llm.yml"]
+    assert ["git", "reset", "--", "llm.yml"] in calls
+    assert calls[-1] == ["git", "branch", "-D", plan.branch]
 
 
 def test_open_pr_create_invokes_execute_plan(tmp_path, monkeypatch):

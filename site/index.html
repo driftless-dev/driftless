@@ -227,7 +227,7 @@
           <div class="editor-tabs">
             <span><i></i> driftless.yml</span>
             <span class="editor-path">project / driftless.yml</span>
-            <button class="copy-btn" type="button">Copy</button>
+            <button class="copy-btn" type="button" aria-label="Copy driftless.yml example to clipboard">Copy</button>
           </div>
           <pre><code><span class="yaml-key">version:</span> <span class="yaml-value">1</span>
 <span class="yaml-key">workflows:</span>
@@ -326,6 +326,7 @@
           <p class="eyebrow">Try it locally</p>
           <h2>See the synchronization loop in under a minute.</h2>
           <p>The bundled demo deterministically shows a model dependency change, the resulting quality regression, and a blocked key-free analysis. It is separate from public testbed PR #4 and does not ship a deterministic repair generator.</p>
+          <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
           <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt;</code> writes a draft to <code>.driftless/configure/&lt;workflow&gt;.yml</code>; complete every <code>TODO</code>, then manually merge its workflow block into root <code>driftless.yml</code> before running <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
@@ -334,7 +335,7 @@
           </div>
         </div>
         <div class="install-card has-copy">
-          <div class="install-head"><span>Terminal</span><button class="copy-btn" type="button">Copy</button></div>
+          <div class="install-head"><span>Terminal</span><button class="copy-btn" type="button" aria-label="Copy quickstart commands to clipboard">Copy</button></div>
           <code><span>$</span> pip install driftless
 
 <span>$</span> driftless copy-example support-classifier --out-dir demo

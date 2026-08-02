@@ -380,10 +380,14 @@ def execute_plan(
     ensure_pr_branch_available(plan, cwd=cwd, push=push)
     rollback: Callable[[], object] | None = None
     committed = False
+    branch_created = False
+    pushed = False
+    cleanup_local_branch = False
     try:
         if original_branch != base_branch:
             checkout_git_branch(base_branch, cwd=cwd)
         _run(["git", "checkout", "-b", plan.branch, base_branch], cwd=cwd)
+        branch_created = True
         if prepare_files is not None:
             prepared = prepare_files()
             if callable(prepared):
@@ -393,6 +397,7 @@ def execute_plan(
         committed = True
         if push:
             _run(["git", "push", "-u", "origin", plan.branch], cwd=cwd)
+            pushed = True
 
         with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
             fh.write(plan.body)
@@ -407,6 +412,8 @@ def execute_plan(
         finally:
             Path(body_file).unlink(missing_ok=True)
     except (DriftlessError, OSError):
+        artifact_confirmed = False
+        cleanup_local_branch = branch_created
         if not committed and rollback is not None:
             try:
                 rollback()
@@ -418,9 +425,31 @@ def execute_plan(
                 _run(["git", "reset", "--", *plan.files], cwd=cwd)
             except (DriftlessError, OSError):
                 pass
-        raise
+        if pushed:
+            try:
+                artifact_confirmed = existing_open_item(plan, cwd=cwd) is not None
+            except (DriftlessError, OSError):
+                # The create call may have succeeded before its response was
+                # lost. Preserve both branches when GitHub cannot confirm.
+                cleanup_local_branch = False
+            if artifact_confirmed:
+                cleanup_local_branch = False
+            elif cleanup_local_branch:
+                try:
+                    _run(["git", "push", "origin", "--delete", plan.branch], cwd=cwd)
+                except (DriftlessError, OSError):
+                    # Keep the local branch when remote cleanup is uncertain so
+                    # the operator retains the commit for manual recovery.
+                    cleanup_local_branch = False
+        if not artifact_confirmed:
+            raise
     finally:
         if current_git_branch(cwd=cwd) != original_branch:
             checkout_git_branch(original_branch, cwd=cwd)
+        if cleanup_local_branch:
+            try:
+                _run(["git", "branch", "-D", plan.branch], cwd=cwd)
+            except (DriftlessError, OSError):
+                pass
     actions.append("PR created")
     return actions

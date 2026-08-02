@@ -67,22 +67,127 @@ selection even when the final text sounds plausible.
 ## Adopt Driftless in an Existing Repository
 
 The bundled example is the fastest product tour. For a repository that already
-contains an LLM workflow, discover it and scaffold a contract separately:
+contains an LLM workflow, use this guided path. It keeps discovery, contract
+editing, paid repair, and CI as separate review points.
 
 ```bash
 cd your-existing-repo
 driftless scan
 driftless configure <workflow>
-# Complete TODOs in .driftless/configure/<workflow>.yml,
-# then manually merge that workflow into root driftless.yml.
-driftless validate -w <workflow>
-driftless compare -w <workflow> --to <model>
 ```
 
 `configure` writes a reviewable draft at
 `.driftless/configure/<workflow>.yml`; it does not modify the root
-`driftless.yml`. Fill in every `TODO` and merge the workflow block manually
-before running `validate` or `init-ci`.
+`driftless.yml`. Do not run the draft directly. Fill every `TODO`, review it,
+then manually merge its workflow block into the root contract.
+
+### 1. Turn the draft into a concrete contract
+
+Suppose the application currently calls `gpt-4` from
+`python evals/run_summary.py`, the harness writes JSONL to
+`evals/summary.outputs.jsonl`, and only `prompts/summary.md` is safe for an
+optimizer to change.
+
+An incomplete generated draft might look like:
+
+```yaml
+workflows:
+  support_summary:
+    run:
+      command: TODO
+      input_path: TODO
+      output_path: TODO
+    model:
+      current: TODO
+      env_var: TODO
+    files:
+      editable: [TODO]
+    thresholds:
+      min_score: TODO
+```
+
+Replace the placeholders with values that match the real harness, then merge
+this reviewed block into root `driftless.yml`:
+
+```yaml
+workflows:
+  support_summary:
+    run:
+      command: python evals/run_summary.py
+      input_path: evals/summary.inputs.jsonl
+      output_path: evals/summary.outputs.jsonl
+    model:
+      current: gpt-4
+      target_candidates: [gpt-4o-mini]
+      env_var: SUMMARY_MODEL
+    files:
+      editable:
+        - prompts/summary.md
+      context:
+        - src/summary_parser.py
+        - schemas/summary.schema.json
+      readonly:
+        - src/
+        - schemas/
+        - evals/
+    eval:
+      id_field: id
+      score_field: score
+      cost_field: cost
+    thresholds:
+      min_score: 0.90
+      max_schema_error_rate: 0.02
+      max_cost_increase: 0.20
+    migration:
+      holdout_required: true
+      max_iterations: 3
+```
+
+The write contract is exact: **only paths listed in `files.editable` may be
+changed**. A directory in `files.readonly` documents a non-editable boundary,
+but it does not grant or subtract write access; everything not named by an exact
+editable file path is already outside repair scope. Use `files.context` for
+parser, schema, or product-policy files the generator should read while
+reasoning but must never edit. Avoid broad editable directories and globs.
+
+### 2. Validate before spending provider tokens
+
+```bash
+driftless validate -w support_summary
+driftless calibrate -w support_summary
+driftless compare -w support_summary --to gpt-4o-mini
+```
+
+`validate` runs the harness unless you pass `--no-run`. `calibrate` measures the
+current baseline and suggests thresholds; review those suggestions rather than
+treating them as an automatic safety policy. `compare` runs the current and
+target models, so it can incur provider cost when your harness calls live APIs.
+Start with a small representative eval, inspect estimated/measured cost, and see
+[`COST_AND_BUDGETS.md`](./COST_AND_BUDGETS.md) before scaling.
+
+### 3. Repair only after the boundary and budget are approved
+
+```bash
+# Key-free orchestration check: records BLOCKED evidence and makes no repair.
+driftless migrate -w support_summary --to gpt-4o-mini --generator none
+
+# Paid, nondeterministic repair:
+export OPENAI_API_KEY=...  # or ANTHROPIC_API_KEY
+driftless migrate -w support_summary --to gpt-4o-mini --generator llm
+driftless report -w support_summary
+driftless view -w support_summary
+driftless open-pr -w support_summary       # dry run
+```
+
+Provider-backed repair requires credentials and multiplies harness cost across
+tuning rows, candidates, and iterations. A passing tuning candidate is not
+enough: keep `holdout_required: true`, inspect every editable-file diff, and
+never add application code, schemas, eval labels, secrets, or side-effecting
+tool configuration to `files.editable`.
+
+`open-pr` has no GitHub side effect unless `--create` is supplied. Add generated
+CI with `driftless init-ci` only after local validation, cost review, and a
+dry-run artifact are acceptable.
 
 See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for an example
 issue body and dry-run GitHub action produced by the same blocked path.

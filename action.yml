@@ -22,9 +22,9 @@ inputs:
     required: false
     default: ""
   version:
-    description: "driftless version/spec to install (e.g. '==0.3.1' or a git URL)."
+    description: "driftless version/spec to install (e.g. '==0.3.2' or a git URL)."
     required: false
-    default: "==0.3.1"
+    default: "==0.3.2"
 
 runs:
   using: "composite"
@@ -36,22 +36,49 @@ runs:
 
     - name: Install driftless
       shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
+        set -euo pipefail
         if [ -f "pyproject.toml" ] && grep -q 'name = "driftless"' pyproject.toml; then
           pip install -e .
         else
-          pip install "driftless${{ inputs.version }}"
+          pip install "driftless${INPUT_VERSION}"
         fi
 
     - name: Run driftless
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_WORKFLOW: ${{ inputs.workflow }}
+        INPUT_TO: ${{ inputs.to }}
+        INPUT_ARGS: ${{ inputs.args }}
       run: |
         set -euo pipefail
-        cmd=(driftless ${{ inputs.command }})
-        [ -n "${{ inputs.workflow }}" ] && cmd+=(--workflow "${{ inputs.workflow }}")
-        [ -n "${{ inputs.to }}" ] && cmd+=(--to "${{ inputs.to }}")
-        [ -n "${{ inputs.args }}" ] && cmd+=(${{ inputs.args }})
+        case "$INPUT_COMMAND" in
+          scan|plan|compare|migrate|refine|poll|validate|open-pr|audit-labels|judge-check) ;;
+          *)
+            echo "::error::Unsupported driftless command: $INPUT_COMMAND"
+            exit 2
+            ;;
+        esac
+
+        cmd=(driftless "$INPUT_COMMAND")
+        [ -n "$INPUT_WORKFLOW" ] && cmd+=(--workflow "$INPUT_WORKFLOW")
+        [ -n "$INPUT_TO" ] && cmd+=(--to "$INPUT_TO")
+
+        if [ -n "$INPUT_ARGS" ]; then
+          args_file="$(mktemp)"
+          trap 'rm -f "$args_file"' EXIT
+          if ! python -c 'import shlex, sys; [sys.stdout.buffer.write(arg.encode() + b"\0") for arg in shlex.split(sys.argv[1])]' "$INPUT_ARGS" > "$args_file"; then
+            echo "::error::Unable to parse the args input"
+            exit 2
+          fi
+          while IFS= read -r -d '' arg; do
+            cmd+=("$arg")
+          done < "$args_file"
+        fi
+
         echo "Running: ${cmd[*]}"
         "${cmd[@]}"

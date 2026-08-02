@@ -60,9 +60,10 @@
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        It intentionally ends <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only, and it intentionally ends
+        <strong>BLOCKED</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are a separate external testbed, not the bundled demo.
+        are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="your-ticket-classifiers-model-got-deprecated">Your ticket classifier’s model got deprecated</h1>
 <h2 id="the-use-case">The use case</h2>
@@ -87,6 +88,19 @@ is the use case this post covers.</p>
 <p><strong>What driftless does here:</strong> run <em>your</em> eval harness under the candidate model,<br />
 repair only the prompt files you allow, validate on a holdout split the optimizer<br />
 never saw, and open a PR (or issue) with metrics and diffs.</p>
+<h2 id="reproduce-the-core-failure-first-bundled-key-free">Reproduce the core failure first (bundled, key-free)</h2>
+<p>Use the wheel's bundled fixture before the larger testbed:</p>
+<pre><code class="language-bash">pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+</code></pre>
+<p>The four-row smoke demo deterministically shows F1 <code>1.000 → 0.000</code> while cost<br />
+falls <code>0.024 → 0.004</code>. It proves the compare and quality-gate path, not provider<br />
+model quality or statistical confidence. Continue key-free with<br />
+<code>migrate ... --generator none</code> to record a deliberately <code>BLOCKED</code> result.<br />
+Successful repair requires provider credentials and is nondeterministic.</p>
 <p>Artifact reference:<br />
 <a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> separates public testbed PR</p>
 <h1 id="4-290-labels-0904-tuning-0901-holdout-from-the-different-bundled">4 (290 labels, <code>0.904</code> tuning / <code>0.901</code> holdout) from the different bundled</h1>
@@ -152,7 +166,7 @@ failures is the point (it's a real production parsing bug).</em></p>
 a second workflow <code>quick_triage</code> still default to <code>gpt-3.5-turbo</code>, which the<br />
 lifecycle catalog marks <strong>deprecated</strong> (retirement date in the past as of 2026).</p>
 <hr />
-<h2 id="reproduce-the-naive-regression-free-offline">Reproduce the naive regression (free, offline)</h2>
+<h2 id="optional-full-testbed-appendix-reproduce-the-naive-regression">Optional full testbed appendix: reproduce the naive regression</h2>
 <p>Clone the testbed and reset the prompt to the <strong>hand-written baseline</strong> used in<br />
 CI migrations (before any repair):</p>
 <pre><code class="language-bash">git clone https://github.com/driftless-dev/support-classifier-svc

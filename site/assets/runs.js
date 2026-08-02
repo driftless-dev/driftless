@@ -73,6 +73,9 @@
       ? "Loaded saved passing fixture (separate from the key-free BLOCKED quickstart): "
       : "Loaded run: ";
     setStatus(prefix + (data.workflow || "unknown") + ", status " + (data.status || "unknown") + ".", "success");
+    var runTitle = document.getElementById("runTitle");
+    runTitle.setAttribute("tabindex", "-1");
+    if (source === "project") runTitle.focus();
   }
 
   function renderKpis(data, refine) {
@@ -491,6 +494,9 @@
   runSelect.addEventListener("change", function () {
     var wf = runSelect.value;
     if (!wf) return;
+    var url = new URL(window.location.href);
+    url.searchParams.set("workflow", wf);
+    window.history.replaceState({}, "", url);
     fetch("/api/runs/" + encodeURIComponent(wf))
       .then(function (r) {
         if (!r.ok) throw new Error("run unavailable");

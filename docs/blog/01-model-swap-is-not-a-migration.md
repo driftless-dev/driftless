@@ -28,6 +28,24 @@ is the use case this post covers.
 repair only the prompt files you allow, validate on a holdout split the optimizer
 never saw, and open a PR (or issue) with metrics and diffs.
 
+## Reproduce the core failure first (bundled, key-free)
+
+Use the wheel's bundled fixture before the larger testbed:
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+```
+
+The four-row smoke demo deterministically shows F1 `1.000 → 0.000` while cost
+falls `0.024 → 0.004`. It proves the compare and quality-gate path, not provider
+model quality or statistical confidence. Continue key-free with
+`migrate ... --generator none` to record a deliberately `BLOCKED` result.
+Successful repair requires provider credentials and is nondeterministic.
+
 Artifact reference:
 [`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) separates public testbed PR
 #4 (290 labels, `0.904` tuning / `0.901` holdout) from the different bundled
@@ -74,7 +92,7 @@ lifecycle catalog marks **deprecated** (retirement date in the past as of 2026).
 
 ---
 
-## Reproduce the naive regression (free, offline)
+## Optional full testbed appendix: reproduce the naive regression
 
 Clone the testbed and reset the prompt to the **hand-written baseline** used in
 CI migrations (before any repair):

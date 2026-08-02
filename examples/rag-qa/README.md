@@ -8,6 +8,7 @@ Start with the `support-classifier` golden path in the main README. To try this
 RAG variant without provider keys:
 
 ```bash
+pip install driftless
 driftless copy-example rag-qa --out-dir driftless-rag-demo
 cd driftless-rag-demo
 driftless validate -w rag_qa

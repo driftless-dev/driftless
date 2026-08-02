@@ -9,7 +9,12 @@ import pytest
 from driftless import datastate, github, report
 from driftless.cli import _act_on_data_change
 from driftless.datastate import load_state
-from scenarios import build_scenario
+from scenarios import (
+    DATA_CHANGE_INITIAL_PROMPT,
+    DataChangeRepair,
+    build_data_change_scenario,
+    build_scenario,
+)
 
 
 def test_poll_act_dry_run_previews_without_side_effects(tmp_path: Path):
@@ -24,6 +29,32 @@ def test_poll_act_dry_run_previews_without_side_effects(tmp_path: Path):
     # Dry run: report written, but no git and no recorded state.
     assert (tmp_path / ".driftless" / "reports" / "ticket_classifier.md").is_file()
     assert not (tmp_path / ".git").exists()
+    assert load_state(cwd=tmp_path) == {}
+
+
+def test_poll_act_dry_run_refine_reports_edits_without_writing_files(
+    tmp_path: Path, monkeypatch
+):
+    wf = build_data_change_scenario(tmp_path)
+    monkeypatch.setattr(
+        "driftless.generators.build_generator", lambda name: DataChangeRepair()
+    )
+
+    ok, summary = _act_on_data_change(
+        "ticket_classifier",
+        wf,
+        generator_name="scripted",
+        create=False,
+        seed=1,
+        cwd=tmp_path,
+    )
+
+    assert ok
+    assert "pass" in summary
+    assert "would open pr" in summary
+    assert (
+        tmp_path / "prompts" / "system.txt"
+    ).read_text() == DATA_CHANGE_INITIAL_PROMPT
     assert load_state(cwd=tmp_path) == {}
 
 

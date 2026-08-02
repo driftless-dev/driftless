@@ -8,6 +8,7 @@ Start with the `support-classifier` golden path in the main README. To try this
 agent variant without provider keys:
 
 ```bash
+pip install driftless
 driftless copy-example tool-agent --out-dir driftless-agent-demo
 cd driftless-agent-demo
 driftless validate -w support_agent

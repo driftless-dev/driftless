@@ -13,12 +13,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+---
+
+## [0.3.2] - 2026-07-31
+
+### Added
+
+- **Release-candidate governance** — release metadata and in-repository Action
+  pins are checked in CI, and publish verification covers every supported Python
+  version before artifacts can reach PyPI.
+- **Cold-user adoption guidance** — bundled examples, command selection,
+  existing-repository setup, and public testbed reproduction now follow one
+  documented path.
+
+### Changed
+
+- **Non-mutating automation previews** — `plan --act` and `poll --act` evaluate
+  and report candidate repairs without writing editable files unless `--create`
+  is explicitly supplied.
+- **Composite Action input handling** — Action inputs now cross into Bash through
+  environment variables, with command validation and non-evaluating argument
+  parsing.
+
+### Fixed
+
 - **GA automation branch safety** — multi-trigger plan/poll runs now branch from
   and return to the original base, reject unknown local/remote retry branches,
   persist poll debounce state on the base branch, and skip migrations for
   already-open deterministic artifacts.
 - **Repair prompt path containment** — configured system and user prompt files
   can no longer escape the repository, including through symlinks.
+- **Generated plan workflow** — `init-ci --plan` now includes `--create`, so its
+  scheduled workflow actually opens the PR or issue promised by the scaffold.
+- **Failed PR recovery** — a branch newly pushed by Driftless is removed when PR
+  creation fails, and the matching local retry branch is cleaned up only when
+  remote cleanup succeeds.
 
 ---
 
@@ -355,7 +384,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/driftless-dev/driftless/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/driftless-dev/driftless/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/driftless-dev/driftless/compare/v0.2.15...v0.3.0
 [0.2.15]: https://github.com/driftless-dev/driftless/compare/v0.2.14...v0.2.15

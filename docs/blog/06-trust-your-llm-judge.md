@@ -23,7 +23,24 @@ rubric looks good."
 **human calibration gate**. Measure judge↔human agreement (`judge-check`) and
 refuse to optimize when MAE / correlation miss your bar.
 
-The support-classifier testbed is **label-F1 first**. This post uses that as
+## Start with the bundled contract path
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+```
+
+The bundled classifier is label-F1, not an LLM-judge demo. It gives you a
+key-free four-row contract baseline before you add a judge-graded workflow.
+Judge evaluation and repair require the relevant provider credentials and can
+multiply calls across calibration rows, eval rows, candidates, and iterations.
+Do not infer judge reliability from this smoke fixture.
+
+## Optional full testbed appendix
+
+The external support-classifier testbed is **label-F1 first**. This post uses that as
 contrast, then shows the judge contract shape, CLI, and CI scaffold from the
 product itself.
 
@@ -149,7 +166,7 @@ Emits a workflow that re-runs when the rubric or calibration file changes, using
 the composite Action:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.1
+- uses: driftless-dev/driftless@v0.3.2
   with:
     command: judge-check
     workflow: support_summary
