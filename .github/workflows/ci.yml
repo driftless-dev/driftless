@@ -26,6 +26,11 @@ jobs:
       - name: Typecheck
         run: mypy
 
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
       - name: Validate GitHub Actions
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
