@@ -56,10 +56,17 @@
             when a model or dataset changes, validates through your real eval, and
             can open an evidence-backed PR when holdout passes.
           </p>
+          <p class="hero-audience">
+            For teams with an existing eval harness. Comparison and safety gating
+            work key-free; automated LLM repair requires provider credentials.
+          </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#quickstart">Run the example <span aria-hidden="true">→</span></a>
             <a class="button button-secondary" href="docs.html">Read the docs</a>
           </div>
+          <a class="hero-evidence-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">
+            Inspect a real migration PR <span aria-hidden="true">↗</span>
+          </a>
           <div class="hero-proof">
             <span>Scheduled dependency checks</span>
             <span>Automatic scoped repairs</span>
@@ -71,7 +78,7 @@
           <div class="workbench-bar">
             <div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div>
             <span>compare / support-classifier</span>
-            <span class="run-state"><i></i> reproducible</span>
+            <span class="run-state"><i></i> 4-row smoke demo</span>
           </div>
           <div class="workbench-body">
             <div class="run-command"><span>$</span> driftless compare -w support_classifier --to gpt-4o-mini</div>
@@ -267,8 +274,8 @@
 
         <div class="outcome-grid">
           <article class="outcome-card outcome-pass">
-            <div class="outcome-status"><span><i></i> Public testbed PR #4</span><strong>LIVE PROOF</strong></div>
-            <h3>Ready for review</h3>
+            <div class="outcome-status"><span><i></i> Public testbed PR #4</span><strong>HISTORICAL PROOF</strong></div>
+            <h3>Historical passing testbed</h3>
             <p>The captured testbed run cleared holdout. Reviewers get its scoped prompt diff, score comparison, and attempt history.</p>
             <div class="outcome-preview">
               <div><span>Target Macro F1</span><b>0.000 → 0.904</b></div>
@@ -278,8 +285,8 @@
           </article>
 
           <article class="outcome-card outcome-blocked">
-            <div class="outcome-status"><span><i></i> Blocked migration</span><strong>ISSUE</strong></div>
-            <h3>Nothing unsafe is merged</h3>
+            <div class="outcome-status"><span><i></i> Bundled key-free demo</span><strong>REPRODUCIBLE</strong></div>
+            <h3>Reproduce the safety path</h3>
             <p>If no candidate passes holdout, Driftless records what failed and opens an issue instead of creating a false-confidence PR.</p>
             <div class="blocked-log">
               <span>attempt_04</span>
@@ -289,16 +296,21 @@
           </article>
         </div>
 
-        <a class="evidence-proof" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">
+        <div class="evidence-proof">
           <div class="evidence-proof-copy">
-            <span>PUBLIC TESTBED PROOF · PR #4</span>
+            <span>HISTORICAL TESTBED PROOF · PR #4</span>
             <strong>Inspect the real draft PR</strong>
             <p>A captured testbed run with generated report, untouched holdout result, one prompt repair, and a separate model configuration update in the PR.</p>
-            <p><strong>Reproduction limit:</strong> PR #4 used testbed-specific deterministic patch tooling that is not shipped in the CLI. The published LLM generator requires provider credentials and may produce a different repair.</p>
-            <b>Open PR #4 on GitHub →</b>
+            <details class="evidence-details">
+              <summary>Reproduction details</summary>
+              <p>PR #4 used testbed-specific deterministic patch tooling that is not shipped in the CLI. The published LLM generator requires provider credentials and may produce a different repair.</p>
+            </details>
+            <a class="evidence-proof-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">Open PR #4 on GitHub →</a>
           </div>
-          <img src="visuals/github-migration-pr.png" alt="Public GitHub draft PR created from a passing Driftless migration" loading="lazy" />
-        </a>
+          <a class="evidence-image-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener" aria-label="Open public GitHub draft PR #4">
+            <img src="visuals/github-migration-pr.png" alt="Public GitHub draft PR created from a passing Driftless migration" loading="lazy" />
+          </a>
+        </div>
       </div>
     </section>
 

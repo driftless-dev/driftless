@@ -66,95 +66,95 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="tool-calling-support-agent-new-planner-same-tools">Tool-calling support agent: new planner, same tools</h1>
-<p><strong>Status:</strong> published guide — uses the in-repo deterministic<br />
-<a href="https://github.com/driftless-dev/driftless/tree/main/examples/tool-agent"><code>examples/tool-agent</code></a> fixture and includes a<br />
-run-viewer capture.</p>
-<h2 id="the-use-case">The use case</h2>
-<p>You run a support-style agent that must use tools — look up an order, check a<br />
-policy, create a ticket — before it answers the user. Success is not only a<br />
-polite final message. The agent must call the right tools in a safe order, avoid<br />
-side-effecting actions until it has enough information, and not invent an answer<br />
-when a tool was required.</p>
-<p>You swap the planner model for something cheaper or newer. Final answers still<br />
-<em>look</em> fine in a chat playground. In eval, behavior breaks: the agent skips a<br />
-required lookup, calls a write tool too early, or refuses and apologizes instead<br />
-of using the tool you already exposed. Spot-checking final text misses all of<br />
-that. Without a tool trace on each eval row, you cannot tell whether the failure<br />
-was planning, tool choice, or generation — so the team either over-edits the<br />
-wrong prompt or concludes "agents are too flaky to migrate."</p>
-<p>The use case is migrating the <strong>agent workflow</strong> with the same evidence bar as a<br />
-classifier: run the full loop under the candidate model, score final behavior<br />
-<em>and</em> the trace, and repair only the planner / tool-description files you mark<br />
-editable.</p>
-<p><strong>What driftless does here:</strong> run the whole agent workflow under the candidate<br />
-model, score the final behavior and trace, and repair only those editable files.</p>
-<p>Artifact reference:<br />
-<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> shows the evidence shape and<br />
-separates public testbed PR #4 from the different bundled saved success fixture;<br />
-the agent fixture uses the same report and <code>open-pr</code> path.</p>
-<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
-<p>If you only remember one rule: <strong>agent migration needs trace evidence.</strong> Final<br />
-answers are not enough. Emit the tools selected, tool errors, and final answer so<br />
-the repair loop can see whether the failure was planning, tool choice, or<br />
-generation.</p>
-<hr />
-<h2 id="the-app">The app</h2>
-<p>The fixture is local and side-effect-free:</p>
-<table>
-<thead>
-<tr>
-<th>Piece</th>
-<th>Path</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Contract</td>
-<td><code>examples/tool-agent/driftless.yml</code></td>
-</tr>
-<tr>
-<td>Eval command</td>
-<td><code>python3 -m app.eval_agent</code></td>
-</tr>
-<tr>
-<td>Fake tool data</td>
-<td><code>data/orders.jsonl</code>, <code>data/policies.json</code></td>
-</tr>
-<tr>
-<td>Eval cases</td>
-<td><code>evals/cases.jsonl</code></td>
-</tr>
-<tr>
-<td>Gold trace expectations</td>
-<td><code>evals/gold.jsonl</code></td>
-</tr>
-<tr>
-<td>Editable prompts</td>
-<td><code>prompts/planner.md</code>, <code>prompts/tool_descriptions.md</code></td>
-</tr>
-</tbody>
-</table>
-<p>The tools are plain Python functions over fixture data:</p>
+<p><strong>Specialized fixture · 4 rows · key-free:</strong> this guide uses the deterministic<br />
+<code>tool-agent</code> example installed by <code>copy-example</code>. It is not the bundled<br />
+classifier or the separate 290-row external testbed.</p>
+<h2 id="the-problem-a-good-final-sentence-can-hide-a-bad-action">The problem: a good final sentence can hide a bad action</h2>
+<p>A tool-calling support agent can look up an order, check a refund policy, issue a<br />
+refund, send an invoice, or reset a password. A <strong>tool call</strong> is the agent's<br />
+structured request to run one of those operations. The <strong>planner</strong> is the part<br />
+of the agent, often a language model guided by a prompt, that decides which<br />
+tools to call and in what order.</p>
+<p>For a refund, a safe plan is:</p>
+<ol>
+<li>look up the order;</li>
+<li>check whether policy allows a refund;</li>
+<li>issue the refund only when eligible;</li>
+<li>explain the result.</li>
+</ol>
+<p>Now replace the planner model with a cheaper candidate. It may produce a polite<br />
+answer saying "I issued your refund" while skipping the lookup and policy check.<br />
+Reading only the final answer misses the unsafe behavior.</p>
+<p>A <strong>trace</strong> is the recorded sequence of steps taken by the agent, including tool<br />
+names, errors, and the final answer. Agent migration needs trace evidence so you<br />
+can distinguish a planning failure from a tool failure or a wording problem.</p>
+<p>Driftless runs the full application under the candidate model, scores both<br />
+behavior and trace, and limits repair to the planner and tool-description files<br />
+allowed by the contract.</p>
+<h2 id="mental-model-score-actions-before-prose">Mental model: score actions before prose</h2>
+<p>Each fixture result includes the final answer and the ordered tools:</p>
+<pre><code class="language-jsonl">{&quot;id&quot;:&quot;a001&quot;,&quot;final&quot;:&quot;Refund issued for ord-1001...&quot;,&quot;tools&quot;:[&quot;lookup_order&quot;,&quot;check_policy&quot;,&quot;refund_payment&quot;],&quot;tool_errors&quot;:[],&quot;score&quot;:1.0,&quot;cost&quot;:0.024}
+</code></pre>
+<p>The <code>cost: 0.024</code> value belongs to this one output row. The compare table later<br />
+reports total cost summed across all four fixture rows, so the baseline total is<br />
+<code>4 × 0.024 = 0.096</code>.</p>
+<p>A <strong>side effect</strong> is a change outside the evaluation process, such as sending an<br />
+email, issuing money, or changing an account. The fixture uses <strong>fake tools</strong>:<br />
+local Python functions over test data that imitate those operations without<br />
+performing them. A <strong>sandbox tool</strong> runs in an isolated environment where its<br />
+effects cannot reach production systems.</p>
+<p>The evaluator gives a row <code>0.0</code> if a tool error exists or the ordered tool list<br />
+does not exactly match the expected list. If the trace is correct, it scores how<br />
+many required terms appear in the final answer. The result can therefore range<br />
+from <code>0.0</code> to <code>1.0</code>, although this bundled regression produces <code>1.0</code> for<br />
+baseline rows and <code>0.0</code> for uncorrected target rows.</p>
+<p>The contract setting <strong><code>score_field</code></strong> tells Driftless which output property<br />
+contains the numeric quality score. Driftless averages it into<br />
+<strong>Score / pass-rate</strong> and compares that mean with <code>min_score</code>. The score is an<br />
+application-defined measurement, not a probability.</p>
+<p>A <strong>holdout</strong> is a subset of cases kept away from prompt repair until final<br />
+validation. The fixture uses a 60% tuning and 40% holdout split. With only four<br />
+rows, it demonstrates the workflow but does not provide production-level<br />
+confidence.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>You need Python and a shell. This fixture is local, deterministic, and<br />
+side-effect-free. It requires no model-provider credentials.</p>
+<p>The copied project contains:</p>
 <ul>
-<li><code>lookup_order</code></li>
-<li><code>check_policy</code></li>
-<li><code>refund_payment</code></li>
-<li><code>send_invoice</code></li>
-<li><code>reset_password</code></li>
+<li><code>driftless.yml</code>: workflow contract;</li>
+<li><code>python3 -m app.eval_agent</code>: evaluation command;</li>
+<li><code>data/orders.jsonl</code> and <code>data/policies.json</code>: fake tool data;</li>
+<li><code>evals/cases.jsonl</code> and <code>evals/gold.jsonl</code>: requests and expected traces;</li>
+<li><code>prompts/planner.md</code> and <code>prompts/tool_descriptions.md</code>: editable prompts.</li>
 </ul>
-<p>No real refunds, emails, or account changes happen. That is intentional. Local<br />
-and CI examples should prove the workflow shape before anyone talks about hosted<br />
-agent execution.</p>
-<hr />
-<h2 id="reproduce-the-naive-regression">Reproduce the naive regression</h2>
-<p>Install the published wheel and copy its bundled example:</p>
+<p>Its tools are plain Python functions named <code>lookup_order</code>, <code>check_policy</code>,<br />
+<code>refund_payment</code>, <code>send_invoice</code>, and <code>reset_password</code>. No real refund, email,<br />
+password reset, or account change occurs.</p>
+<p>A <strong>repair generator</strong> proposes prompt or configuration changes from failures.<br />
+The normal LLM repair generator requires provider credentials and makes<br />
+nondeterministic model calls. The complete key-free path below disables it.</p>
+<h2 id="walkthrough">Walkthrough</h2>
+<h3 id="1-install-driftless-and-copy-the-fixture">1. Install Driftless and copy the fixture</h3>
+<p>These commands install the published package, create a standalone agent demo,<br />
+and enter its directory:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example tool-agent --out-dir driftless-agent-demo
 cd driftless-agent-demo
-driftless validate -w support_agent
-driftless compare -w support_agent --to gpt-4o-mini
 </code></pre>
-<p>Actual local output from the fixture:</p>
+<p>Expect a local four-row project with fake tool data and no external calls.</p>
+<h3 id="2-validate-the-current-workflow">2. Validate the current workflow</h3>
+<p>Run the configured current planner behavior:</p>
+<pre><code class="language-bash">driftless validate -w support_agent
+</code></pre>
+<p>Expect Driftless to execute <code>python3 -m app.eval_agent</code>, read the output JSONL,<br />
+and validate the metrics and schema. Model names select deterministic fixture<br />
+behavior rather than calling hosted models.</p>
+<h3 id="3-compare-current-and-candidate-planners">3. Compare current and candidate planners</h3>
+<p>This command evaluates the same cases and fake tools for <code>gpt-4</code> and the<br />
+simulated <code>gpt-4o-mini</code> target:</p>
+<pre><code class="language-bash">driftless compare -w support_agent --to gpt-4o-mini
+</code></pre>
+<p>Expect this actual fixture output:</p>
 <pre><code class="language-text">Running gpt-4 (baseline) and gpt-4o-mini (target)...
 
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
@@ -174,26 +174,59 @@ Thresholds (target vs contract):
   FAIL min_score: 0.000 &gt;= 0.85
   PASS max_cost_increase: -75.0% &lt;= +20%
 </code></pre>
-<p>Again, cheaper is not enough. The candidate fails because it does not follow the<br />
-tool protocol.</p>
-<hr />
-<h2 id="score-the-trace-not-just-the-prose">Score the trace, not just the prose</h2>
-<p>Each output row carries both final answer and trajectory:</p>
-<pre><code class="language-jsonl">{&quot;id&quot;:&quot;a001&quot;,&quot;final&quot;:&quot;Refund issued for ord-1001...&quot;,&quot;tools&quot;:[&quot;lookup_order&quot;,&quot;check_policy&quot;,&quot;refund_payment&quot;],&quot;tool_errors&quot;:[],&quot;score&quot;:1.0,&quot;cost&quot;:0.024}
+<p>Current CLI versions may also print confidence caveats and average latency rows<br />
+for this four-row smoke fixture. Those extra lines are expected; they do not<br />
+change the score and cost results shown above.</p>
+<p>The target is 75% cheaper in the fixture, but its mean quality score is <code>0.000</code>.<br />
+The contract requires at least <code>0.850</code>. The candidate fails because it does not<br />
+follow the tool protocol.</p>
+<h3 id="4-run-the-complete-key-free-blocked-path">4. Run the complete key-free blocked path</h3>
+<p>This command evaluates migration behavior but disables prompt proposals:</p>
+<pre><code class="language-bash">driftless migrate -w support_agent --to gpt-4o-mini --generator none
 </code></pre>
-<p>The evaluator gives zero credit when:</p>
+<p><code>--generator none</code> means no repair generator is available. The unchanged target<br />
+fails <code>min_score</code>, and Driftless has no candidate planner or tool-description<br />
+edit to test. Expect a non-zero exit with <code>BLOCKED</code>; no repair is attempted. The<br />
+failed migration result is still saved.</p>
+<p>Render the saved evidence:</p>
+<pre><code class="language-bash">driftless report -w support_agent
+</code></pre>
+<p>Expect the report to show the score, trace-related failures, remaining failure<br />
+groups, and holdout information when that stage was reached.</p>
+<p>Preview what Driftless would deliver:</p>
+<pre><code class="language-bash">driftless open-pr -w support_agent
+</code></pre>
+<p>This is a dry run because <code>--create</code> is absent, so it does not touch GitHub. A<br />
+blocked result has no shippable prompt change. Driftless therefore previews an<br />
+<strong>issue</strong> describing the blocker rather than a pull request that implies the<br />
+migration is ready.</p>
+<p>A passing repair requires an LLM generator credential and nondeterministic<br />
+provider calls. Review the resulting trace evidence before previewing or creating<br />
+a pull request.</p>
+<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
+<p>The report and delivery evidence shape is also shown in<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a>. See the<br />
+<a href="01-model-swap-is-not-a-migration.html#repair-reproduction-boundary">repair reproduction boundary</a><br />
+for the limits of reproduced repair output.</p>
+<h3 id="5-understand-the-behavior-a-repair-would-encode">5. Understand the behavior a repair would encode</h3>
+<p>The fixture starts with an intentionally vague planner:</p>
+<pre><code class="language-markdown">Choose tools that seem directly related to the customer request.
+
+For refunds, use the refund tool when the customer asks for money back. Keep the
+answer short and helpful.
+</code></pre>
+<p>For the target to pass, the planner and tool descriptions need explicit<br />
+operational rules:</p>
 <ul>
-<li>a required tool is missing;</li>
-<li>tools are called in the wrong order;</li>
-<li>a side-effecting tool runs without policy eligibility;</li>
-<li><code>tool_errors</code> is non-empty.</li>
+<li>call <code>lookup_order</code> before making a refund decision;</li>
+<li>call <code>check_policy</code> before <code>refund_payment</code>;</li>
+<li>call <code>refund_payment</code> only after eligibility is confirmed;</li>
+<li>include the tool trace in every result.</li>
 </ul>
-<p>That makes the eval useful for migration. A candidate that says "refund issued"<br />
-without <code>lookup_order</code> and <code>check_policy</code> should fail before it reaches<br />
-production.</p>
-<hr />
-<h2 id="the-contract-boundary">The contract boundary</h2>
-<p>The important part of <code>driftless.yml</code> is the edit scope:</p>
+<p>These are planner-prompt and tool-description changes, not tool implementation<br />
+changes.</p>
+<h2 id="advanced-contract-boundary">Advanced contract boundary</h2>
+<p>The contract limits what repair may edit:</p>
 <pre><code class="language-yaml">files:
   editable:
     - prompts/planner.md
@@ -205,73 +238,65 @@ production.</p>
     - evals/cases.jsonl
     - evals/gold.jsonl
 </code></pre>
-<p>Driftless can clarify planner instructions and tool descriptions. It cannot edit<br />
-the tool simulator, fixture data, or scoring rules.</p>
-<p>That boundary keeps the migration reviewable:</p>
-<table>
-<thead>
-<tr>
-<th>Surface</th>
-<th>Driftless role</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Planner prompt</td>
-<td>Editable</td>
-</tr>
-<tr>
-<td>Tool descriptions</td>
-<td>Editable</td>
-</tr>
-<tr>
-<td>Tool implementations</td>
-<td>Read-only</td>
-</tr>
-<tr>
-<td>Fixture data</td>
-<td>Read-only</td>
-</tr>
-<tr>
-<td>Eval scorer</td>
-<td>Owned by the app</td>
-</tr>
-<tr>
-<td>Hosted agent sandbox</td>
-<td>Out of scope for this example</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="what-a-repair-should-learn">What a repair should learn</h2>
-<p>The baseline planner is intentionally vague:</p>
-<pre><code class="language-markdown">Choose tools that seem directly related to the customer request.
+<p>Driftless can clarify instructions. It cannot edit the tool simulator, fixture<br />
+data, expected traces, or scoring rules.</p>
+<p>The scoring, split, and cost gates are:</p>
+<pre><code class="language-yaml">eval:
+  id_field: id
+  score_field: score
+  cost_field: cost
+  split:
+    tuning: 60%
+    holdout: 40%
 
-For refunds, use the refund tool when the customer asks for money back. Keep the
-answer short and helpful.
+thresholds:
+  min_score: 0.85
+  max_cost_increase: 0.20
 </code></pre>
-<p>For the cheaper model to pass, the planner/tool docs need to say the operational<br />
-rules directly:</p>
+<p><code>max_cost_increase: 0.20</code> allows at most a 20% cost increase. The target's<br />
+negative increase is a cost reduction, so cost passes while quality fails.</p>
+<p>Production trace records may also include tool arguments, returned values,<br />
+retrieved documents, retries, and timestamps. Avoid placing secrets or sensitive<br />
+payloads in reports.</p>
+<h2 id="interpret-the-result">Interpret the result</h2>
+<p><code>Score / pass-rate: 1.000</code> means the mean field selected by <code>score_field</code> is<br />
+<code>1.0</code>. In this fixture, that corresponds to exact expected tool sequences, no<br />
+tool errors, and all required final-answer terms. <code>0.000</code> means every target row<br />
+failed the evaluator. It does not mean the model was 0% likely to answer.</p>
+<p>Inspect the trace before changing prompts. A missing lookup suggests planner or<br />
+tool-description drift. A correct tool sequence with a wrong final answer<br />
+suggests answer-generation drift. A tool exception may be an implementation or<br />
+fixture problem rather than a model problem.</p>
+<h2 id="safety-and-failure-behavior">Safety and failure behavior</h2>
 <ul>
-<li>call <code>lookup_order</code> before refund decisions;</li>
-<li>call <code>check_policy</code> before <code>refund_payment</code>;</li>
-<li>do not call <code>refund_payment</code> unless eligibility is confirmed;</li>
-<li>include the tool trace in each result.</li>
-</ul>
-<p>Those are prompt/tool-description changes, not application rewrites.</p>
-<hr />
-<h2 id="honest-limits">Honest limits</h2>
-<ul>
-<li>Keep first examples local or inside CI.</li>
+<li>Keep initial agent evaluations local or inside CI.</li>
 <li>Use fake or sandboxed tools for migration tests.</li>
 <li>Do not let a hosted runner execute arbitrary side-effecting tools without a<br />
-  sandbox.</li>
-<li>Add budgets before scaling: agent eval is records times tool calls times repair<br />
-  attempts.</li>
+  sandbox and explicit authorization controls.</li>
+<li>Treat a blocked issue preview as evidence of a problem, not approval to run<br />
+  real actions.</li>
+<li>Keep tool implementations, fixtures, and scoring rules read-only during prompt<br />
+  repair.</li>
 </ul>
-<p>Agentic workflows fit Driftless because the app remains the unit under test. The<br />
-tool's job is to make model swaps reviewable: same cases, same fake tools, same<br />
-score, clearer planner/tool prompts.</p>
+<p>Agent evaluation work grows with the number of cases, planner/tool steps, repair<br />
+candidates, and iterations. Holdout adds another target validation. If an LLM<br />
+judge scores outputs, add one judge call per output row per evaluation run.</p>
+<p>Intuitively, more cases and longer traces increase each run, while candidates<br />
+and iterations repeat those runs:</p>
+<p>[<br />
+\text{work} \approx<br />
+\text{records} \times \text{model/tool steps}<br />
+\times \text{repair candidates} \times \text{iterations}<br />
++ \text{holdout validation}<br />
+]</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Read <a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md">RAG and agent contract details</a>.</li>
+<li>Add semantic scoring only after<br />
+<a href="06-trust-your-llm-judge.html">judge calibration</a>.</li>
+<li>Review <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a>.</li>
+<li><a href="03-dependabot-for-prompts-in-ci.html">Automate only after local validation</a>.</li>
+</ul>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="07-rag-prompts-drift-too.html"><span>← Previous</span><strong>RAG QA: new answer model, same knowledge base</strong></a></nav>
   </main>
 </div>
