@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Publish cold-install verification** — assert the installed package version via
+  import (and ANSI-stripped CLI output) so Rich digit highlighting under
+  `GITHUB_ACTIONS` cannot false-fail the post-publish gate; `release-check
+  --remote` prefers `python3`.
+
 ---
 
 ## [0.3.2] - 2026-07-31

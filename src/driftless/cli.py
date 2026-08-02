@@ -50,7 +50,10 @@ def _fail(exc: DriftlessError) -> None:
 
 def _version_callback(value: bool) -> None:
     if value:
-        console.print(f"driftless {__version__}")
+        # Plain stdout — Rich highlight/markup inserts ANSI into version
+        # numbers when GITHUB_ACTIONS forces a TTY console, which breaks
+        # publish CI assertions that grep for "driftless X.Y.Z".
+        typer.echo(f"driftless {__version__}")
         raise typer.Exit()
 
 

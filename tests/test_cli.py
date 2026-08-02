@@ -20,11 +20,15 @@ def _plain(text: str) -> str:
 runner = CliRunner()
 
 
-def test_cli_version():
+def test_cli_version(monkeypatch):
+    from driftless import __version__
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
     result = runner.invoke(app, ["--version"])
 
     assert result.exit_code == 0
-    assert "driftless" in result.output
+    assert result.output.strip() == f"driftless {__version__}"
+    assert "\x1b[" not in result.output
 
 
 def test_init_scaffolds_contract(tmp_path, monkeypatch):

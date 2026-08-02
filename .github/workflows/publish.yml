@@ -95,4 +95,9 @@ jobs:
           VERSION="${VERSION#v}"
           python -m venv /tmp/driftless-release
           /tmp/driftless-release/bin/pip install "driftless==${VERSION}"
-          /tmp/driftless-release/bin/driftless --version | grep -F "driftless ${VERSION}"
+          /tmp/driftless-release/bin/python -c "import driftless; assert driftless.__version__ == '${VERSION}', driftless.__version__"
+          # Prefer import check; also assert CLI text after stripping ANSI
+          # (Rich can highlight version digits when GITHUB_ACTIONS=true).
+          /tmp/driftless-release/bin/driftless --version \
+            | sed $'s/\x1b\\[[0-9;]*m//g' \
+            | grep -F "driftless ${VERSION}"
