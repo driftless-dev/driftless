@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from driftless.cli import _act_on_trigger
-from scenarios import build_scenario
+from scenarios import INITIAL_PROMPT, ScriptedRepair, build_scenario
 
 
 def test_act_dry_run_blocked_migration_previews_issue(tmp_path: Path):
@@ -48,6 +48,32 @@ def test_act_dry_run_passing_migration_previews_pr(tmp_path: Path):
     )
     assert ok
     assert "would open" in summary
+
+
+def test_act_dry_run_repair_reports_edits_without_writing_files(
+    tmp_path: Path, monkeypatch
+):
+    wf = build_scenario(tmp_path, current="old-model")
+    monkeypatch.setattr(
+        "driftless.generators.build_generator", lambda name: ScriptedRepair()
+    )
+
+    ok, summary = _act_on_trigger(
+        "ticket_classifier",
+        wf,
+        "new-model",
+        generator_name="scripted",
+        create=False,
+        seed=1,
+        cwd=tmp_path,
+    )
+
+    assert ok
+    assert "pass" in summary
+    assert "would open pr" in summary
+    assert (tmp_path / "prompts" / "system.txt").read_text() == INITIAL_PROMPT
+    report = (tmp_path / ".driftless" / "reports" / "ticket_classifier.md").read_text()
+    assert "prompts/system.txt" in report
 
 
 def test_act_reports_hard_error_as_not_ok(tmp_path: Path):

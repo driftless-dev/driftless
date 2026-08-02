@@ -304,11 +304,12 @@ def test_execute_plan_rolls_back_and_unstages_precommit_failure(
 
     assert events[0] == ["git", "checkout", "-b", plan.branch, "main"]
     assert events[1] == "prepare"
-    assert events[-2] == "rollback"
-    assert events[-1] == ["git", "reset", "--", "p.md"]
+    assert "rollback" in events
+    assert ["git", "reset", "--", "p.md"] in events
+    assert events[-1] == ["git", "branch", "-D", plan.branch]
 
 
-def test_execute_plan_does_not_rollback_after_commit_succeeds(
+def test_execute_plan_discards_new_local_branch_when_push_fails(
     tmp_path, monkeypatch, mocked_git_context
 ):
     plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
@@ -336,6 +337,107 @@ def test_execute_plan_does_not_rollback_after_commit_succeeds(
         isinstance(event, list) and event[:2] == ["git", "reset"]
         for event in events
     )
+    assert events[-1] == ["git", "branch", "-D", plan.branch]
+
+
+def test_execute_plan_removes_new_remote_branch_when_pr_creation_fails(
+    tmp_path, monkeypatch, mocked_git_context
+):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if args[:3] == ["gh", "pr", "create"]:
+            raise DriftlessError("PR creation failed")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+
+    with pytest.raises(DriftlessError, match="PR creation failed"):
+        execute_plan(plan, cwd=tmp_path, create=True, dedupe=False, push=True)
+
+    assert ["git", "push", "-u", "origin", plan.branch] in events
+    assert ["git", "push", "origin", "--delete", plan.branch] in events
+    assert events[-1] == ["git", "branch", "-D", plan.branch]
+
+
+def test_execute_plan_keeps_local_recovery_branch_if_remote_cleanup_fails(
+    tmp_path, monkeypatch, mocked_git_context
+):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if args[:3] == ["gh", "pr", "create"]:
+            raise DriftlessError("PR creation failed")
+        if args[:4] == ["git", "push", "origin", "--delete"]:
+            raise DriftlessError("remote cleanup failed")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+
+    with pytest.raises(DriftlessError, match="PR creation failed"):
+        execute_plan(plan, cwd=tmp_path, create=True, dedupe=False, push=True)
+
+    assert ["git", "push", "origin", "--delete", plan.branch] in events
+    assert ["git", "branch", "-D", plan.branch] not in events
+
+
+def test_execute_plan_accepts_pr_confirmed_after_create_response_is_lost(
+    tmp_path, monkeypatch, mocked_git_context
+):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if args[:3] == ["gh", "pr", "create"]:
+            raise DriftlessError("connection lost after request")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(
+        github,
+        "existing_open_item",
+        lambda plan, *, cwd: "PR #42 (https://example.test/42)",
+    )
+
+    actions = execute_plan(
+        plan, cwd=tmp_path, create=True, dedupe=False, push=True
+    )
+
+    assert actions[-1] == "PR created"
+    assert ["git", "push", "origin", "--delete", plan.branch] not in events
+    assert ["git", "branch", "-D", plan.branch] not in events
+
+
+def test_execute_plan_preserves_branches_when_pr_recovery_check_is_uncertain(
+    tmp_path, monkeypatch, mocked_git_context
+):
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    events: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        events.append(args)
+        if args[:3] == ["gh", "pr", "create"]:
+            raise DriftlessError("connection lost after request")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    def uncertain_existing_item(plan, *, cwd):
+        raise DriftlessError("GitHub query unavailable")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", uncertain_existing_item)
+
+    with pytest.raises(DriftlessError, match="connection lost after request"):
+        execute_plan(plan, cwd=tmp_path, create=True, dedupe=False, push=True)
+
+    assert ["git", "push", "origin", "--delete", plan.branch] not in events
+    assert ["git", "branch", "-D", plan.branch] not in events
 
 
 def test_execute_plan_dedupe_skips_file_preparation(tmp_path, monkeypatch):

@@ -23,7 +23,23 @@ consistent before you spend a migration or refine budget.**
 inputs with label disagreements *before* `migrate` / `refine` burn iterations.
 CI can `--fail` on that report; migrations can `--strict-label-audit`.
 
-Grounded in
+## Run the bundled audit first
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless audit-labels -w support_classifier
+```
+
+This key-free four-row fixture verifies the audit command and contract wiring.
+A clean smoke fixture does not establish that a larger production dataset is
+consistent; run the audit on the full representative eval before spending
+provider tokens on `migrate` or `refine`.
+
+## Optional full testbed appendix
+
+The larger examples below are grounded in
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 (290 labeled tickets) and the same CLI you run in Actions today.
 

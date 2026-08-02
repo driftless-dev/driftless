@@ -43,7 +43,14 @@
   });
 
   /* ---- copy-to-clipboard buttons ---- */
-  document.querySelectorAll(".copy-btn").forEach(function (btn) {
+  document.querySelectorAll(".copy-btn").forEach(function (btn, index) {
+    if (!btn.getAttribute("aria-label")) {
+      var host = btn.closest(".has-copy");
+      var code = host ? host.querySelector("code, .term-body") : null;
+      var language = code && code.className.match(/language-([a-z0-9_-]+)/i);
+      var description = language ? language[1] + " code" : "code block " + (index + 1);
+      btn.setAttribute("aria-label", "Copy " + description + " to clipboard");
+    }
     btn.addEventListener("click", function () {
       var host = btn.closest(".has-copy");
       if (!host) return;
@@ -51,10 +58,13 @@
       var text = code ? code.innerText : host.innerText;
       var done = function () {
         var prev = btn.textContent;
+        var prevLabel = btn.getAttribute("aria-label");
         btn.textContent = "copied";
+        btn.setAttribute("aria-label", "Copied to clipboard");
         btn.classList.add("copied");
         setTimeout(function () {
           btn.textContent = prev;
+          btn.setAttribute("aria-label", prevLabel);
           btn.classList.remove("copied");
         }, 1400);
       };

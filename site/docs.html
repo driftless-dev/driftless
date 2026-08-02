@@ -147,6 +147,10 @@ cd driftless-classifier-demo
 driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini</code></pre>
         <p>The comparison intentionally shows F1 <code class="inline">1.000 → 0.000</code> and total cost <code class="inline">0.024 → 0.004</code>. The cheaper target is unsafe, so <code class="inline">FAIL min_f1: 0.000 &gt;= 0.9</code> is the expected result.</p>
+        <div class="callout warn">
+          <span class="ci" aria-hidden="true">!</span>
+          <p><strong>Four-row smoke demo:</strong> this proves installation, contract execution, quality-gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
+        </div>
         <p>Continue through the key-free blocked path:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator none
 driftless report -w support_classifier
@@ -177,7 +181,7 @@ driftless init-ci</code></pre>
           <span class="ci" aria-hidden="true">!</span>
           <p><code class="inline">configure</code> writes a draft to <code class="inline">.driftless/configure/&lt;workflow&gt;.yml</code>; it does not update the root contract. Complete every <code class="inline">TODO</code> and manually merge the workflow block into root <code class="inline">driftless.yml</code> before <code class="inline">validate</code> or <code class="inline">init-ci</code>.</p>
         </div>
-        <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template.</p>
+        <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template. The <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository">guided repository walkthrough</a> includes a concrete draft-to-contract before/after, provider-cost guidance, and a staged safety checklist.</p>
       </section>
 
       <!-- CONTRACT -->
@@ -218,6 +222,10 @@ driftless init-ci</code></pre>
           <li><strong><code class="inline">env_var</code></strong> — the harness sets this environment variable to run the workflow under a different model. This is the runtime override used during evaluation.</li>
           <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a dotted path into a JSON/YAML config file. Used when opening a PR, to write the new model ID into the repo.</li>
         </ul>
+        <div class="callout warn">
+          <span class="ci" aria-hidden="true">!</span>
+          <p><strong>Write scope is an exact allowlist.</strong> Only exact file paths in <code class="inline">files.editable</code> may be changed. A directory such as <code class="inline">src/**</code> in <code class="inline">files.readonly</code> documents a protected area; it does not define the write boundary or grant access elsewhere. Put parser/schema files the generator should inspect in <code class="inline">files.context</code>, and keep schemas, product code, eval labels, and secrets out of <code class="inline">files.editable</code>.</p>
+        </div>
         <p>Percentages are ergonomic: <code class="inline">60%</code>, <code class="inline">60</code>, and <code class="inline">0.6</code> all parse to <code class="inline">0.6</code>.</p>
       </section>
 
@@ -512,7 +520,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.1
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.2
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>This is a policy <code class="inline">plan</code> preview, not the dependency-only <code class="inline">scan</code> workflow. A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>

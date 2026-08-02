@@ -25,7 +25,23 @@ When catalog pricing (and optionally measured token cost) clears
 `min_savings_pct`, `plan` proposes a cheaper candidate; `compare` / `migrate`
 still gate on *your* quality thresholds.
 
-This post uses
+## Reproduce the cost-versus-quality gate first
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless compare -w support_classifier --to gpt-4o-mini
+```
+
+The bundled four-row smoke fixture shows cost `0.024 → 0.004` while F1 falls
+`1.000 → 0.000`, so the cheaper model is blocked. Those numbers are deterministic
+fixture values, not provider pricing or production-quality evidence. Use measured
+harness cost and a representative eval before making a savings claim.
+
+## Optional full testbed appendix
+
+The detailed policy walkthrough uses
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 for cost wiring and policy, plus catalog math you can reproduce locally.
 

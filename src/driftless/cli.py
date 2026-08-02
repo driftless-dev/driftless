@@ -670,7 +670,15 @@ def _act_on_trigger(
             if original_branch != base_branch:
                 checkout_git_branch(base_branch, cwd=cwd)
         gen = build_generator(generator_name)
-        result = run_migration(name, wf, candidate_model, generator=gen, cwd=cwd, seed=seed)
+        result = run_migration(
+            name,
+            wf,
+            candidate_model,
+            generator=gen,
+            cwd=cwd,
+            seed=seed,
+            write_files=create,
+        )
         save_report(result, workflow=wf, cwd=cwd)
         result_dict = result_to_dict(result)
         report_md = render_markdown(result, wf)
@@ -763,6 +771,7 @@ def _act_on_data_change(
         result = run_migration(
             name, wf, wf.model.current, generator=gen, cwd=cwd, seed=seed,
             objective=Objective.MAXIMIZE,
+            write_files=create,
         )
         save_report(result, workflow=wf, cwd=cwd)
         report_md = render_markdown(result, wf)

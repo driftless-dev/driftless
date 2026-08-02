@@ -24,6 +24,24 @@ hero engineer every Monday.
 file for when to propose changes, and run `scan` / `plan` / `migrate` / `refine`
 through a composite Action so triage is scheduled and reviewable.
 
+## Reproduce locally before adding CI
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless compare -w support_classifier --to gpt-4o-mini
+driftless init-policy
+driftless init-ci
+```
+
+Review generated policy and workflow files; do not commit automation until the
+local contract and expected `BLOCKED` four-row smoke result make sense. The
+fixture needs no provider key, but it does not prove provider behavior or a
+successful repair. Acting on plans and LLM-backed repair require credentials;
+`--create` adds GitHub side effects.
+
 Artifact reference:
 [`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) distinguishes public
 testbed PR #4 from the different bundled four-row saved success fixture. Both
@@ -34,7 +52,9 @@ testbed-specific deterministic patch tooling used to prepare PR #4.
 
 [Open the public draft PR and inspect the generated report and diff.](https://github.com/driftless-dev/support-classifier-svc/pull/4)
 
-This post maps each layer to the
+## Optional full testbed appendix
+
+The remaining sections map each layer to the external
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 workflows you can run today.
 
@@ -91,7 +111,7 @@ driftless init-ci        # .github/workflows/driftless-*.yml
 ```
 
 The testbed instead **dogfoods** hand-written workflows pinned to
-`driftless==0.3.1` — copy patterns from
+`driftless==0.3.2` — copy patterns from
 [`.github/workflows/`](https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows).
 
 ---

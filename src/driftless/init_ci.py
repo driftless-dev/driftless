@@ -446,7 +446,7 @@ jobs:
         uses: {action_ref}
         with:
           command: plan
-          args: "--act"
+          args: "--act --create"
         env:
 {_provider_env_block()}\
           GH_TOKEN: ${{{{ github.token }}}}

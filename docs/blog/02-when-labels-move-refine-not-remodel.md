@@ -25,7 +25,24 @@ the updated labels while keeping the model fixed — not to chase a new model ID
 **What driftless does here:** pin the model, re-optimize allowed prompt files
 against the new gold labels (`refine`), validate on holdout, and open a PR.
 
-Again we use
+## Start with the bundled classifier
+
+```bash
+pip install driftless
+driftless copy-example support-classifier --out-dir driftless-classifier-demo
+cd driftless-classifier-demo
+driftless validate -w support_classifier
+driftless audit-labels -w support_classifier
+```
+
+This four-row, key-free fixture establishes the contract and label-audit command
+shape. It is a smoke demo, not evidence that a production label policy is
+consistent. Provider-backed `refine` requires credentials and can incur repeated
+eval and repair cost.
+
+## Optional full testbed appendix
+
+The detailed policy-change walkthrough below uses
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
 — same 290-ticket classifier, same `driftless.yml`, different trigger.
 

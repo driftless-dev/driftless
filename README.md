@@ -40,6 +40,12 @@ Total cost  current 0.024   target 0.004
 FAIL min_f1: 0.000 >= 0.9
 ```
 
+> **Smoke-demo warning:** this fixture has only **4 rows**. It proves packaging,
+> contract execution, metric gating, evidence rendering, and dry-run PR/issue
+> behavior; it does **not** establish production quality, statistical
+> confidence, provider behavior, or a successful repair. Use a representative
+> eval and real provider credentials before making a shipping decision.
+
 The target is cheaper, but it is not safe to ship because it fails the
 classifier's quality gate. Continue through the blocked migration path without
 provider keys:
@@ -79,11 +85,12 @@ driftless copy-example rag-qa
 driftless copy-example tool-agent
 ```
 
-To adopt Driftless in an existing repository, start there with `driftless scan`,
-then run `driftless configure <workflow>` for a detected workflow. That command
-writes a draft at `.driftless/configure/<workflow>.yml`; it does **not** update
-the root contract. Complete every `TODO`, manually merge the workflow block into
-the root `driftless.yml`, and only then run `validate` or `init-ci`.
+To adopt Driftless in an existing repository, follow the
+[guided existing-repository walkthrough](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository).
+It starts with `scan` and `configure`, then gives a concrete draft-to-contract
+example, exact editable-path rules, provider-cost guidance, and safety checks
+before repair or CI. `configure` only writes
+`.driftless/configure/<workflow>.yml`; it never updates root `driftless.yml`.
 
 ## How it works
 
@@ -151,7 +158,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 `plan --act` triage, and manually-triggered migration workflows.
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.1
+- uses: driftless-dev/driftless@v0.3.2
   with:
     command: scan
 ```

@@ -93,10 +93,14 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Build sdist and wheel
+      - name: Validate release metadata
+        run: ./scripts/release-check.sh
+
+      - name: Build and validate sdist and wheel
         run: |
-          pip install build
+          pip install build twine
           python -m build
+          twine check dist/*
 
       - name: Verify bundled lifecycle data is in the wheel
         run: |

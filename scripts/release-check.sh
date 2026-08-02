@@ -32,6 +32,16 @@ ACTION_VERSION="$(awk '
 [[ "$ACTION_VERSION" == "==$VERSION" ]] \
   || die "action.yml version default ($ACTION_VERSION) does not match __version__ (==$VERSION)"
 
+EXPECTED_ACTION_REF="driftless-dev/driftless@v${VERSION}"
+WORKFLOW_REFS="$(grep -RhEo 'driftless-dev/driftless@v[^[:space:]]+' \
+  "$ROOT"/.github/workflows/llm-*.yml | sort -u || true)"
+[[ -n "$WORKFLOW_REFS" ]] \
+  || die "no driftless Action refs found in .github/workflows/llm-*.yml"
+while IFS= read -r ref; do
+  [[ "$ref" == "$EXPECTED_ACTION_REF" ]] \
+    || die "workflow Action ref ($ref) does not match version ($EXPECTED_ACTION_REF)"
+done <<< "$WORKFLOW_REFS"
+
 if [[ "${1:-}" == "--tag" ]]; then
   TAG="${2:-}"
   [[ -n "$TAG" ]] || die "usage: $0 --tag vX.Y.Z"
@@ -39,4 +49,4 @@ if [[ "${1:-}" == "--tag" ]]; then
   [[ "$TAG" == "$EXPECTED" ]] || die "tag $TAG does not match __version__ ($EXPECTED)"
 fi
 
-echo "release-check ok: version $VERSION, changelog section, and action default present"
+echo "release-check ok: version $VERSION, changelog, action default, and workflow refs aligned"

@@ -70,10 +70,12 @@ example runs without provider keys.
 
 ## Reproduce the naive regression
 
-From the repo root:
+Install the published wheel and copy its bundled example:
 
 ```bash
-cd examples/rag-qa
+pip install driftless
+driftless copy-example rag-qa --out-dir driftless-rag-demo
+cd driftless-rag-demo
 driftless validate -w rag_qa
 driftless compare -w rag_qa --to gpt-4o-mini
 ```

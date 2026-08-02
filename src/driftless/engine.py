@@ -501,6 +501,7 @@ def run_migration(
     cwd: Path | None = None,
     seed: int = 0,
     objective: Objective = Objective.MEET_THRESHOLDS,
+    write_files: bool = True,
 ) -> MigrationResult:
     cwd = (cwd or Path.cwd()).resolve()
     _validate_workflow_file_paths(workflow, cwd)
@@ -844,7 +845,11 @@ def run_migration(
         ):
             ok, holdout_metrics, holdout_checks = holdout_ok(best_files or None)
             if ok:
-                edited = commit_files(best_files, cwd=cwd) if best_files else []
+                edited = (
+                    commit_files(best_files, cwd=cwd)
+                    if best_files and write_files
+                    else list(best_files)
+                )
                 return MigrationResult(
                     workflow=workflow_name,
                     current_model=current,
@@ -908,7 +913,11 @@ def run_migration(
         suggested = suggest_thresholds(basis)
 
         improved = bool(best_files) and _maximize_key(best_metrics) > _maximize_key(naive_tuning)
-        edited = commit_files(best_files, cwd=cwd) if (best_files and improved) else []
+        edited = (
+            commit_files(best_files, cwd=cwd)
+            if best_files and improved and write_files
+            else list(best_files) if best_files and improved else []
+        )
         status = MigrationStatus.PASS if improved else MigrationStatus.NO_CHANGE
         message = (
             "refined the prompt toward the updated dataset; validated on holdout"
