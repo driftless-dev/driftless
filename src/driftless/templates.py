@@ -9,15 +9,15 @@ CONTRACT_TEMPLATE = """\
 version: 1
 
 workflows:
-  support_classifier:
-    description: "Routes support tickets into billing, technical, account, or refund categories."
+  my_workflow:
+    description: "TODO: describe what this model-dependent workflow does."
 
     # How to run the REAL workflow. driftless runs your command; it does not
     # reimplement your preprocessing/parsing/postprocessing.
     run:
-      command: npm run eval:support-classifier
-      input_path: evals/support_classifier.inputs.jsonl
-      output_path: .driftless/results/support_classifier.outputs.jsonl
+      command: "TODO: command that runs your evaluation harness"
+      input_path: evals/inputs.jsonl
+      output_path: .driftless/results/outputs.jsonl
       # Prefer a CLI command. Alternatively, point at an HTTP endpoint that
       # classifies one input record per POST (mutually exclusive with command):
       #   endpoint: https://internal.example.com/classify
@@ -27,12 +27,11 @@ workflows:
 
     # Which model is used and how to override it (env_var is the common case).
     model:
-      provider: openai
-      env_var: SUPPORT_CLASSIFIER_MODEL
-      current: gpt-4o-mini
+      provider: <provider>
+      env_var: MY_WORKFLOW_MODEL
+      current: <current-model>
       target_candidates:
-        - gpt-5-mini
-        - gpt-5-nano
+        - <target-model>
       # Set true if your code routes models provider-agnostically (LiteLLM /
       # OpenRouter / a gateway), so cross-provider targets are safe.
       # portable: false
@@ -40,19 +39,19 @@ workflows:
     # Edit scope. The migration engine may ONLY touch editable files.
     files:
       editable:
-        - prompts/support_classifier.md
-        - prompts/support_classifier_examples.yml
+        - prompts/system.md
       readonly:
-        - src/classifySupportTicket.ts
-        - schemas/support_classifier.schema.json
+        - src/
+        - evals/
       # Read-only code shown to the optimizer for CONTEXT (e.g. the output
       # parser), so it writes patches that conform to how outputs are graded.
       # context:
       #   - src/parseSupportClassifierOutput.ts
 
     eval:
-      labels_path: evals/support_classifier.labels.jsonl
-      schema_path: schemas/support_classifier.schema.json
+      id_field: id
+      score_field: score
+      cost_field: cost
       split:
         tuning: 70%
         holdout: 30%
@@ -99,9 +98,7 @@ workflows:
     # Thresholds are OPTIONAL. With none set, the bar is "don't regress vs. the
     # current baseline" (run `driftless calibrate -w <name>` for suggestions).
     thresholds:
-      min_f1: 0.91
-      min_precision: 0.94
-      # min_score: 0.9          # for eval.score_field / eval.pass_field grading
+      min_score: 0.9
       max_schema_error_rate: 0.01
       max_cost_increase: 0
       max_latency_increase: 0.10

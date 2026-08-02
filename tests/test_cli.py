@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from driftless import engine, generators, github, report
 from driftless.cli import _act_on_trigger, _model_change_preparer, app
 from driftless.contract import Workflow
+from driftless.templates import CONTRACT_TEMPLATE
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -32,7 +33,60 @@ def test_init_scaffolds_contract(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert Path("driftless.yml").is_file()
-    assert "support_classifier" in Path("driftless.yml").read_text()
+    contract = Path("driftless.yml").read_text()
+    assert "my_workflow" in contract
+    assert "support_classifier" not in contract
+    assert "TODO" in contract
+
+
+def test_configure_apply_creates_root_contract_and_reports_todos(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("app.py").write_text("print('hello')\n")
+
+    result = runner.invoke(app, ["configure", "summary", "--apply"])
+
+    assert result.exit_code == 0
+    contract = Path("driftless.yml").read_text()
+    assert "version: 1" in contract
+    assert "summary:" in contract
+    assert "unresolved placeholder" in _plain(result.output)
+
+
+def test_configure_apply_merges_without_rewriting_existing_comments(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("app.py").write_text("print('hello')\n")
+    Path("driftless.yml").write_text(
+        """# keep this comment
+version: 1
+workflows:
+  existing:
+    run:
+      command: echo ok
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: gpt-4o
+      env_var: MODEL
+"""
+    )
+
+    result = runner.invoke(app, ["configure", "summary", "--apply"])
+
+    assert result.exit_code == 0
+    contract = Path("driftless.yml").read_text()
+    assert "# keep this comment" in contract
+    assert "existing:" in contract
+    assert "summary:" in contract
+
+
+def test_validate_refuses_unresolved_scaffold_placeholders(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("driftless.yml").write_text(CONTRACT_TEMPLATE)
+
+    result = runner.invoke(app, ["validate", "--no-run"])
+
+    assert result.exit_code == 1
+    assert "unresolved scaffold placeholders" in _plain(result.output)
 
 
 def test_init_policy_scaffolds_policy(tmp_path, monkeypatch):

@@ -66,75 +66,76 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="support-changed-the-labeling-policy-model-stays-put">Support changed the labeling policy — model stays put</h1>
-<h2 id="the-use-case">The use case</h2>
-<p>Same support classifier as <a href="01-model-swap-is-not-a-migration.html">post 1</a>: every<br />
-ticket gets a gold category so you can measure quality offline. For a long time,<br />
-tickets like <em>"Please reverse the payment on my latest invoice"</em> are labeled<br />
-<strong>billing</strong> — the team treated a charge correction as a billing adjustment, not<br />
-a refund.</p>
-<p>Then support ops updates the labeling policy. After a product decision, those<br />
-charge-reversal tickets should be <strong>refund</strong>, not billing. An engineer runs a<br />
-script (or an annotator edits the JSONL), commits ~25 relabeled rows, and merges.<br />
-Nobody changes the model ID in config. Production still calls the same model with<br />
-the same prompt.</p>
-<p>On the next eval run, accuracy drops. Dashboards look like a model regression.<br />
-Someone proposes swapping to a "smarter" model. That is the wrong diagnosis: the<br />
-oracle moved. The prompt still teaches the <em>old</em> definition of billing vs refund,<br />
-so the pinned model is now wrong for the new definition of "correct."</p>
-<p>This is dataset drift, not model drift. The job is to re-tune the prompt against<br />
-the updated labels while keeping the model fixed — not to chase a new model ID.</p>
-<p><strong>What driftless does here:</strong> pin the model, re-optimize allowed prompt files<br />
-against the new gold labels (<code>refine</code>), validate on holdout, and open a PR.</p>
-<h2 id="start-with-the-bundled-classifier">Start with the bundled classifier</h2>
+<h2 id="what-problem-are-we-solving">What problem are we solving?</h2>
+<p>The support classifier from<br />
+<a href="01-model-swap-is-not-a-migration.html">post 1</a> assigns each ticket a category.<br />
+Its <strong>gold label</strong> is the expected category used to score one evaluation example.</p>
+<p>For a long time, the team labels a request such as “Please reverse the payment<br />
+on my latest invoice” as <code>billing</code>. After a product decision, support operations<br />
+changes the policy: charge-reversal requests should now be <code>refund</code>. An engineer<br />
+or annotator updates about 25 rows in the JSONL evaluation data, but the model ID<br />
+and prompt stay unchanged.</p>
+<p>The next evaluation score falls. That can look like a model regression, but the<br />
+definition of “correct” moved. This is <strong>label drift</strong>: expected labels or their<br />
+meaning changed over time. More broadly, it is <strong>dataset drift</strong>, a change to the<br />
+evaluation inputs or expected outputs. Replacing the model would change another<br />
+variable and make the cause harder to understand.</p>
+<p>The goal is to teach the pinned model the new policy by updating allowed prompt<br />
+files, then prove that the update works on unseen examples.</p>
+<h2 id="what-driftless-does">What Driftless does</h2>
+<p>An <strong>evaluation</strong>, or <strong>eval</strong>, is a repeatable test of model behavior. Its<br />
+<strong>evaluation harness</strong> runs examples, parses model outputs, and computes scores.<br />
+The committed <code>driftless.yml</code> is the <strong>workflow contract</strong> that connects that<br />
+harness to evaluation data, editable files, and release rules.</p>
+<p>For a label change, Driftless uses <code>refine</code>:</p>
+<ol>
+<li>Keep the configured model pinned.</li>
+<li>Ask a <strong>repair generator</strong>—the model or mechanism that proposes prompt<br />
+   changes—to edit only allowed files.</li>
+<li>Score proposed repairs against the changed labels.</li>
+<li>Compare the winner with the current prompt on a <strong>holdout</strong>, evaluation rows<br />
+   the repair loop did not see. For refinement, this is a no-regression check<br />
+   against the current workflow, not the model-migration requirement to clear<br />
+   the same absolute release thresholds.</li>
+<li>Suggest fresh thresholds from the achieved holdout metrics, then use <code>report</code><br />
+   to summarize saved evidence and <code>open-pr</code> to preview or create a pull request.</li>
+</ol>
+<p>This differs from the model-change flow:</p>
+<ul>
+<li><code>compare</code> tests a current <strong>baseline</strong> model against a proposed <strong>candidate</strong><br />
+  model with the same files. It does not repair.</li>
+<li><code>migrate --to ...</code> changes the model and repairs prompts to meet configured<br />
+  thresholds.</li>
+<li><code>refine</code> keeps the model fixed and repairs prompts after data, labels, or<br />
+  behavior expectations change.</li>
+<li><code>report</code> formats saved run evidence.</li>
+<li><code>open-pr</code> turns eligible evidence and diffs into a preview or pull request.</li>
+</ul>
+<h2 id="before-you-start-audit-labels">Before you start: audit labels</h2>
+<p>Run a label audit before spending repair tokens. It checks for duplicate or<br />
+near-duplicate examples with contradictory expected categories. Such conflicts<br />
+can cap the best achievable score because no stable rule can satisfy both rows.<br />
+Prompt repair cannot resolve that data problem.</p>
+<p>The commands below install Driftless, copy the four-row bundled classifier,<br />
+validate its workflow contract, and audit its labels without an API key:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
 driftless validate -w support_classifier
 driftless audit-labels -w support_classifier
 </code></pre>
-<p>This four-row, key-free fixture establishes the contract and label-audit command<br />
-shape. It is a smoke demo, not evidence that a production label policy is<br />
-consistent. Provider-backed <code>refine</code> requires credentials and can incur repeated<br />
-eval and repair cost.</p>
-<h2 id="optional-full-testbed-appendix">Optional full testbed appendix</h2>
-<p>The detailed policy-change walkthrough below uses<br />
+<p>Expect the fixture to establish the contract and demonstrate the audit command.<br />
+Four rows are a smoke test, not evidence that a production labeling policy is<br />
+consistent. Read <a href="05-audit-labels-before-you-trust-f1.html">post 5</a> for the full<br />
+audit workflow.</p>
+<p>Provider-backed <code>refine</code> needs repair-generator credentials and can incur<br />
+repeated evaluation and token costs. The detailed walkthrough uses the separate<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
-— same 290-ticket classifier, same <code>driftless.yml</code>, different trigger.</p>
-<hr />
-<h2 id="same-repair-loop-different-variable">Same repair loop, different variable</h2>
-<table>
-<thead>
-<tr>
-<th></th>
-<th>Model migration (<code>migrate</code>)</th>
-<th>Dataset refine (<code>refine</code>)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>What moved</td>
-<td>Provider model ID</td>
-<td>Gold labels (or inputs)</td>
-</tr>
-<tr>
-<td>Model</td>
-<td>Changes (<code>--to gpt-4o-mini</code>)</td>
-<td><strong>Pinned</strong></td>
-</tr>
-<tr>
-<td>Objective</td>
-<td>Meet <code>thresholds:</code> in contract</td>
-<td>Maximize metric; suggest new thresholds</td>
-</tr>
-<tr>
-<td>Testbed trigger</td>
-<td><code>gpt-3.5-turbo</code> deprecation</td>
-<td>Label policy update</td>
-</tr>
-</tbody>
-</table>
-<p>If you bump the model when only labels changed, you're debugging the wrong knob.</p>
-<p>Use the trigger to choose the tool:</p>
+testbed: 290 tickets, the same <code>driftless.yml</code>, and a different trigger from<br />
+post 1. It is not the bundled four-row fixture.</p>
+<h2 id="walkthrough">Walkthrough</h2>
+<h3 id="1-choose-the-command-from-what-changed">1. Choose the command from what changed</h3>
+<p>The trigger determines which variable to hold fixed:</p>
 <table>
 <thead>
 <tr>
@@ -150,60 +151,84 @@ eval and repair cost.</p>
 <td><code>migrate --to ...</code></td>
 </tr>
 <tr>
-<td>Gold labels or eval inputs</td>
+<td>Gold labels or evaluation inputs</td>
 <td><code>audit-labels</code></td>
 <td><code>refine</code></td>
 </tr>
 <tr>
 <td>Both changed</td>
-<td>Split the PR if possible</td>
+<td>Split the pull request if possible</td>
 <td>Audit, then migrate/refine one variable at a time</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2 id="the-policy-change-concrete-tickets">The policy change (concrete tickets)</h2>
-<p>The dataset builder seeds <strong>25 charge-reversal tickets</strong>. They read like billing<br />
-but, after a policy meeting, should be <strong><code>refund</code></strong>.</p>
-<p>Example rows from <code>evals/tickets.inputs.jsonl</code>:</p>
+<p><code>migrate</code> changes the model and tries to satisfy the contract's absolute<br />
+thresholds. <code>refine</code> pins the model, maximizes the configured metric, checks<br />
+holdout performance against the current prompt, and prints suggested thresholds<br />
+derived from the refined holdout metrics. Those suggestions are review input,<br />
+not an automatic weakening of the committed contract. Changing one variable at<br />
+a time keeps the evidence interpretable.</p>
+<h3 id="2-apply-the-policy-change">2. Apply the policy change</h3>
+<p>The testbed's dataset builder includes 25 charge-reversal tickets. Two input<br />
+examples are:</p>
 <pre><code class="language-json">{&quot;id&quot;: &quot;t002&quot;, &quot;text&quot;: &quot;I need you to reverse the credit card payment because it was charged twice.&quot;}
 {&quot;id&quot;: &quot;t021&quot;, &quot;text&quot;: &quot;Please reverse the payment on my latest invoice.&quot;}
 </code></pre>
-<p><strong>Before policy:</strong> gold label <code>billing</code> (adjustment on a charge).<br />
-<strong>After policy:</strong> gold label <code>refund</code> (customer wants money back on a charge<br />
-they dispute).</p>
-<p>The testbed ships a one-command event script — no hand-editing JSONL:</p>
+<p>Under the old policy, their gold label is <code>billing</code>: an adjustment to a charge.<br />
+Under the new policy, it is <code>refund</code>: the customer wants money returned for a<br />
+disputed charge.</p>
+<p>The following helper changes the affected labels without hand-editing JSONL:</p>
 <pre><code class="language-bash">python evals/_apply_refund_policy.py
 # policy update: re-labeled 25 charge-reversal ticket(s) -&gt; 'refund'
 </code></pre>
-<p>That script uses the same detector as the simulator<br />
-(<code>support_classifier.llm_client._is_charge_reversal</code>) so offline runs stay<br />
-reproducible. On <code>main</code> today the policy may already be applied (running the<br />
-script prints <code>0</code> changes); for a fresh demo, start from a commit before the<br />
-policy or restore labels from git history.</p>
-<p>Then:</p>
+<p>On an applicable checkout, expect it to report 25 relabeled tickets. It uses the<br />
+same detector as the simulator,<br />
+<code>support_classifier.llm_client._is_charge_reversal</code>, so offline behavior stays<br />
+reproducible. On <code>main</code>, the policy may already be applied; then the script can<br />
+correctly report <code>0</code> changes. For a fresh demo, start from a commit before the<br />
+policy change or restore labels from Git history.</p>
+<h3 id="3-refine-while-the-model-stays-pinned">3. Refine while the model stays pinned</h3>
+<p>The next commands make classifier calls deterministic, provide credentials for<br />
+the separate LLM repair generator, run a strict label audit as part of refinement,<br />
+and create a pull request if the result is eligible:</p>
 <pre><code class="language-bash">export SUPPORT_CLASSIFIER_SIMULATE=1
+export OPENAI_API_KEY=...  # LLM repair generator; simulator only replaces the harness
 driftless refine -w support_classifier --strict-label-audit
 driftless open-pr -w support_classifier --create
 </code></pre>
-<p>No <code>--to</code>. The model in <code>config/llm.yml</code> never changes.</p>
-<p>The resulting PR should be boring in the best way: label/input diff in one<br />
-commit or branch, prompt diff in the Driftless PR, model config untouched, and a<br />
-report that says the repaired prompt meets the current eval policy.</p>
-<hr />
-<h2 id="what-the-repair-actually-edits">What the repair actually edits</h2>
-<p>The simulator is calibrated so the <strong>old</strong> prompt scores well on the <strong>old</strong><br />
-labels and poorly after relabeling — until category definitions catch up.</p>
-<p>A successful real-model repair (documented in the testbed README, scenario 3)<br />
-rewrote <code>prompts/system.md</code> from:</p>
+<p>Notice that there is no <code>--to</code> argument. The model in <code>config/llm.yml</code> should not<br />
+change. Expect repair to edit allowed prompt files, evaluate attempts, and check<br />
+the winner on holdout against the current prompt. Unlike <code>migrate</code>, <code>refine</code> does<br />
+not require the winner to clear the same absolute threshold gate; it protects<br />
+against regression on unseen rows and reports suggested fresh thresholds from<br />
+what the holdout achieved. A successful pull request should keep evidence easy<br />
+to review: the label/input change belongs in its own commit or branch, the<br />
+Driftless pull request contains the prompt diff, model configuration remains<br />
+untouched, and the report shows the measured result and threshold suggestions.</p>
+<p><code>SUPPORT_CLASSIFIER_SIMULATE=1</code> replaces model calls made by the classification<br />
+harness. It does not replace the default <code>--generator llm</code>, which still needs<br />
+<code>OPENAI_API_KEY</code> in this testbed and may make repeated calls. To exercise<br />
+refinement orchestration without repair, use <code>--generator none</code>. If nothing<br />
+beats the current prompt, <code>refine</code> returns <code>NO_CHANGE</code>, keeps files untouched,<br />
+and exits 0 because there is no regression to block. This differs from<br />
+<code>migrate --generator none</code>: when the unchanged target misses release thresholds,<br />
+migration returns <code>BLOCKED</code>.</p>
+<h3 id="4-read-the-prompt-change-as-a-policy-change">4. Read the prompt change as a policy change</h3>
+<p>Before repair, the prompt contains broad definitions:</p>
 <pre><code class="language-markdown">- billing: questions about invoices, charges, payments, or subscriptions
 - refund: the customer wants their money returned
 </code></pre>
-<p>to something like:</p>
+<p>A successful real-model repair documented as scenario 3 in the testbed README<br />
+made the implicit policy explicit with wording like:</p>
 <pre><code class="language-markdown">- billing: ... including requests to reverse or correct erroneous charges
 - refund: ... charged correctly but dissatisfied or no longer wish to pay
 </code></pre>
-<p><strong>Observed on live <code>gpt-4o-mini</code></strong> (repair generator: <code>gpt-4o</code>, 290 tickets):</p>
+<p>The exact wording may vary because LLM repair is nondeterministic. Reviewers<br />
+should ask whether the edit accurately expresses the product policy, not only<br />
+whether a score increased.</p>
+<h2 id="how-to-interpret-the-results">How to interpret the results</h2>
+<p>On a documented live <code>gpt-4o-mini</code> run using <code>gpt-4o</code> as the repair generator<br />
+and all 290 tickets, the observed results were:</p>
 <table>
 <thead>
 <tr>
@@ -228,33 +253,77 @@ rewrote <code>prompts/system.md</code> from:</p>
 </tr>
 </tbody>
 </table>
-<p>Why so low before? Real models label charge reversals <code>refund</code> ~92% of the time<br />
-from priors alone — but this product's policy says many reversals are <code>billing</code>.<br />
-The prompt never stated the rule; the model wasn't "broken," the spec was<br />
-implicit.</p>
-<blockquote>
-<p>Counterintuitive gold labels are common in production (password-reset →<br />
-security, not account). <code>refine</code> is built to discover explicit rules from<br />
-failure clusters, not just add a few-shot example.</p>
-</blockquote>
-<hr />
-<h2 id="scenario-4-feedback-batch-messier-more-realistic">Scenario 4: feedback batch (messier, more realistic)</h2>
-<p>Pure relabels are rare. The testbed also ships<br />
-<code>evals/_apply_feedback_batch.py</code>:</p>
+<p><strong>F1</strong> balances precision—the fraction of predictions for a class that were<br />
+right—and recall—the fraction of that class that was found. <strong>Accuracy</strong> is the<br />
+fraction of all rows predicted correctly. <strong>Tuning</strong> rows are visible to repair;<br />
+holdout rows are not. The holdout result therefore provides stronger release<br />
+evidence than the tuning result alone. In <code>refine</code>, holdout answers whether the<br />
+proposed prompt regresses relative to the current prompt on unseen rows. It is<br />
+not the same absolute-gate decision used by <code>migrate</code>. The CLI also reports<br />
+suggested thresholds based on the refined holdout metrics so maintainers can<br />
+review whether the committed policy should change.</p>
+<p>Why was the starting score low? Real models labeled charge reversals as <code>refund</code><br />
+about 92% of the time from their prior behavior, while scenario 3's product<br />
+policy placed many reversals in <code>billing</code>. The prompt had not stated that<br />
+counterintuitive rule. The model was not broken; the specification was implicit.</p>
+<p>Production policies often use categories differently from everyday language.<br />
+For example, a password-reset ticket might belong to <code>security</code>, not <code>account</code>.<br />
+<code>refine</code> looks for clusters of failures that can reveal such missing rules,<br />
+rather than adding one isolated example without understanding the policy.</p>
+<h3 id="simulator-evidence-and-live-evidence-answer-different-questions">Simulator evidence and live evidence answer different questions</h3>
+<p>The simulator is free and proves workflow and CI plumbing. Live LiteLLM runs,<br />
+with simulation disabled and <code>OPENAI_API_KEY</code> set, test actual provider behavior<br />
+and can require hundreds or thousands of calls over 290 rows.</p>
+<p>Scenario 2, the charge-reversal relabel, is reproducible offline. Scenario 3,<br />
+the counterintuitive billing/refund policy on unchanged labels, appears only with<br />
+real models. The testbed therefore has both <strong>Refine on label change</strong><br />
+(simulator) and <strong>Real-model refine</strong> (weekly/manual, live API) workflows.</p>
+<h2 id="what-happens-when-it-fails">What happens when it fails?</h2>
+<p>Failure should narrow the next action:</p>
 <ul>
-<li><strong>+22 new tickets</strong> — subscription cancellation / lifecycle requests missing<br />
-  from v1 of the eval set</li>
-<li><strong>2 relabels</strong> — general subscription <em>inquiries</em> <code>billing</code> → <code>account</code></li>
+<li>Conflicting near-duplicates mean the evaluation cannot define a stable target.<br />
+  Fix labels before running repair.</li>
+<li>A clean audit plus failures clustered around a policy boundary suggests the<br />
+  prompt does not state the new rule. Run <code>refine</code>.</li>
+<li>A clean audit plus scattered failures may mean the evaluation lacks coverage.<br />
+  Inspect the report before widening repair.</li>
+<li>A tuning improvement followed by holdout failure suggests overfitting. Do not<br />
+  release that repair.</li>
+<li>Missing provider credentials prevent LLM repair. With<br />
+<code>refine --generator none</code>, no improving candidate produces <code>NO_CHANGE</code> and<br />
+  exit code 0; no files are committed. With <code>migrate --generator none</code>, a target<br />
+  that still misses absolute release gates produces <code>BLOCKED</code>.</li>
 </ul>
-<p>On real <code>gpt-4o-mini</code>, <strong>account recall on the new tickets</strong> goes from <strong>0.11</strong><br />
-(16/18 predicted <code>billing</code>) to <strong>1.00</strong> after refine adds a lifecycle rule.<br />
-Offline simulator: accuracy <strong>0.936 → 1.000</strong>.</p>
-<p>Same command path: apply script → <code>refine</code> → PR. Exercises <code>poll</code>'s meaningful-<br />
-change detection if labels live outside git.</p>
-<hr />
-<h2 id="ci-path-filter-on-the-file-that-actually-changed">CI: path filter on the file that actually changed</h2>
-<p>In-repo eval data → <strong>git is the change detector</strong>. The testbed workflow<br />
-<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/refine-on-label-change.yml">refine-on-label-change.yml</a>:</p>
+<p>To make CI stop immediately on contradictory labels, run:</p>
+<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail
+</code></pre>
+<p>Expect a nonzero result when conflicts cross the audit's failure boundary. The<br />
+testbed runs this check on every pull request touching<br />
+<code>evals/tickets.*.jsonl</code> through<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a>.</p>
+<h2 id="deeper-example-a-feedback-batch">Deeper example: a feedback batch</h2>
+<p>Production datasets often change through additions and relabels together. The<br />
+testbed's <code>evals/_apply_feedback_batch.py</code> adds 22 subscription-cancellation or<br />
+lifecycle tickets that were missing from version 1, and relabels two general<br />
+subscription inquiries from <code>billing</code> to <code>account</code>.</p>
+<p>On live <code>gpt-4o-mini</code>, account recall on the new tickets rose from <code>0.11</code>—16 of<br />
+18 were predicted as <code>billing</code>—to <code>1.00</code> after refinement added a lifecycle<br />
+rule. The offline simulator's accuracy rose from <code>0.936</code> to <code>1.000</code>.</p>
+<p>The Git-backed command path remains: apply the script, run <code>refine</code>, then prepare<br />
+the pull request. If labels instead live outside Git and <code>eval.data_source</code> is<br />
+configured, the following commands can detect a change and preview actions:</p>
+<pre><code class="language-bash">driftless poll             # detect configured external-data changes
+driftless poll --act       # preview refine + PR/issue operations
+</code></pre>
+<p>Expect plain <code>poll</code> to compare the configured source with saved dataset state.<br />
+<code>poll --act</code> additionally previews refinement and pull-request/issue operations<br />
+for a meaningful change. This testbed stores labels in Git, so its path-filtered<br />
+workflow is the supported path; <code>poll</code> is not a substitute unless<br />
+<code>eval.data_source</code> is configured.</p>
+<h2 id="deeper-automation-trigger-on-the-data">Deeper automation: trigger on the data</h2>
+<p>For in-repository evaluation data, Git is the change detector. The testbed's<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/refine-on-label-change.yml">refine-on-label-change workflow</a><br />
+uses this path filter:</p>
 <pre><code class="language-yaml">on:
   push:
     branches: [main]
@@ -262,91 +331,29 @@ change detection if labels live outside git.</p>
       - &quot;evals/tickets.labels.jsonl&quot;
       - &quot;evals/tickets.inputs.jsonl&quot;
 </code></pre>
-<p>Notice <strong><code>prompts/</code> is not in <code>paths</code></strong> — otherwise the refine PR would<br />
-re-trigger itself.</p>
-<p>Job steps (abbreviated):</p>
+<p>Expect the workflow to run when inputs or labels change. <code>prompts/</code> is<br />
+deliberately absent, so a prompt-only refinement pull request does not trigger<br />
+itself again.</p>
+<p>The job then:</p>
 <ol>
-<li><code>driftless audit-labels -w support_classifier --fail</code></li>
-<li><code>driftless refine -w support_classifier --strict-label-audit</code> with<br />
-<code>SUPPORT_CLASSIFIER_SIMULATE=1</code> (harness offline; repair generator still<br />
-   uses <code>OPENAI_API_KEY</code> when set)</li>
-<li><code>driftless open-pr -w support_classifier --create</code></li>
-<li>Upload <code>.driftless/reports/</code> to the Actions summary + artifacts</li>
+<li>runs <code>driftless audit-labels -w support_classifier --fail</code>;</li>
+<li>runs <code>driftless refine -w support_classifier --strict-label-audit</code> with<br />
+<code>SUPPORT_CLASSIFIER_SIMULATE=1</code>—the harness is offline, but the LLM repair<br />
+   generator still requires <code>OPENAI_API_KEY</code>;</li>
+<li>runs <code>driftless open-pr -w support_classifier --create</code>; and</li>
+<li>uploads <code>.driftless/reports/</code> to the GitHub Actions summary and artifacts.</li>
 </ol>
-<p><strong>Try it:</strong> commit a label change locally, push, or dispatch the workflow from<br />
-Actions.</p>
-<hr />
-<h2 id="preflight-contradictory-gold-labels">Preflight: contradictory gold labels</h2>
-<p>Before spending tokens:</p>
-<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail
-</code></pre>
-<p>Near-duplicate ticket text with <strong>different</strong> gold categories caps achievable F1.<br />
-The testbed runs audit on every PR touching <code>evals/tickets.*.jsonl</code><br />
-(<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a>).</p>
-<p>More: <a href="05-audit-labels-before-you-trust-f1.html">post 5 outline</a>.</p>
-<p>This is the boundary between data cleanup and prompt repair:</p>
-<table>
-<thead>
-<tr>
-<th>Audit result</th>
-<th>Interpretation</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Conflicting near-duplicates</td>
-<td>The eval cannot define a stable target</td>
-<td>Fix labels first</td>
-</tr>
-<tr>
-<td>Clean audit, new failures cluster around a policy edge</td>
-<td>Prompt does not say the new rule</td>
-<td>Run <code>refine</code></td>
-</tr>
-<tr>
-<td>Clean audit, failures are scattered</td>
-<td>The eval may need more coverage</td>
-<td>Inspect report before widening repair</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="simulator-vs-real-api-when-to-use-which">Simulator vs real API (when to use which)</h2>
-<table>
-<thead>
-<tr>
-<th>Mode</th>
-<th>Command</th>
-<th>Cost</th>
-<th>Proves</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Simulator</td>
-<td><code>SUPPORT_CLASSIFIER_SIMULATE=1</code></td>
-<td>Free</td>
-<td>Workflow + CI plumbing</td>
-</tr>
-<tr>
-<td>Real LiteLLM</td>
-<td>unset simulate, set <code>OPENAI_API_KEY</code></td>
-<td>Hundreds–thousands of calls on 290 rows</td>
-<td>Repair holds on provider behavior</td>
-</tr>
-</tbody>
-</table>
-<p>Scenario 2 (charge-reversal relabel) is reproducible offline. Scenario 3<br />
-(counterintuitive billing/refund policy on <strong>unchanged</strong> labels) only bites on<br />
-real models — that's why the testbed has both <strong>Refine on label change</strong><br />
-(simulator) and <strong>Real-model refine</strong> (weekly/manual, real API).</p>
-<hr />
+<p>You can test it by committing and pushing a label change or manually dispatching<br />
+the workflow from GitHub Actions.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>
-<li><strong>Post 1:</strong> model deprecation → <a href="01-model-swap-is-not-a-migration.html"><code>migrate</code></a></li>
-<li><strong>Post 3:</strong> weekly <code>plan</code> across both workflows → <a href="03-dependabot-for-prompts-in-ci.html">CI post</a></li>
-<li>Clone the testbed, run <code>_apply_refund_policy.py</code>, then <code>refine</code></li>
+<li>If the provider model changes, return to<br />
+<a href="01-model-swap-is-not-a-migration.html">post 1 and <code>migrate</code></a>.</li>
+<li>To schedule <code>plan</code> across both workflows, continue to<br />
+<a href="03-dependabot-for-prompts-in-ci.html">post 3</a>.</li>
+<li>For the larger exercise, clone<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a>,<br />
+  run <code>_apply_refund_policy.py</code>, audit the labels, and then run <code>refine</code>.</li>
 </ul>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="01-model-swap-is-not-a-migration.html"><span>← Previous</span><strong>Your ticket classifier’s model got deprecated</strong></a><a class="next" href="03-dependabot-for-prompts-in-ci.html"><span>Next →</span><strong>Prompt repair that doesn’t wait on memory</strong></a></nav>
   </main>

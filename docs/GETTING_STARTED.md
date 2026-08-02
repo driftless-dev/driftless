@@ -70,16 +70,23 @@ The bundled example is the fastest product tour. For a repository that already
 contains an LLM workflow, use this guided path. It keeps discovery, contract
 editing, paid repair, and CI as separate review points.
 
+A complete application built before Driftless was added is available at
+[`alexminnaar/incident-brief-driftless-battletest`](https://github.com/alexminnaar/incident-brief-driftless-battletest).
+The in-repository `tests/fixtures/adoption-app` fixture and
+`scripts/battletest-new-repo.sh` continuously exercise the same adoption shape
+against built wheels.
+
 ```bash
 cd your-existing-repo
 driftless scan
-driftless configure <workflow>
+driftless configure <workflow> --apply
 ```
 
 `configure` writes a reviewable draft at
-`.driftless/configure/<workflow>.yml`; it does not modify the root
-`driftless.yml`. Do not run the draft directly. Fill every `TODO`, review it,
-then manually merge its workflow block into the root contract.
+`.driftless/configure/<workflow>.yml`. With `--apply`, it also creates
+`driftless.yml` or appends a new workflow without rewriting existing comments.
+Without `--apply`, copy the reviewed workflow block manually. Driftless refuses
+to load a contract while `TODO` or `<placeholder>` values remain.
 
 ### 1. Turn the draft into a concrete contract
 
@@ -156,6 +163,7 @@ reasoning but must never edit. Avoid broad editable directories and globs.
 driftless validate -w support_summary
 driftless calibrate -w support_summary
 driftless compare -w support_summary --to gpt-4o-mini
+driftless compare -w support_summary --to gpt-4o-mini --enforce  # CI gate
 ```
 
 `validate` runs the harness unless you pass `--no-run`. `calibrate` measures the
@@ -186,8 +194,19 @@ never add application code, schemas, eval labels, secrets, or side-effecting
 tool configuration to `files.editable`.
 
 `open-pr` has no GitHub side effect unless `--create` is supplied. Add generated
-CI with `driftless init-ci` only after local validation, cost review, and a
-dry-run artifact are acceptable.
+CI only after local validation, cost review, and a dry-run artifact are
+acceptable:
+
+```bash
+driftless init-ci --setup-command 'pip install -e ".[dev]"'
+```
+
+Generated refinement is manual by default. Add `--refine-on-push` only when
+automatic provider spend on eval-file changes is intentional. The setup command
+must install your application and eval-harness dependencies. `init-ci` infers
+common Python and npm commands from repository manifests; review the generated
+step and override it when needed. The Driftless Action installs Driftless and
+its repair-provider SDKs, not your project.
 
 See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for an example
 issue body and dry-run GitHub action produced by the same blocked path.

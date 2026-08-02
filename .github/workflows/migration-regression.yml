@@ -40,8 +40,8 @@ jobs:
     name: deterministic engine regression
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
@@ -59,8 +59,8 @@ jobs:
       matrix:
         provider: [openai, anthropic]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,llm]"
@@ -102,10 +102,12 @@ jobs:
         run: |
           metrics=".driftless/regression-metrics.jsonl"
           if [ -f "$metrics" ]; then
-            echo "## Live eval metrics ($PROVIDER)" >> "$GITHUB_STEP_SUMMARY"
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
-            tail -n 6 "$metrics" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## Live eval metrics ($PROVIDER)"
+              echo '```json'
+              tail -n 6 "$metrics"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload live eval metrics

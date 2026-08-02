@@ -107,3 +107,27 @@ def test_configure_generic_when_no_detection(tmp_path: Path):
     wf = parsed["workflows"]["thing"]
     assert wf["model"]["env_var"] == "THING_MODEL"
     assert wf["model"]["current"] == "<current-model>"
+
+
+def test_configure_infers_existing_score_harness_and_prompt(tmp_path: Path):
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "evals" / "cases.jsonl").write_text('{"id":"1"}\n')
+    (tmp_path / "evals" / "run_eval.py").write_text(
+        'row = {"id": "1", "score": 1.0, "cost": 0.01}\n'
+    )
+    (tmp_path / "prompts" / "system.md").write_text("Be concise.\n")
+    (tmp_path / "app.py").write_text(
+        'model = os.getenv("SUMMARY_MODEL", "gpt-4o")\n'
+    )
+
+    snippet, model = build_workflow_scaffold("summary", tmp_path)
+    workflow = yaml.safe_load(snippet)["workflows"]["summary"]
+
+    assert model == "gpt-4o"
+    assert workflow["run"]["command"] == "python3 evals/run_eval.py"
+    assert workflow["run"]["input_path"] == "evals/cases.jsonl"
+    assert workflow["run"]["output_path"] == "evals/outputs.jsonl"
+    assert workflow["files"]["editable"] == ["prompts/system.md"]
+    assert workflow["eval"]["score_field"] == "score"
+    assert workflow["thresholds"]["min_score"] == 0.9

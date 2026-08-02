@@ -66,89 +66,103 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="finance-wants-cheaper-inference-on-the-same-quality-bar">Finance wants cheaper inference on the same quality bar</h1>
-<h2 id="the-use-case">The use case</h2>
-<p>Your classifier (or similar LLM workflow) runs on a frontier model — say<br />
-<code>gpt-4o</code> — because that is what cleared quality when you launched. Volume grew.<br />
-Finance now wants <strong>20%+ inference savings</strong>. A cheaper model like <code>gpt-4o-mini</code><br />
-is on the table. Engineering's constraint is simple and non-negotiable: the same<br />
-offline eval that guards production (e.g. 290 labeled tickets, <code>min_f1: 0.90</code>)<br />
-must still pass before anyone merges a model change.</p>
-<p>The naive path is the same mistake as a deprecation swap: edit the model string,<br />
-ship, hope. Sometimes the cheaper model is fine with today's prompt. Often it is<br />
-not — formatting drifts, a category rule softens, and you "saved money" by<br />
-shipping a silent quality regression. Finance and eng then argue from different<br />
-dashboards: one cites unit price, the other cites ticket mishandling.</p>
-<p>You need a workflow where <strong>cost is a proposal trigger</strong>, not a merge button:<br />
-surface candidates that look ≥20% cheaper on paper (or on measured tokens), then<br />
-run the <em>same</em> compare → repair → holdout path you use for deprecations. Only<br />
-open a PR when quality still clears your bar.</p>
-<p><strong>What driftless does here:</strong> treat cost as an <em>opportunistic</em> policy trigger.<br />
-When catalog pricing (and optionally measured token cost) clears<br />
-<code>min_savings_pct</code>, <code>plan</code> proposes a cheaper candidate; <code>compare</code> / <code>migrate</code><br />
-still gate on <em>your</em> quality thresholds.</p>
-<h2 id="reproduce-the-cost-versus-quality-gate-first">Reproduce the cost-versus-quality gate first</h2>
+<h2 id="the-problem-and-the-outcome">The problem and the outcome</h2>
+<p>Your classifier or other LLM workflow launched on a frontier model such as<br />
+<code>gpt-4o</code> because it passed the quality checks. Traffic grew, and finance now<br />
+wants at least 20% lower inference cost. <code>gpt-4o-mini</code> looks attractive.</p>
+<p>Changing the model name is not enough. A cheaper model may format JSON<br />
+differently, weaken a category rule, or fail examples that the current model<br />
+handles. Saving 20% means spending at most 80% of the current amount for the<br />
+same workload. It says nothing about whether the new model is accurate enough.</p>
+<p>The outcome you want is a cost proposal that must pass the existing quality<br />
+gate. In the 290-ticket example, the candidate still needs to clear<br />
+<code>min_f1: 0.90</code> before anyone merges the change.</p>
+<p>Audit labels before spending provider tokens. Contradictory gold answers can<br />
+make every model look worse and waste repair iterations; <a href="05-audit-labels-before-you-trust-f1.html">post<br />
+5</a> shows the audit-first path.</p>
+<h2 id="mental-model">Mental model</h2>
+<p>The <strong>baseline</strong> is the current model and current prompt used as the reference.<br />
+The <strong>candidate</strong> is the model being considered as its replacement. A cost<br />
+comparison is useful only when both run the same representative evaluation.</p>
+<p>A <strong>trigger</strong> is a reason to investigate a change. A deprecation trigger is<br />
+forced because a model is retiring. A cost trigger is opportunistic: it points<br />
+to a possible saving, but you can decline it.</p>
+<p>A <strong>policy</strong> is a YAML file containing the team's decision rules. A <strong>quality<br />
+threshold</strong> is an absolute pass/fail requirement in the workflow contract, such<br />
+as macro-F1 of at least <code>0.90</code> or schema error rate no more than <code>0.02</code>.<br />
+Macro-F1 is the unweighted average of the F1 score for every class, so a small<br />
+class counts as much as a large one. F1 combines precision and recall.</p>
+<p>Driftless uses two kinds of cost evidence:</p>
+<ul>
+<li>A <strong>catalog estimate</strong> comes from bundled model prices and an assumed blend of<br />
+  input and output tokens. It is useful for discovering candidates.</li>
+<li><strong>Measured cost</strong> is emitted by your evaluation harness for actual test calls,<br />
+  or derived from its measured token counts. It is stronger decision evidence,<br />
+  but it represents production only when the evaluation workload and usage are<br />
+  production-representative.</li>
+</ul>
+<p>The cost policy proposes candidates; <code>compare</code> and <code>migrate</code> still enforce your<br />
+quality thresholds. Cheaper is never an automatic approval.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>A working <code>driftless.yml</code> contract and representative evaluation</li>
+<li>Clean, internally consistent gold labels</li>
+<li>Cost or token fields from the harness when you want measured evidence</li>
+<li>An <strong>active baseline</strong>, meaning the provider lifecycle catalog does not mark<br />
+  the current model deprecated or retired, for opportunistic cost discovery</li>
+<li>A provider key for real evaluation and LLM-backed repair</li>
+</ul>
+<p>The bundled command below compares a candidate directly. It does not exercise<br />
+<code>plan</code>'s cost trigger. The external testbed walkthrough temporarily changes to<br />
+an active baseline so you can reproduce that trigger.</p>
+<h2 id="walkthrough-1-see-the-cost-versus-quality-gate">Walkthrough 1: see the cost-versus-quality gate</h2>
+<p>Install Driftless, copy the four-row fixture, enter its directory, and compare<br />
+the current model with <code>gpt-4o-mini</code>:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
+driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 </code></pre>
-<p>The bundled four-row smoke fixture shows cost <code>0.024 → 0.004</code> while F1 falls<br />
-<code>1.000 → 0.000</code>, so the cheaper model is blocked. Those numbers are deterministic<br />
-fixture values, not provider pricing or production-quality evidence. Use measured<br />
-harness cost and a representative eval before making a savings claim.</p>
-<h2 id="optional-full-testbed-appendix">Optional full testbed appendix</h2>
-<p>The detailed policy walkthrough uses<br />
+<p>The deterministic fixture reports cost <code>0.024 → 0.004</code> while F1 falls<br />
+<code>1.000 → 0.000</code>, so the candidate fails the quality thresholds. The cost falls<br />
+by about 83%, but the quality result makes the saving unsafe. <code>compare</code> can<br />
+still exit with code <code>0</code>; its threshold report, not its process exit code, tells<br />
+you whether the candidate passed.</p>
+<p>These four-row values are fixture data, not provider pricing or<br />
+production-quality evidence. Use a representative evaluation and harness<br />
+measurements before making a savings claim.</p>
+<h2 id="walkthrough-2-wire-measured-cost-into-the-contract">Walkthrough 2: wire measured cost into the contract</h2>
+<p>The separate<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
-for cost wiring and policy, plus catalog math you can reproduce locally.</p>
-<hr />
-<h2 id="forced-vs-opportunistic-dont-confuse-them">Forced vs opportunistic (don't confuse them)</h2>
-<table>
-<thead>
-<tr>
-<th>Trigger</th>
-<th>When it fires</th>
-<th>Testbed today</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Deprecation</strong> (forced)</td>
-<td>Current model is deprecated/retired</td>
-<td>Both workflows on <code>gpt-3.5-turbo</code> → <code>plan</code> always shows ISSUE rows</td>
-</tr>
-<tr>
-<td><strong>Cost</strong> (opportunistic)</td>
-<td>Baseline is <em>active</em>, candidate ≥ capability tier, savings ≥ <code>min_savings_pct</code></td>
-<td>Ready in policy, but <strong>hidden</strong> while baseline is at-risk</td>
-</tr>
-</tbody>
-</table>
-<p>From <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>: as long as <code>gpt-3.5-turbo</code> is<br />
-current, deprecation wins. Cost discovery skips at-risk baselines on purpose —<br />
-you shouldn't "save money" by ignoring a retirement deadline.</p>
-<hr />
-<h2 id="wire-cost-into-the-contract-testbed-already-does">Wire cost into the contract (testbed already does)</h2>
-<p><code>support_classifier</code> emits per-record spend so <code>compare</code> and <code>plan</code> can reason<br />
-about real totals — not vibes:</p>
+testbed contains 290 labeled tickets. Its <code>support_classifier</code> workflow tells<br />
+Driftless where each evaluation record reports spend and token use:</p>
 <pre><code class="language-yaml"># driftless.yml → workflows.support_classifier.eval
 cost_field: cost_usd
 prompt_tokens_field: prompt_tokens
 completion_tokens_field: completion_tokens
 </code></pre>
-<p><code>evals/run_eval.py</code> fills these (simulator estimates offline; LiteLLM usage with<br />
-a provider key). Prefer <code>cost_field</code> when you have it; otherwise driftless<br />
-derives USD from token fields × the bundled catalog.</p>
-<p>Policy (<code>.driftless/policy.yml</code> in the testbed):</p>
+<p><code>evals/run_eval.py</code> fills these fields. The simulator emits fixture estimates;<br />
+with a provider key, LiteLLM reports usage. Driftless prefers <code>cost_field</code> when<br />
+the harness supplies it. Otherwise it estimates dollars from the token fields<br />
+and bundled catalog prices.</p>
+<p>The expected result is a side-by-side total in <code>compare</code>. Treat that total as<br />
+measured evaluation cost when the harness records real calls. Do not call it<br />
+measured production spend unless the evaluation reflects production traffic.</p>
+<p>The testbed policy defines when a saving is worth proposing:</p>
 <pre><code class="language-yaml">cost:
   enabled: true
-  min_savings_pct: 0.20    # require ≥ 20% cheaper
-  max_quality_drop: 0.01   # after compare: F1 may not fall more than 1pt
+  min_savings_pct: 0.20    # require at least 20% cheaper
+  max_quality_drop: 0.01   # F1 may fall by no more than 0.01
   action: pr
 </code></pre>
-<p><code>min_savings_pct</code> is the <em>proposal</em> bar. Your contract <code>thresholds:</code> (e.g.<br />
-<code>min_f1: 0.90</code>) remain the <em>ship</em> bar.</p>
-<hr />
-<h2 id="catalog-math-you-can-check-yourself">Catalog math you can check yourself</h2>
+<p><code>min_savings_pct: 0.20</code> means the candidate must cost no more than 80% of the<br />
+baseline estimate. <code>max_quality_drop: 0.01</code> permits at most one F1 point of<br />
+regression after comparison. Neither setting replaces absolute workflow<br />
+thresholds such as <code>min_f1: 0.90</code>; those remain the ship bar.</p>
+<h2 id="walkthrough-3-check-catalog-math">Walkthrough 3: check catalog math</h2>
+<p>Run the following Python snippet to ask Driftless for catalog price changes<br />
+between two model pairs:</p>
 <pre><code class="language-bash">python - &lt;&lt;'PY'
 from driftless.discovery import estimate_cost_change_pct
 print(&quot;gpt-4o → gpt-4o-mini:&quot;, estimate_cost_change_pct(&quot;gpt-4o&quot;, &quot;gpt-4o-mini&quot;))
@@ -156,12 +170,13 @@ print(&quot;claude-3-opus → claude-3-5-sonnet:&quot;,
       estimate_cost_change_pct(&quot;claude-3-opus-20240229&quot;, &quot;claude-3-5-sonnet&quot;))
 PY
 </code></pre>
-<p>Typical catalog result (blended input+output $/1M tokens):</p>
+<p>Typical catalog results use blended input and output prices per one million<br />
+tokens:</p>
 <table>
 <thead>
 <tr>
 <th>Move</th>
-<th>Est. cost change</th>
+<th>Estimated cost change</th>
 </tr>
 </thead>
 <tbody>
@@ -175,70 +190,95 @@ PY
 </tr>
 </tbody>
 </table>
-<p>Both clear <code>min_savings_pct: 0.20</code>. Discovery still refuses candidates with a<br />
-<em>lower</em> capability tier than the baseline — it won't auto-propose a silent<br />
-quality downgrade for pennies.</p>
-<p>On the testbed simulator, a naive <code>gpt-3.5-turbo</code> → <code>gpt-4o-mini</code> <code>compare</code><br />
-already prints a <strong>Total cost</strong> row (~<code>0.033</code> → <code>0.011</code> on 290 tickets). Treat<br />
-those USD as <strong>relative scale</strong>, not production spend — but the column is what<br />
-finance and eng should argue about.</p>
-<hr />
-<h2 id="demo-force-a-cost-row-on-the-testbed">Demo: force a cost row on the testbed</h2>
-<p>With the committed <code>gpt-3.5-turbo</code> baseline you will only see deprecation.<br />
-To exercise cost discovery:</p>
+<p>A <code>−94%</code> change means the catalog estimate for the candidate is about 6% of the<br />
+baseline estimate. A <code>−80%</code> change means it is about 20%. Both clear the 20%<br />
+savings policy, but neither proves acceptable quality or measured production<br />
+savings.</p>
+<p>Discovery also rejects candidates in a lower capability tier than the baseline.<br />
+A <strong>capability tier</strong> is the catalog's broad model capability grouping. This<br />
+filter avoids automatically proposing an obvious downgrade, but the evaluation<br />
+still decides whether a same-tier or higher-tier candidate is safe.</p>
+<h2 id="walkthrough-4-reproduce-a-cost-trigger-in-the-testbed">Walkthrough 4: reproduce a cost trigger in the testbed</h2>
+<p>The committed testbed uses deprecated <code>gpt-3.5-turbo</code>. Deprecation takes<br />
+priority, so <code>plan</code> shows issue rows for the retirement and hides optional cost<br />
+discovery. That is intentional: a possible saving must not distract from a<br />
+retirement deadline.</p>
+<p>To exercise cost discovery, temporarily use an active baseline:</p>
 <ol>
-<li>Temporarily set <code>model.current: gpt-4o</code> in <code>driftless.yml</code> <strong>and</strong><br />
-<code>config/llm.yml</code> for <code>support_classifier</code>.</li>
-<li>Keep <code>cost.enabled: true</code> / <code>min_savings_pct: 0.20</code>.</li>
-<li>Run:</li>
+<li>Set <code>model.current: gpt-4o</code> in both <code>driftless.yml</code> and <code>config/llm.yml</code> for<br />
+<code>support_classifier</code>.</li>
+<li>Keep <code>cost.enabled: true</code> and <code>min_savings_pct: 0.20</code>.</li>
+<li>Enable the deterministic simulator and ask Driftless to build a plan:</li>
 </ol>
 <pre><code class="language-bash">export SUPPORT_CLASSIFIER_SIMULATE=1
 driftless plan
 </code></pre>
-<p>Expect a <strong>cost</strong> trigger proposing something like <code>gpt-4o-mini</code> (same<br />
-provider, active, cheaper, not a capability downgrade). Then:</p>
+<p>A <strong>plan</strong> is the table of policy-triggered work, not an approval. Expect a<br />
+<code>cost</code> trigger proposing something like <code>gpt-4o-mini</code>: same provider, active,<br />
+cheaper, and not in a lower capability tier.</p>
+<p>Next, compare baseline and candidate on the same workflow:</p>
 <pre><code class="language-bash">driftless compare -w support_classifier --to gpt-4o-mini
-# if naive swap fails thresholds → migrate, same as post 1
+</code></pre>
+<p>The comparison should tell you whether the untouched prompt passes the cost and<br />
+quality gates for the temporary <code>gpt-4o</code> baseline. For reference, the<br />
+approximately <code>0.033 → 0.011</code> Total cost row documented for the testbed<br />
+simulator comes from its <strong>committed</strong><br />
+<code>gpt-3.5-turbo → gpt-4o-mini</code> configuration over 290 tickets. It is not output<br />
+from the temporary <code>gpt-4o</code> configuration you created above. Those simulator<br />
+dollars show relative scale, not production spend.</p>
+<p>If the active-baseline comparison fails quality thresholds, use migration to<br />
+repair editable prompt files. The simulator replaces only the evaluation<br />
+harness; the LLM repair generator still needs a provider key:</p>
+<pre><code class="language-bash">export OPENAI_API_KEY=...
 driftless migrate -w support_classifier --to gpt-4o-mini --generator llm
 </code></pre>
-<p>Revert the temporary <code>gpt-4o</code> baseline when you're done — the testbed's<br />
-deprecation demo depends on <code>gpt-3.5-turbo</code>.</p>
-<hr />
-<h2 id="same-repair-loop-as-migration">Same repair loop as migration</h2>
-<p>Cost does <strong>not</strong> get a special optimizer. Once <code>plan</code> (or you) picks a<br />
-candidate:</p>
+<p>After the exercise, revert both temporary edits. The testbed's deprecation demo<br />
+depends on <code>gpt-3.5-turbo</code>. Run <code>git diff</code> and confirm the active-baseline edits<br />
+will not be committed.</p>
+<h2 id="how-to-interpret-the-decision">How to interpret the decision</h2>
+<p>Cost uses the same repair loop as a forced migration:</p>
 <ol>
-<li><code>compare</code> — quality + measured cost side by side</li>
-<li><code>migrate</code> — repair editable prompts if the naive swap fails</li>
-<li>Holdout gate — still <code>min_f1: 0.90</code> / <code>max_schema_error_rate: 0.02</code></li>
-<li><code>open-pr</code> — PR only if shippable; else ISSUE with evidence</li>
+<li><code>compare</code> runs baseline and candidate side by side for quality and cost.</li>
+<li><code>migrate</code> repairs allowed prompt files if the untouched candidate fails.</li>
+<li>A holdout gate tests the repaired result on rows that were not used for<br />
+   repair, still requiring <code>min_f1: 0.90</code> and<br />
+<code>max_schema_error_rate: 0.02</code>.</li>
+<li><code>open-pr</code> opens a PR only when the result is shippable; otherwise the<br />
+   evidence supports an issue.</li>
 </ol>
-<p>Policy <code>max_quality_drop</code> decides whether a <em>passing-but-slightly-worse</em> swap<br />
-is worth a PR. Your absolute thresholds still win if the candidate is blocked.</p>
-<p>See <a href="01-model-swap-is-not-a-migration.html">post 1</a> for the scorecard / holdout<br />
-story; only the <em>trigger</em> differs.</p>
-<hr />
-<h2 id="ci-pattern">CI pattern</h2>
-<p>Weekly <code>plan</code> (simulator) already runs in<br />
-<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/plan-preview.yml">plan-preview.yml</a>.<br />
-After you migrate off deprecated models, the same job starts surfacing <strong>cost</strong><br />
-rows without a new workflow.</p>
-<p>Manual cost chase: Actions → <strong>Migrate model</strong> with <code>target_model=gpt-4o-mini</code><br />
-once the baseline is an active frontier model you want to downsize from.</p>
-<hr />
-<h2 id="what-not-to-do">What <em>not</em> to do</h2>
+<p><code>max_quality_drop</code> answers whether a passing but slightly worse candidate is<br />
+worth a PR. Absolute thresholds still win: a blocked candidate cannot become<br />
+safe because it is cheap. <a href="01-model-swap-is-not-a-migration.html">Post<br />
+1</a> explains the scorecard and holdout<br />
+path.</p>
+<h2 id="add-the-check-to-ci-later">Add the check to CI later</h2>
+<p>A <strong>scheduled workflow</strong> is GitHub Actions automation started by a clock. The<br />
+testbed's hand-authored<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/plan-preview.yml">plan-preview.yml</a><br />
+runs weekly with the simulator. After migration removes deprecated baselines,<br />
+the same job can surface cost rows without another workflow.</p>
+<p>For a deliberate cost investigation, use <strong>Actions → Migrate model</strong> and set<br />
+<code>target_model=gpt-4o-mini</code> after the baseline is an active frontier model.<br />
+<a href="03-dependabot-for-prompts-in-ci.html">Post 3</a> distinguishes these hand-authored<br />
+testbed examples from workflows generated by <code>driftless init-ci</code>.</p>
+<h2 id="failure-and-safety-behavior">Failure and safety behavior</h2>
 <ul>
-<li>Don't enable <code>cost</code> and disable deprecation — retirement still comes first.</li>
-<li>Don't report savings from a swap that failed <code>min_f1</code>.</li>
-<li>Don't confuse catalog <em>estimates</em> (triage) with measured <code>total_cost</code> after<br />
-<code>compare</code> (decision evidence). Prefer measured when the harness emits tokens.</li>
+<li>Cost discovery skips unknown, deprecated, and retired baselines.</li>
+<li>It considers active models from the same provider and refuses lower<br />
+  capability tiers.</li>
+<li>A candidate that fails quality thresholds is not shippable, regardless of<br />
+  savings.</li>
+<li>Catalog estimates are for triage; harness totals are decision evidence.</li>
+<li>Simulator cost is fixture data, not a production invoice.</li>
+<li>Keep deprecation enabled because retirement work takes priority over optional<br />
+  savings.</li>
 </ul>
-<hr />
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><a href="01-model-swap-is-not-a-migration.html">Post 1</a> — repair loop details</li>
 <li><a href="03-dependabot-for-prompts-in-ci.html">Post 3</a> — schedule <code>plan</code> in Actions</li>
-<li><a href="05-audit-labels-before-you-trust-f1.html">Post 5</a> — audit before spending tokens on a cost migrate</li>
+<li><a href="05-audit-labels-before-you-trust-f1.html">Post 5</a> — audit before spending<br />
+  tokens on a cost migration</li>
 </ul>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="03-dependabot-for-prompts-in-ci.html"><span>← Previous</span><strong>Prompt repair that doesn’t wait on memory</strong></a><a class="next" href="05-audit-labels-before-you-trust-f1.html"><span>Next →</span><strong>Offline F1 is lying — labels conflict</strong></a></nav>
   </main>

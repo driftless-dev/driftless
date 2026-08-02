@@ -17,8 +17,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -40,8 +40,8 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Validate release metadata
@@ -71,3 +71,28 @@ jobs:
           path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify-publication:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Wait for GitHub and PyPI publication
+        run: |
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if ./scripts/release-check.sh --tag "${{ github.event.release.tag_name }}" --remote; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+      - name: Cold-install the published wheel
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          python -m venv /tmp/driftless-release
+          /tmp/driftless-release/bin/pip install "driftless==${VERSION}"
+          /tmp/driftless-release/bin/driftless --version | grep -F "driftless ${VERSION}"

@@ -66,81 +66,136 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="your-offline-f1-is-lying-because-the-labels-conflict">Your offline F1 is lying because the labels conflict</h1>
-<h2 id="the-use-case">The use case</h2>
-<p>You trust your offline eval. Macro-F1 on a few hundred labeled tickets is how<br />
-you decide whether a model migration or prompt refine is safe. After a labeling<br />
-policy change (or a messy annotation pass), you run <code>refine</code> and watch F1 stall<br />
-around 0.85. The team assumes the prompt is bad. Someone rewrites category<br />
-definitions three times. Someone else proposes a bigger model. Iterations and<br />
-API spend pile up; holdout never clears the bar.</p>
-<p>The actual problem is upstream of the prompt. Buried in the eval set are<br />
-near-duplicate tickets — same customer intent, almost the same wording — with<br />
-<strong>disagreeing gold labels</strong>. One row says <code>billing</code>, its twin says <code>refund</code>. No<br />
-prompt can satisfy both. Every optimizer report looks like "the model is flaky"<br />
-or "repair isn't converging," when the oracle itself is contradictory.</p>
-<p>Until you find and fix those conflicts, F1 has a hard ceiling that has nothing<br />
-to do with GPT. The use case is: <strong>prove the gold labels are internally<br />
-consistent before you spend a migration or refine budget.</strong></p>
-<p><strong>What driftless does here:</strong> <code>audit-labels</code> finds exact and near-duplicate<br />
-inputs with label disagreements <em>before</em> <code>migrate</code> / <code>refine</code> burn iterations.<br />
-CI can <code>--fail</code> on that report; migrations can <code>--strict-label-audit</code>.</p>
-<h2 id="run-the-bundled-audit-first">Run the bundled audit first</h2>
+<h2 id="the-problem-and-the-outcome">The problem and the outcome</h2>
+<p>Your team uses a few hundred support tickets to decide whether a prompt or model<br />
+change is safe. Each ticket has a <strong>label</strong>, such as <code>billing</code> or <code>refund</code>.<br />
+The reviewed expected labels are <strong>gold data</strong>: the answers used to score model<br />
+predictions during an evaluation.</p>
+<p>After a labeling policy changes, F1 stalls around <code>0.85</code>. The team rewrites the<br />
+prompt, tries a larger model, and spends more on API calls. Nothing clears the<br />
+quality bar.</p>
+<p>The problem may be in the gold data. Two tickets can express the same customer<br />
+intent but carry different expected labels. One says <code>billing</code>; its twin says<br />
+<code>refund</code>. A model cannot produce both answers for the same input, so the<br />
+contradiction caps achievable performance before prompt quality or model choice<br />
+enters the discussion.</p>
+<p>The outcome you want is a clean label audit before any <code>refine</code> or <code>migrate</code><br />
+run. Driftless can report conflicting duplicates, fail CI when they appear, and<br />
+stop repair before it spends iterations against an inconsistent answer key.</p>
+<h2 id="mental-model">Mental model</h2>
+<p><code>audit-labels</code> compares inputs that have different gold labels:</p>
+<ul>
+<li>An <strong>exact duplicate</strong> becomes identical after Driftless lowercases text,<br />
+  removes leading and trailing space, and collapses repeated whitespace.</li>
+<li>A <strong>near duplicate</strong> is not identical but shares most of the same unique word<br />
+  tokens.</li>
+<li><strong>Jaccard similarity</strong> measures that overlap: the number of unique tokens in<br />
+  both texts divided by the number of unique tokens in either text. Identical<br />
+  token sets score <code>1.0</code>; no shared tokens score <code>0.0</code>.</li>
+</ul>
+<p>By default, Driftless reports near-duplicate pairs at Jaccard similarity<br />
+<code>0.85</code> or higher when their labels disagree. <code>--near-threshold</code> changes that<br />
+boundary. Raising it reports fewer, more similar pairs; lowering it reports more<br />
+candidates and may surface domain boilerplate.</p>
+<p>The main quality metric here is <strong>macro-F1</strong>. F1 combines precision and recall<br />
+for one class. Macro-F1 computes F1 for each label and takes an unweighted<br />
+average, so a small class counts as much as a large class. That is useful on the<br />
+testbed's imbalanced distribution—technical about 105, billing about 95,<br />
+account about 50, and refund about 40—but no metric can repair contradictory<br />
+gold answers.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>A classification workflow in <code>driftless.yml</code> with <code>eval.label_field</code></li>
+<li>Input and gold-label JSONL files</li>
+<li>Stable record IDs through <code>eval.id_field</code>, or matching input and label counts</li>
+<li>No provider key; label auditing is local and key-free</li>
+</ul>
+<p>The audit applies to classification workflows. Pass/fail and judge-graded<br />
+workflows use different preflight checks.</p>
+<h2 id="walkthrough-1-verify-the-bundled-fixture">Walkthrough 1: verify the bundled fixture</h2>
+<p>Install Driftless, copy the four-row support-classifier fixture, enter the<br />
+directory, and audit its configured workflow:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
 driftless audit-labels -w support_classifier
 </code></pre>
-<p>This key-free four-row fixture verifies the audit command and contract wiring.<br />
-A clean smoke fixture does not establish that a larger production dataset is<br />
-consistent; run the audit on the full representative eval before spending<br />
-provider tokens on <code>migrate</code> or <code>refine</code>.</p>
-<h2 id="optional-full-testbed-appendix">Optional full testbed appendix</h2>
-<p>The larger examples below are grounded in<br />
+<p>The expected result reports <strong>4 labeled records</strong> and no exact or near-duplicate<br />
+inputs with disagreeing labels. This confirms the command and contract wiring<br />
+without a provider key.</p>
+<p>The bundled fixture is only a smoke test. It does not show that a larger<br />
+production dataset is consistent. Audit the full representative evaluation<br />
+before spending provider tokens on <code>migrate</code> or <code>refine</code>.</p>
+<h2 id="walkthrough-2-audit-the-separate-290-row-testbed">Walkthrough 2: audit the separate 290-row testbed</h2>
+<p>Clone the external<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
-(290 labeled tickets) and the same CLI you run in Actions today.</p>
-<hr />
-<h2 id="the-silent-f1-ceiling">The silent F1 ceiling</h2>
-<p>Macro-F1 on an imbalanced set (testbed builder: technical ~105 / billing ~95 /<br />
-account ~50 / refund ~40) already hides per-class pain. Label noise is worse:<br />
-if two inputs normalize to the same text and gold says <code>billing</code> vs <code>refund</code>,<br />
-<strong>no prompt</strong> can hit 1.0 accuracy on both.</p>
-<p>That looks like "the model is flaky" or "repair isn't converging." It is a<br />
-<strong>data</strong> problem.</p>
-<hr />
-<h2 id="clean-baseline-on-the-testbed">Clean baseline on the testbed</h2>
+testbed, enter it, install Driftless, and run the same audit:</p>
 <pre><code class="language-bash">git clone https://github.com/driftless-dev/support-classifier-svc
 cd support-classifier-svc
 pip install driftless
-
 driftless audit-labels -w support_classifier
 </code></pre>
-<p>Expected on <code>main</code> (July 2026):</p>
-<pre><code>Label audit: `support_classifier` (290 labeled records)
+<p>Expected on <code>main</code> in July 2026:</p>
+<pre><code class="language-text">Label audit: `support_classifier` (290 labeled records)
 
 No duplicate or near-duplicate inputs with disagreeing labels.
 </code></pre>
-<p>A clean audit does <strong>not</strong> mean the labeling <em>policy</em> is finished — only that<br />
-the JSONL is internally consistent. After<br />
-<code>python evals/_apply_refund_policy.py</code> (<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>),<br />
-audit should still pass: 25 charge-reversals move together to <code>refund</code>.</p>
-<hr />
-<h2 id="what-a-conflict-looks-like-reproduce-in-30-seconds">What a conflict looks like (reproduce in 30 seconds)</h2>
-<p>Support-classifier tickets look like this when annotators disagree on the same<br />
-intent. Paste into a scratch workspace (or temporarily edit eval JSONL on a<br />
-branch):</p>
-<pre><code class="language-jsonl">{&quot;id&quot;: &quot;a&quot;, &quot;text&quot;: &quot;Please refund my order&quot;}
+<p>This means the JSONL files are internally consistent under the audit rules. It<br />
+does not prove that the team's labeling policy is correct or complete.</p>
+<p>The fixture distinction matters. Running<br />
+<code>python evals/_apply_refund_policy.py</code> from <a href="02-when-labels-move-refine-not-remodel.html">post<br />
+2</a> changes 25 charge-reversal<br />
+tickets together to <code>refund</code>. The audit should remain clean because the policy<br />
+was applied consistently.</p>
+<h2 id="walkthrough-3-reproduce-a-conflict-safely">Walkthrough 3: reproduce a conflict safely</h2>
+<p>Start in the bundled <code>driftless-classifier-demo</code> directory from Walkthrough 1.<br />
+Keep its original contract and data unchanged by making a scratch contract and<br />
+two scratch JSONL files:</p>
+<pre><code class="language-bash">cp driftless.yml driftless.conflict.yml
+mkdir -p evals/scratch
+</code></pre>
+<p>Create the scratch input file:</p>
+<pre><code class="language-bash">cat &gt; evals/scratch/conflict-inputs.jsonl &lt;&lt;'JSONL'
+{&quot;id&quot;: &quot;a&quot;, &quot;text&quot;: &quot;Please refund my order&quot;}
 {&quot;id&quot;: &quot;b&quot;, &quot;text&quot;: &quot;please refund my order&quot;}
 {&quot;id&quot;: &quot;c&quot;, &quot;text&quot;: &quot;I forgot my password&quot;}
 {&quot;id&quot;: &quot;d&quot;, &quot;text&quot;: &quot;I forgot my  password&quot;}
+JSONL
 </code></pre>
-<pre><code class="language-jsonl">{&quot;id&quot;: &quot;a&quot;, &quot;category&quot;: &quot;refund&quot;}
-{&quot;id&quot;: &quot;b&quot;, &quot;category&quot;: &quot;billing&quot;}
-{&quot;id&quot;: &quot;c&quot;, &quot;category&quot;: &quot;account&quot;}
-{&quot;id&quot;: &quot;d&quot;, &quot;category&quot;: &quot;technical&quot;}
+<p>Create the matching gold-label file:</p>
+<pre><code class="language-bash">cat &gt; evals/scratch/conflict-labels.jsonl &lt;&lt;'JSONL'
+{&quot;id&quot;: &quot;a&quot;, &quot;label&quot;: &quot;refund&quot;}
+{&quot;id&quot;: &quot;b&quot;, &quot;label&quot;: &quot;billing&quot;}
+{&quot;id&quot;: &quot;c&quot;, &quot;label&quot;: &quot;account&quot;}
+{&quot;id&quot;: &quot;d&quot;, &quot;label&quot;: &quot;technical&quot;}
+JSONL
 </code></pre>
-<p>Normalization lowercases and collapses whitespace, so <code>a</code>/<code>b</code> and <code>c</code>/<code>d</code> are<br />
-<strong>exact duplicates</strong> with disagreeing labels. Real <code>audit-labels</code> output:</p>
-<pre><code>Label audit: `ticket_classifier` (4 labeled records)
+<p>The bundled fixture calls its gold field <code>label</code>, so this scratch file does too.<br />
+If your own JSONL uses a field such as <code>category</code>, set <code>label_field: category</code><br />
+instead; the contract value must match the JSON key.</p>
+<p>Open <code>driftless.conflict.yml</code>. Under<br />
+<code>workflows.support_classifier</code>, keep the other settings unchanged and repoint<br />
+these real Driftless contract fields:</p>
+<pre><code class="language-yaml">workflows:
+  support_classifier:
+    run:
+      input_path: evals/scratch/conflict-inputs.jsonl
+    eval:
+      id_field: id
+      labels_path: evals/scratch/conflict-labels.jsonl
+      label_field: label
+</code></pre>
+<p><code>run.input_path</code> selects the records to inspect. <code>eval.labels_path</code> selects the<br />
+gold file, <code>eval.id_field</code> joins the two files by <code>id</code>, and<br />
+<code>eval.label_field</code> names the expected-answer key in each gold record.</p>
+<p>Now run the audit against the scratch contract rather than the untouched<br />
+<code>driftless.yml</code>:</p>
+<pre><code class="language-bash">driftless audit-labels -w support_classifier --contract driftless.conflict.yml
+</code></pre>
+<p>Lowercasing and whitespace normalization make <code>a</code> and <code>b</code> exact duplicates.<br />
+They also make <code>c</code> and <code>d</code> exact duplicates. Each pair has conflicting labels.<br />
+Real <code>audit-labels</code> output is:</p>
+<pre><code class="language-text">Label audit: `support_classifier` (4 labeled records)
 
 Exact duplicates with label disagreement (2 group(s)):
   - 2 rows, labels: 'billing', 'refund'
@@ -153,15 +208,57 @@ Exact duplicates with label disagreement (2 group(s)):
 These disagreements cap achievable accuracy — fix labels or dedupe inputs
 before expecting refine / migrate to converge.
 </code></pre>
-<p>Near-duplicates (Jaccard ≥ 0.85 by default) get a separate section with a<br />
-similarity score — e.g. two charge-reversal phrasings labeled <code>billing</code> vs<br />
-<code>refund</code> after a messy policy edit.</p>
-<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail   # exit 1 when conflicts exist
+<p>The decision is to inspect the source policy, correct the wrong labels, or<br />
+remove accidental duplicate rows. Do not tune a prompt to satisfy both answers.<br />
+Near-duplicate conflicts appear in a separate report section with a similarity<br />
+score, such as two charge-reversal phrasings labeled <code>billing</code> and <code>refund</code>.</p>
+<p>To use the audit as a gate, add <code>--fail</code>:</p>
+<pre><code class="language-bash">driftless audit-labels -w support_classifier --fail
 </code></pre>
-<hr />
-<h2 id="wire-it-where-tokens-get-spent">Wire it where tokens get spent</h2>
-<h3 id="1-path-filtered-ci-testbed">1. Path-filtered CI (testbed)</h3>
-<p><a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a>:</p>
+<p>The report stays readable, and the process exits with code <code>1</code> when conflicts<br />
+exist. That non-zero exit lets CI stop the workflow.</p>
+<h2 id="how-to-interpret-audit-results">How to interpret audit results</h2>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>Likely cause</th>
+<th>Next decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Audit reports conflicts</td>
+<td>Gold-label noise or duplicate rows</td>
+<td>Fix or deduplicate JSONL, then audit again</td>
+</tr>
+<tr>
+<td>Clean audit, F1 drops after policy relabeling</td>
+<td>Prompt no longer expresses the policy</td>
+<td>Run <code>refine</code> (<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>)</td>
+</tr>
+<tr>
+<td>Clean audit, naive model swap fails schema or F1</td>
+<td>Model and prompt do not transfer together</td>
+<td>Run <code>migrate</code> (<a href="01-model-swap-is-not-a-migration.html">post 1</a>)</td>
+</tr>
+<tr>
+<td>Clean audit, cost candidate is cheaper but quality dips</td>
+<td>Candidate is too weak or prompt repair is needed</td>
+<td>Compare, then migrate; do not ship a blocked run (<a href="04-cheaper-model-same-quality-bar.html">post 4</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>After <code>_apply_refund_policy.py</code>, a failed audit means labels were changed<br />
+inconsistently. It does not mean that the intended refund policy itself lowered<br />
+F1.</p>
+<h2 id="walkthrough-4-put-the-audit-before-token-spending">Walkthrough 4: put the audit before token spending</h2>
+<p>GitHub Actions is GitHub's service for repository automation. A workflow is a<br />
+YAML file containing jobs and command steps. A <strong>path filter</strong> starts a workflow<br />
+only when selected files change.</p>
+<p>The testbed's hand-authored<br />
+<a href="https://github.com/driftless-dev/support-classifier-svc/blob/main/.github/workflows/audit-labels.yml">audit-labels.yml</a><br />
+runs for pull requests and pushes that touch either evaluation JSONL:</p>
 <pre><code class="language-yaml">on:
   pull_request:
     paths:
@@ -178,69 +275,44 @@ jobs:
     steps:
       - run: driftless audit-labels -w support_classifier --fail
 </code></pre>
-<p>Any PR that introduces conflicting gold labels fails <strong>before</strong> merge.</p>
-<h3 id="2-before-refine-migrate">2. Before refine / migrate</h3>
-<p>The testbed's refine and migrate workflows already call <code>audit-labels --fail</code>,<br />
-then pass <code>--strict-label-audit</code> into the optimizer:</p>
+<p>The expected behavior is audit-first: a pull request that introduces<br />
+conflicting gold labels fails before merge and before repair spends tokens.</p>
+<p>The testbed's hand-authored refine and migrate workflows use the same ordering.<br />
+They run <code>audit-labels --fail</code>, then make the optimizer enforce the check with<br />
+<code>--strict-label-audit</code>:</p>
 <pre><code class="language-bash">driftless refine -w support_classifier --strict-label-audit
 driftless migrate -w support_classifier --to gpt-4o-mini --strict-label-audit
 </code></pre>
-<p>Scaffold the same pattern:</p>
+<p><code>--strict-label-audit</code> turns detected conflicts into a blocking exit instead of<br />
+the default warning. Without strict mode, <code>refine</code> and <code>migrate</code> warn about<br />
+conflicts and explain how to block or silence the preflight.</p>
+<p>To generate standard GitHub Actions workflows containing this pattern, run:</p>
 <pre><code class="language-bash">driftless init-ci --audit-labels
 </code></pre>
-<hr />
-<h2 id="decision-tree-labels-vs-prompt-vs-model">Decision tree: labels vs prompt vs model</h2>
-<table>
-<thead>
-<tr>
-<th>Symptom</th>
-<th>Likely cause</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Audit reports conflicts</td>
-<td>Gold label noise / duplicate rows</td>
-<td>Fix or dedupe JSONL; re-audit</td>
-</tr>
-<tr>
-<td>Clean audit, F1 drops after policy relabel</td>
-<td>Prompt lag</td>
-<td><code>refine</code> (<a href="02-when-labels-move-refine-not-remodel.html">post 2</a>)</td>
-</tr>
-<tr>
-<td>Clean audit, naive swap fails schema / F1</td>
-<td>Model + prompt</td>
-<td><code>migrate</code> (<a href="01-model-swap-is-not-a-migration.html">post 1</a>)</td>
-</tr>
-<tr>
-<td>Clean audit, cost row looks good, quality dips</td>
-<td>Candidate too weak or prompt debt</td>
-<td>Compare → migrate; don't "save" on a blocked run (<a href="04-cheaper-model-same-quality-bar.html">post 4</a>)</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Charge-reversal tip:</strong> after <code>_apply_refund_policy.py</code>, audit should stay<br />
-green. If it fails, someone edited labels inconsistently — not that the policy<br />
-script "broke" F1.</p>
-<hr />
-<h2 id="what-audit-does-not-do">What audit does <em>not</em> do</h2>
+<p>Review the generated files before committing them. They are generic scaffolds,<br />
+not the hand-authored testbed workflows shown above.</p>
+<h2 id="failure-and-safety-behavior">Failure and safety behavior</h2>
 <ul>
-<li>It does not re-label tickets for you.</li>
-<li>It does not judge whether <code>billing</code> vs <code>refund</code> is the <em>right</em> product policy<br />
-  — only whether the dataset agrees with itself.</li>
-<li>It applies to <strong>classification</strong> workflows (<code>eval.label_field</code>). Pass/fail and<br />
-  judge-graded workflows use other preflights (<a href="06-trust-your-llm-judge.html">post 6</a>).</li>
+<li><code>audit-labels --fail</code> exits <code>1</code> when conflicts are found.</li>
+<li><code>refine</code> and <code>migrate</code> warn by default; <code>--strict-label-audit</code> blocks.</li>
+<li>The audit does not relabel tickets.</li>
+<li>It checks internal consistency, not whether <code>billing</code> or <code>refund</code> is the<br />
+  correct product policy.</li>
+<li>Near-duplicate detection compares token sets and can produce domain-specific<br />
+  candidates; adjust <code>--near-threshold</code> after reviewing examples.</li>
+<li>The audit applies only to classification workflows with <code>eval.label_field</code>.<br />
+  Pass/fail and judge-graded workflows use other preflights (<a href="06-trust-your-llm-judge.html">post<br />
+  6</a>).</li>
 </ul>
-<hr />
 <h2 id="next-steps">Next steps</h2>
-<ul>
-<li>Run <code>audit-labels</code> on your eval set before the next <code>refine</code></li>
-<li>Add the path-filtered workflow (or <code>init-ci --audit-labels</code>)</li>
-<li>Then return to <a href="02-when-labels-move-refine-not-remodel.html">post 2</a> or<br />
-<a href="01-model-swap-is-not-a-migration.html">post 1</a> with a trustworthy oracle</li>
-</ul>
+<ol>
+<li>Run <code>audit-labels</code> on the full evaluation set.</li>
+<li>Add the path-filtered workflow or generate a starting point with<br />
+<code>driftless init-ci --audit-labels</code>.</li>
+<li>After the audit is clean, return to <a href="02-when-labels-move-refine-not-remodel.html">prompt refinement</a><br />
+   or <a href="01-model-swap-is-not-a-migration.html">model migration</a> with a trustworthy<br />
+   answer key.</li>
+</ol>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="04-cheaper-model-same-quality-bar.html"><span>← Previous</span><strong>Finance wants cheaper inference, same bar</strong></a><a class="next" href="06-trust-your-llm-judge.html"><span>Next →</span><strong>Free-form answers graded by an LLM judge</strong></a></nav>
   </main>
 </div>

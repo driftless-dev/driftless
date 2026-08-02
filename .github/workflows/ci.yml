@@ -13,9 +13,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -26,6 +26,23 @@ jobs:
       - name: Typecheck
         run: mypy
 
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: Validate GitHub Actions
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          ACTIONLINT="$(go env GOPATH)/bin/actionlint"
+          "$ACTIONLINT"
+          GENERATED="$(mktemp -d)"
+          driftless init-ci \
+            --contract tests/fixtures/adoption-app/driftless.yml \
+            --out-dir "$GENERATED" \
+            --setup-command "pip install -e ."
+          "$ACTIONLINT" "$GENERATED"/*.yml
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -33,10 +50,10 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -50,8 +67,8 @@ jobs:
   catalog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -64,8 +81,8 @@ jobs:
   site:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -87,8 +104,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -101,6 +118,9 @@ jobs:
           pip install build twine
           python -m build
           twine check dist/*
+
+      - name: Battletest cold install in a new repository
+        run: ./scripts/battletest-new-repo.sh
 
       - name: Verify bundled lifecycle data is in the wheel
         run: |

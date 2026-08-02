@@ -1,87 +1,128 @@
 # Tool-calling support agent: new planner, same tools
 
-**Status:** published guide — uses the in-repo deterministic
-[`examples/tool-agent`](../../examples/tool-agent) fixture and includes a
-run-viewer capture.
+**Specialized fixture · 4 rows · key-free:** this guide uses the deterministic
+`tool-agent` example installed by `copy-example`. It is not the bundled
+classifier or the separate 290-row external testbed.
 
-## The use case
+## The problem: a good final sentence can hide a bad action
 
-You run a support-style agent that must use tools — look up an order, check a
-policy, create a ticket — before it answers the user. Success is not only a
-polite final message. The agent must call the right tools in a safe order, avoid
-side-effecting actions until it has enough information, and not invent an answer
-when a tool was required.
+A tool-calling support agent can look up an order, check a refund policy, issue a
+refund, send an invoice, or reset a password. A **tool call** is the agent's
+structured request to run one of those operations. The **planner** is the part
+of the agent, often a language model guided by a prompt, that decides which
+tools to call and in what order.
 
-You swap the planner model for something cheaper or newer. Final answers still
-*look* fine in a chat playground. In eval, behavior breaks: the agent skips a
-required lookup, calls a write tool too early, or refuses and apologizes instead
-of using the tool you already exposed. Spot-checking final text misses all of
-that. Without a tool trace on each eval row, you cannot tell whether the failure
-was planning, tool choice, or generation — so the team either over-edits the
-wrong prompt or concludes "agents are too flaky to migrate."
+For a refund, a safe plan is:
 
-The use case is migrating the **agent workflow** with the same evidence bar as a
-classifier: run the full loop under the candidate model, score final behavior
-*and* the trace, and repair only the planner / tool-description files you mark
-editable.
+1. look up the order;
+2. check whether policy allows a refund;
+3. issue the refund only when eligible;
+4. explain the result.
 
-**What driftless does here:** run the whole agent workflow under the candidate
-model, score the final behavior and trace, and repair only those editable files.
+Now replace the planner model with a cheaper candidate. It may produce a polite
+answer saying "I issued your refund" while skipping the lookup and policy check.
+Reading only the final answer misses the unsafe behavior.
 
-Artifact reference:
-[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) shows the evidence shape and
-separates public testbed PR #4 from the different bundled saved success fixture;
-the agent fixture uses the same report and `open-pr` path.
+A **trace** is the recorded sequence of steps taken by the agent, including tool
+names, errors, and the final answer. Agent migration needs trace evidence so you
+can distinguish a planning failure from a tool failure or a wording problem.
 
-![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
+Driftless runs the full application under the candidate model, scores both
+behavior and trace, and limits repair to the planner and tool-description files
+allowed by the contract.
 
-If you only remember one rule: **agent migration needs trace evidence.** Final
-answers are not enough. Emit the tools selected, tool errors, and final answer so
-the repair loop can see whether the failure was planning, tool choice, or
-generation.
+## Mental model: score actions before prose
 
----
+Each fixture result includes the final answer and the ordered tools:
 
-## The app
+```jsonl
+{"id":"a001","final":"Refund issued for ord-1001...","tools":["lookup_order","check_policy","refund_payment"],"tool_errors":[],"score":1.0,"cost":0.024}
+```
 
-The fixture is local and side-effect-free:
+The `cost: 0.024` value belongs to this one output row. The compare table later
+reports total cost summed across all four fixture rows, so the baseline total is
+`4 × 0.024 = 0.096`.
 
-| Piece | Path |
-|-------|------|
-| Contract | `examples/tool-agent/driftless.yml` |
-| Eval command | `python3 -m app.eval_agent` |
-| Fake tool data | `data/orders.jsonl`, `data/policies.json` |
-| Eval cases | `evals/cases.jsonl` |
-| Gold trace expectations | `evals/gold.jsonl` |
-| Editable prompts | `prompts/planner.md`, `prompts/tool_descriptions.md` |
+A **side effect** is a change outside the evaluation process, such as sending an
+email, issuing money, or changing an account. The fixture uses **fake tools**:
+local Python functions over test data that imitate those operations without
+performing them. A **sandbox tool** runs in an isolated environment where its
+effects cannot reach production systems.
 
-The tools are plain Python functions over fixture data:
+The evaluator gives a row `0.0` if a tool error exists or the ordered tool list
+does not exactly match the expected list. If the trace is correct, it scores how
+many required terms appear in the final answer. The result can therefore range
+from `0.0` to `1.0`, although this bundled regression produces `1.0` for
+baseline rows and `0.0` for uncorrected target rows.
 
-- `lookup_order`
-- `check_policy`
-- `refund_payment`
-- `send_invoice`
-- `reset_password`
+The contract setting **`score_field`** tells Driftless which output property
+contains the numeric quality score. Driftless averages it into
+**Score / pass-rate** and compares that mean with `min_score`. The score is an
+application-defined measurement, not a probability.
 
-No real refunds, emails, or account changes happen. That is intentional. Local
-and CI examples should prove the workflow shape before anyone talks about hosted
-agent execution.
+A **holdout** is a subset of cases kept away from prompt repair until final
+validation. The fixture uses a 60% tuning and 40% holdout split. With only four
+rows, it demonstrates the workflow but does not provide production-level
+confidence.
 
----
+## Before you start
 
-## Reproduce the naive regression
+You need Python and a shell. This fixture is local, deterministic, and
+side-effect-free. It requires no model-provider credentials.
 
-Install the published wheel and copy its bundled example:
+The copied project contains:
+
+- `driftless.yml`: workflow contract;
+- `python3 -m app.eval_agent`: evaluation command;
+- `data/orders.jsonl` and `data/policies.json`: fake tool data;
+- `evals/cases.jsonl` and `evals/gold.jsonl`: requests and expected traces;
+- `prompts/planner.md` and `prompts/tool_descriptions.md`: editable prompts.
+
+Its tools are plain Python functions named `lookup_order`, `check_policy`,
+`refund_payment`, `send_invoice`, and `reset_password`. No real refund, email,
+password reset, or account change occurs.
+
+A **repair generator** proposes prompt or configuration changes from failures.
+The normal LLM repair generator requires provider credentials and makes
+nondeterministic model calls. The complete key-free path below disables it.
+
+## Walkthrough
+
+### 1. Install Driftless and copy the fixture
+
+These commands install the published package, create a standalone agent demo,
+and enter its directory:
 
 ```bash
 pip install driftless
 driftless copy-example tool-agent --out-dir driftless-agent-demo
 cd driftless-agent-demo
+```
+
+Expect a local four-row project with fake tool data and no external calls.
+
+### 2. Validate the current workflow
+
+Run the configured current planner behavior:
+
+```bash
 driftless validate -w support_agent
+```
+
+Expect Driftless to execute `python3 -m app.eval_agent`, read the output JSONL,
+and validate the metrics and schema. Model names select deterministic fixture
+behavior rather than calling hosted models.
+
+### 3. Compare current and candidate planners
+
+This command evaluates the same cases and fake tools for `gpt-4` and the
+simulated `gpt-4o-mini` target:
+
+```bash
 driftless compare -w support_agent --to gpt-4o-mini
 ```
 
-Actual local output from the fixture:
+Expect this actual fixture output:
 
 ```text
 Running gpt-4 (baseline) and gpt-4o-mini (target)...
@@ -104,35 +145,83 @@ Thresholds (target vs contract):
   PASS max_cost_increase: -75.0% <= +20%
 ```
 
-Again, cheaper is not enough. The candidate fails because it does not follow the
-tool protocol.
+Current CLI versions may also print confidence caveats and average latency rows
+for this four-row smoke fixture. Those extra lines are expected; they do not
+change the score and cost results shown above.
 
----
+The target is 75% cheaper in the fixture, but its mean quality score is `0.000`.
+The contract requires at least `0.850`. The candidate fails because it does not
+follow the tool protocol.
 
-## Score the trace, not just the prose
+### 4. Run the complete key-free blocked path
 
-Each output row carries both final answer and trajectory:
+This command evaluates migration behavior but disables prompt proposals:
 
-```jsonl
-{"id":"a001","final":"Refund issued for ord-1001...","tools":["lookup_order","check_policy","refund_payment"],"tool_errors":[],"score":1.0,"cost":0.024}
+```bash
+driftless migrate -w support_agent --to gpt-4o-mini --generator none
 ```
 
-The evaluator gives zero credit when:
+`--generator none` means no repair generator is available. The unchanged target
+fails `min_score`, and Driftless has no candidate planner or tool-description
+edit to test. Expect a non-zero exit with `BLOCKED`; no repair is attempted. The
+failed migration result is still saved.
 
-- a required tool is missing;
-- tools are called in the wrong order;
-- a side-effecting tool runs without policy eligibility;
-- `tool_errors` is non-empty.
+Render the saved evidence:
 
-That makes the eval useful for migration. A candidate that says "refund issued"
-without `lookup_order` and `check_policy` should fail before it reaches
-production.
+```bash
+driftless report -w support_agent
+```
 
----
+Expect the report to show the score, trace-related failures, remaining failure
+groups, and holdout information when that stage was reached.
 
-## The contract boundary
+Preview what Driftless would deliver:
 
-The important part of `driftless.yml` is the edit scope:
+```bash
+driftless open-pr -w support_agent
+```
+
+This is a dry run because `--create` is absent, so it does not touch GitHub. A
+blocked result has no shippable prompt change. Driftless therefore previews an
+**issue** describing the blocker rather than a pull request that implies the
+migration is ready.
+
+A passing repair requires an LLM generator credential and nondeterministic
+provider calls. Review the resulting trace evidence before previewing or creating
+a pull request.
+
+![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
+
+The report and delivery evidence shape is also shown in
+[`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md). See the
+[repair reproduction boundary](./01-model-swap-is-not-a-migration.md#repair-reproduction-boundary)
+for the limits of reproduced repair output.
+
+### 5. Understand the behavior a repair would encode
+
+The fixture starts with an intentionally vague planner:
+
+```markdown
+Choose tools that seem directly related to the customer request.
+
+For refunds, use the refund tool when the customer asks for money back. Keep the
+answer short and helpful.
+```
+
+For the target to pass, the planner and tool descriptions need explicit
+operational rules:
+
+- call `lookup_order` before making a refund decision;
+- call `check_policy` before `refund_payment`;
+- call `refund_payment` only after eligibility is confirmed;
+- include the tool trace in every result.
+
+These are planner-prompt and tool-description changes, not tool implementation
+changes.
+
+## Advanced contract boundary
+
+The contract limits what repair may edit:
 
 ```yaml
 files:
@@ -147,54 +236,73 @@ files:
     - evals/gold.jsonl
 ```
 
-Driftless can clarify planner instructions and tool descriptions. It cannot edit
-the tool simulator, fixture data, or scoring rules.
+Driftless can clarify instructions. It cannot edit the tool simulator, fixture
+data, expected traces, or scoring rules.
 
-That boundary keeps the migration reviewable:
+The scoring, split, and cost gates are:
 
-| Surface | Driftless role |
-|---------|----------------|
-| Planner prompt | Editable |
-| Tool descriptions | Editable |
-| Tool implementations | Read-only |
-| Fixture data | Read-only |
-| Eval scorer | Owned by the app |
-| Hosted agent sandbox | Out of scope for this example |
+```yaml
+eval:
+  id_field: id
+  score_field: score
+  cost_field: cost
+  split:
+    tuning: 60%
+    holdout: 40%
 
----
-
-## What a repair should learn
-
-The baseline planner is intentionally vague:
-
-```markdown
-Choose tools that seem directly related to the customer request.
-
-For refunds, use the refund tool when the customer asks for money back. Keep the
-answer short and helpful.
+thresholds:
+  min_score: 0.85
+  max_cost_increase: 0.20
 ```
 
-For the cheaper model to pass, the planner/tool docs need to say the operational
-rules directly:
+`max_cost_increase: 0.20` allows at most a 20% cost increase. The target's
+negative increase is a cost reduction, so cost passes while quality fails.
 
-- call `lookup_order` before refund decisions;
-- call `check_policy` before `refund_payment`;
-- do not call `refund_payment` unless eligibility is confirmed;
-- include the tool trace in each result.
+Production trace records may also include tool arguments, returned values,
+retrieved documents, retries, and timestamps. Avoid placing secrets or sensitive
+payloads in reports.
 
-Those are prompt/tool-description changes, not application rewrites.
+## Interpret the result
 
----
+`Score / pass-rate: 1.000` means the mean field selected by `score_field` is
+`1.0`. In this fixture, that corresponds to exact expected tool sequences, no
+tool errors, and all required final-answer terms. `0.000` means every target row
+failed the evaluator. It does not mean the model was 0% likely to answer.
 
-## Honest limits
+Inspect the trace before changing prompts. A missing lookup suggests planner or
+tool-description drift. A correct tool sequence with a wrong final answer
+suggests answer-generation drift. A tool exception may be an implementation or
+fixture problem rather than a model problem.
 
-- Keep first examples local or inside CI.
+## Safety and failure behavior
+
+- Keep initial agent evaluations local or inside CI.
 - Use fake or sandboxed tools for migration tests.
 - Do not let a hosted runner execute arbitrary side-effecting tools without a
-  sandbox.
-- Add budgets before scaling: agent eval is records times tool calls times repair
-  attempts.
+  sandbox and explicit authorization controls.
+- Treat a blocked issue preview as evidence of a problem, not approval to run
+  real actions.
+- Keep tool implementations, fixtures, and scoring rules read-only during prompt
+  repair.
 
-Agentic workflows fit Driftless because the app remains the unit under test. The
-tool's job is to make model swaps reviewable: same cases, same fake tools, same
-score, clearer planner/tool prompts.
+Agent evaluation work grows with the number of cases, planner/tool steps, repair
+candidates, and iterations. Holdout adds another target validation. If an LLM
+judge scores outputs, add one judge call per output row per evaluation run.
+
+Intuitively, more cases and longer traces increase each run, while candidates
+and iterations repeat those runs:
+
+\[
+\text{work} \approx
+\text{records} \times \text{model/tool steps}
+\times \text{repair candidates} \times \text{iterations}
++ \text{holdout validation}
+\]
+
+## Next steps
+
+- Read [RAG and agent contract details](../rag-and-agents.md).
+- Add semantic scoring only after
+  [judge calibration](./06-trust-your-llm-judge.md).
+- Review [cost and budget guidance](../COST_AND_BUDGETS.md).
+- [Automate only after local validation](./03-dependabot-for-prompts-in-ci.md).

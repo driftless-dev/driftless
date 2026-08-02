@@ -66,94 +66,87 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="rag-qa-new-answer-model-same-knowledge-base">RAG QA: new answer model, same knowledge base</h1>
-<p><strong>Status:</strong> published guide — uses the in-repo deterministic<br />
-<a href="https://github.com/driftless-dev/driftless/tree/main/examples/rag-qa"><code>examples/rag-qa</code></a> fixture and includes a run-viewer<br />
-capture.</p>
-<h2 id="the-use-case">The use case</h2>
-<p>You ship a retrieval-augmented QA feature: user asks a question, the app<br />
-retrieves chunks from a knowledge base, and an LLM writes an answer that should<br />
-stay grounded in those chunks and cite them. Quality is measured end-to-end —<br />
-not "did the LLM sound plausible?" but "did the answer use the retrieved<br />
-context correctly?"</p>
-<p>Then you change the generator model (deprecation, cost, or latency). The<br />
-<strong>retrieval index stays the same</strong>. On smoke tests the new model still answers<br />
-every question. In eval, though, groundedness falls: answers invent details that<br />
-were not in the retrieved context, or they drop citations the product requires.<br />
-Teams often misread this as "we need to re-embed the corpus" or "RAG is broken."<br />
-Usually the failure is in the <strong>generator / retrieval prompt contract</strong> under the<br />
-new model — the same prompt-debt pattern as a classifier swap, with a longer<br />
-pipeline.</p>
-<p>The use case is migrating a RAG <em>workflow</em> while holding the index fixed, and<br />
-proving the end-to-end eval still passes before you merge.</p>
-<p><strong>What driftless does here:</strong> run the whole RAG pipeline under the candidate<br />
-model, score the final answer/citations through your evaluator, and repair only<br />
-the prompt/config files you allow — not the embedding store.</p>
-<p>Artifact reference:<br />
-<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> shows the evidence shape and<br />
-separates public testbed PR #4 from the different bundled saved success fixture;<br />
-the RAG fixture uses the same report and <code>open-pr</code> path.</p>
-<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
-<p>If you only remember one rule: <strong>RAG migration is not embedding migration.</strong><br />
-Keep the index fixed for this workflow. Let Driftless optimize the generator and<br />
-retrieval prompts against the same end-to-end eval your app already uses.</p>
-<hr />
-<h2 id="the-app">The app</h2>
-<p>The example is intentionally small and dependency-free:</p>
-<table>
-<thead>
-<tr>
-<th>Piece</th>
-<th>Path</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Contract</td>
-<td><code>examples/rag-qa/driftless.yml</code></td>
-</tr>
-<tr>
-<td>Eval command</td>
-<td><code>python3 -m app.eval_rag</code></td>
-</tr>
-<tr>
-<td>Knowledge base</td>
-<td><code>data/docs.jsonl</code></td>
-</tr>
-<tr>
-<td>Fixed index metadata</td>
-<td><code>data/index_manifest.json</code></td>
-</tr>
-<tr>
-<td>Questions</td>
-<td><code>evals/questions.jsonl</code></td>
-</tr>
-<tr>
-<td>Gold expectations</td>
-<td><code>evals/gold.jsonl</code></td>
-</tr>
-<tr>
-<td>Editable prompts</td>
-<td><code>prompts/rag_answer.md</code>, <code>prompts/retrieval_rewrite.md</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>app.eval_rag</code> retrieves one support article, generates an answer, and emits one<br />
-JSON object per question:</p>
+<p><strong>Specialized fixture · 4 rows · key-free:</strong> this guide uses the deterministic<br />
+<code>rag-qa</code> example installed by <code>copy-example</code>. It is not the bundled classifier<br />
+or the separate 290-row external testbed.</p>
+<h2 id="the-problem-the-answer-model-changes-behavior">The problem: the answer model changes behavior</h2>
+<p><strong>Retrieval-augmented generation (RAG)</strong> is an application pattern in which the<br />
+app finds relevant source material and gives it to a language model before the<br />
+model answers. <strong>Retrieval</strong> is that search step. The <strong>corpus</strong> is the collection<br />
+of source documents, and the <strong>index</strong> is the searchable representation used to<br />
+find documents or chunks.</p>
+<p>Imagine a support question about single sign-on. The app retrieves the matching<br />
+support article, and the answer model should use only that article and cite it.<br />
+You replace the answer model because the old one is expensive or being retired.<br />
+The new model still produces fluent text, but it drops the citation or invents a<br />
+policy that was not in the article.</p>
+<p>That does not automatically mean the corpus or index is broken. The new model<br />
+may interpret the answer and retrieval-rewrite prompts differently.</p>
+<p>This walkthrough changes the answer model while keeping the knowledge base and<br />
+index fixed. Driftless runs the entire application, measures the final answers<br />
+and citations, and may edit only the prompt files allowed by the contract.</p>
+<p>If you remember one rule, use this one: <strong>a RAG model migration is not an<br />
+embedding or index migration.</strong> Treat index rebuilding as a separate data<br />
+pipeline change.</p>
+<h2 id="mental-model-test-the-pipeline-end-to-end">Mental model: test the pipeline end to end</h2>
+<p>The application owns retrieval, answer generation, and scoring. For each<br />
+question, the fixture writes a result like this:</p>
 <pre><code class="language-jsonl">{&quot;id&quot;:&quot;q001&quot;,&quot;answer&quot;:&quot;...&quot;,&quot;citations&quot;:[&quot;doc-sso&quot;],&quot;score&quot;:1.0,&quot;cost&quot;:0.018,&quot;retrieved_doc&quot;:&quot;doc-sso&quot;}
 </code></pre>
-<p>In a real app, <code>score</code> might blend answer correctness, citation support,<br />
-faithfulness, and context relevance. In this fixture it is deterministic so the<br />
-example runs without provider keys.</p>
-<hr />
-<h2 id="reproduce-the-naive-regression">Reproduce the naive regression</h2>
-<p>Install the published wheel and copy its bundled example:</p>
+<p><code>score</code> is the application's quality measurement for that row. In the fixture,<br />
+the evaluator gives 75% of the score for required answer terms and 25% for the<br />
+required citation. It is deterministic, so no provider key is needed. A real<br />
+application might combine correctness, citation support, faithfulness, and<br />
+context relevance.</p>
+<p>The contract setting <strong><code>score_field</code></strong> tells Driftless which output property<br />
+contains that numeric score. Driftless averages row scores into<br />
+<strong>Score / pass-rate</strong> and compares the mean with <code>min_score</code>. In this bundled<br />
+regression the baseline rows score <code>1.0</code> and the uncorrected target rows score<br />
+<code>0.0</code>; the scoring function itself can also produce values between them.</p>
+<p>A <strong>holdout</strong> is a subset of evaluation rows that repair does not use while<br />
+choosing prompt changes. Driftless checks the winning candidate on that unseen<br />
+subset before treating the migration as safe. This four-row fixture uses a<br />
+60% tuning and 40% holdout split, but it is a demonstration, not launch-quality<br />
+evidence.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>You need Python and a shell. The published fixture is dependency-light and does<br />
+not need model-provider credentials.</p>
+<p>The copied project contains:</p>
+<ul>
+<li><code>driftless.yml</code>: workflow contract;</li>
+<li><code>python3 -m app.eval_rag</code>: evaluation command;</li>
+<li><code>data/docs.jsonl</code>: fixed support corpus;</li>
+<li><code>data/index_manifest.json</code>: fixed index metadata;</li>
+<li><code>evals/questions.jsonl</code> and <code>evals/gold.jsonl</code>: questions and expected terms<br />
+  and citations;</li>
+<li><code>prompts/rag_answer.md</code> and <code>prompts/retrieval_rewrite.md</code>: editable prompts.</li>
+</ul>
+<p>A <strong>repair generator</strong> proposes prompt or configuration edits from failed rows.<br />
+The normal LLM repair generator requires provider credentials and makes<br />
+nondeterministic calls. The key-free path below deliberately disables it.</p>
+<h2 id="walkthrough">Walkthrough</h2>
+<h3 id="1-install-driftless-and-copy-the-fixture">1. Install Driftless and copy the fixture</h3>
+<p>These commands install the published package, create a standalone demo<br />
+directory, and enter it:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example rag-qa --out-dir driftless-rag-demo
 cd driftless-rag-demo
-driftless validate -w rag_qa
-driftless compare -w rag_qa --to gpt-4o-mini
 </code></pre>
-<p>Actual local output from the fixture:</p>
+<p>Expect a local copy of the four-row RAG project. It is separate from any changes<br />
+in this repository.</p>
+<h3 id="2-validate-the-current-workflow">2. Validate the current workflow</h3>
+<p>Run the fixture with its configured current model behavior:</p>
+<pre><code class="language-bash">driftless validate -w rag_qa
+</code></pre>
+<p>Expect Driftless to run <code>python3 -m app.eval_rag</code>, read the output JSONL, and<br />
+validate its metrics and schema. The model names select deterministic fixture<br />
+behavior; no network model call occurs.</p>
+<h3 id="3-compare-the-current-and-candidate-models">3. Compare the current and candidate models</h3>
+<p>This command runs the same questions and fixed retrieval data for <code>gpt-4</code> and<br />
+the simulated <code>gpt-4o-mini</code> target:</p>
+<pre><code class="language-bash">driftless compare -w rag_qa --to gpt-4o-mini
+</code></pre>
+<p>Expect this actual fixture output:</p>
 <pre><code class="language-text">Running gpt-4 (baseline) and gpt-4o-mini (target)...
 
 ┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
@@ -173,11 +166,57 @@ Thresholds (target vs contract):
   FAIL min_score: 0.000 &gt;= 0.86
   PASS max_cost_increase: -77.8% &lt;= +20%
 </code></pre>
-<p>This is exactly the trap: the candidate is cheaper, but it fails the RAG quality<br />
-bar. A cost win is not a migration unless the quality gate still passes.</p>
-<hr />
-<h2 id="the-contract-boundary">The contract boundary</h2>
-<p>The important part of <code>driftless.yml</code> is the edit scope:</p>
+<p>Current CLI versions may also print confidence caveats and average latency rows<br />
+for this four-row smoke fixture. Those extra lines are expected; they do not<br />
+change the score and cost results shown above.</p>
+<p>The target is 77.8% cheaper in the fixture, but its mean score is <code>0.000</code>.<br />
+<code>min_score: 0.86</code> requires at least <code>0.860</code>. Lower cost does not compensate for<br />
+a failed quality gate.</p>
+<h3 id="4-run-the-complete-key-free-blocked-path">4. Run the complete key-free blocked path</h3>
+<p>This migration command evaluates the target but disables prompt proposals:</p>
+<pre><code class="language-bash">driftless migrate -w rag_qa --to gpt-4o-mini --generator none
+</code></pre>
+<p><code>--generator none</code> means there is no repair generator. Because the unchanged<br />
+target fails <code>min_score</code>, Driftless has no candidate prompt edit to test. Expect<br />
+a non-zero exit with <code>BLOCKED</code>; this is intentional, and no repair is attempted.<br />
+The failed migration result is still saved.</p>
+<p>Render the saved evidence next:</p>
+<pre><code class="language-bash">driftless report -w rag_qa
+</code></pre>
+<p>Expect a report containing the measured scores, remaining failures, and holdout<br />
+information when that stage was reached.</p>
+<p>Finally, preview the delivery action:</p>
+<pre><code class="language-bash">driftless open-pr -w rag_qa
+</code></pre>
+<p><code>open-pr</code> is a dry run unless <code>--create</code> is supplied, so this command performs<br />
+no GitHub operation. A blocked migration has no shippable file change.<br />
+Driftless therefore previews an <strong>issue</strong> that records the blocker rather than a<br />
+pull request that implies the migration is ready.</p>
+<p>A successful repair requires an LLM generator credential and nondeterministic<br />
+provider calls. Review that result before considering <code>open-pr --create</code>.</p>
+<p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
+<p>The report and delivery evidence shape is also shown in<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a>. See the<br />
+<a href="01-model-swap-is-not-a-migration.html#repair-reproduction-boundary">repair reproduction boundary</a><br />
+for the limits of reproduced repair output.</p>
+<h3 id="5-understand-the-prompt-change-a-repair-would-seek">5. Understand the prompt change a repair would seek</h3>
+<p>The fixture starts with an intentionally weak answer prompt:</p>
+<pre><code class="language-markdown">Answer the customer question using the retrieved support article.
+
+Keep the answer concise. If the article seems relevant, summarize the policy in
+plain language.
+</code></pre>
+<p>The deterministic evaluator recognizes a repaired contract only when the<br />
+prompts tell the target to:</p>
+<ul>
+<li>use only retrieved context;</li>
+<li>cite every factual answer;</li>
+<li>preserve product nouns during retrieval rewriting.</li>
+</ul>
+<p>Those are prompt and configuration changes. They do not require changes to the<br />
+corpus, index, or retrieval code.</p>
+<h2 id="advanced-contract-boundary">Advanced contract boundary</h2>
+<p>The contract makes the allowed edit scope explicit:</p>
 <pre><code class="language-yaml">files:
   editable:
     - prompts/rag_answer.md
@@ -189,88 +228,62 @@ bar. A cost win is not a migration unless the quality gate still passes.</p>
     - evals/questions.jsonl
     - evals/gold.jsonl
 </code></pre>
-<p>Driftless can change the prompt instructions. It cannot silently rebuild the<br />
-index, change the documents, or rewrite retrieval code.</p>
-<p>That boundary keeps the migration reviewable:</p>
-<table>
-<thead>
-<tr>
-<th>Surface</th>
-<th>Driftless role</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Answer prompt</td>
-<td>Editable</td>
-</tr>
-<tr>
-<td>Retrieval rewrite prompt</td>
-<td>Editable</td>
-</tr>
-<tr>
-<td>Knowledge base</td>
-<td>Read-only context</td>
-</tr>
-<tr>
-<td>Index manifest</td>
-<td>Read-only context</td>
-</tr>
-<tr>
-<td>Eval scorer</td>
-<td>Owned by the app</td>
-</tr>
-<tr>
-<td>Embedding model/index rebuild</td>
-<td>Out of scope</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="why-score_field-is-enough-to-start">Why <code>score_field</code> is enough to start</h2>
-<p>The workflow uses task-agnostic score mode:</p>
+<p>Driftless can clarify the two prompts. It cannot silently rebuild the index,<br />
+change documents, rewrite retrieval code, or alter the gold expectations.</p>
+<p>The score and cost gates are configured separately:</p>
 <pre><code class="language-yaml">eval:
   id_field: id
   score_field: score
   cost_field: cost
+  split:
+    tuning: 60%
+    holdout: 40%
 
 thresholds:
   min_score: 0.86
   max_cost_increase: 0.20
 </code></pre>
-<p>This is the simplest way to bring RAG under Driftless: your app decides what a<br />
-good answer means and emits a number. Driftless aggregates that score, applies<br />
-thresholds, and uses the failing rows as repair evidence.</p>
-<p>Use <code>eval.judge</code> later when quality is semantic and you do not have a reliable<br />
-deterministic scorer. Start with a human-calibrated judge check, then optimize.</p>
-<hr />
-<h2 id="what-a-repair-should-learn">What a repair should learn</h2>
-<p>The baseline prompts are intentionally weak:</p>
-<pre><code class="language-markdown">Answer the customer question using the retrieved support article.
-
-Keep the answer concise. If the article seems relevant, summarize the policy in
-plain language.
-</code></pre>
-<p>For the cheaper model to pass, the prompt needs to become more explicit:</p>
+<p><code>max_cost_increase: 0.20</code> allows at most a 20% increase over baseline cost. The<br />
+fixture's negative increase is a reduction, so cost passes while quality fails.</p>
+<p>Use <code>eval.judge</code> only when quality needs semantic grading and you do not have a<br />
+reliable deterministic scorer. An LLM judge should pass a human calibration<br />
+check before repair optimizes against it.</p>
+<h2 id="interpret-the-result">Interpret the result</h2>
+<p><code>Score / pass-rate</code> is the mean of the field named by <code>score_field</code>. Here,<br />
+<code>1.000</code> means every row fully met required-term and citation expectations.<br />
+<code>0.000</code> means none earned credit under this fixture's scoring rules. It is not a<br />
+probability that an answer is correct.</p>
+<p>The four-row split is intentionally tiny. A passing demonstration can show that<br />
+the commands and edit boundary work, but it cannot establish production<br />
+reliability.</p>
+<h2 id="safety-and-failure-behavior">Safety and failure behavior</h2>
 <ul>
-<li>use only retrieved context;</li>
-<li>cite every factual answer;</li>
-<li>preserve product nouns during retrieval rewriting.</li>
+<li>Keep the corpus and index read-only during a prompt migration.</li>
+<li>Treat an embedding-model or index rebuild as a separate change with separate<br />
+  evidence.</li>
+<li>Do not optimize against an uncalibrated LLM judge.</li>
+<li>Do not use a blocked issue preview as approval to ship.</li>
 </ul>
-<p>Those are prompt/config changes, not application rewrites. That is the kind of<br />
-RAG drift Driftless should handle.</p>
-<hr />
-<h2 id="honest-limits">Honest limits</h2>
+<p>Cost grows because every evaluation row runs retrieval, generation, and scoring.<br />
+Repair candidates and iterations repeat that work; holdout adds another target<br />
+evaluation; judge grading adds one judge call per row.</p>
+<p>Intuitively, doubling rows doubles work, and testing several candidates per<br />
+iteration multiplies it again:</p>
+<p>[<br />
+\text{workflow work} \approx<br />
+\text{rows} \times \text{candidate runs} \times \text{iterations}<br />
++ \text{holdout run}<br />
+]</p>
+<p>Retrieval, retries, reranking, and judge calls add their own cost inside each<br />
+run.</p>
+<h2 id="next-steps">Next steps</h2>
 <ul>
-<li>Do not use this as an embedding-model migration story.</li>
-<li>Do not let the repair loop edit your corpus or index.</li>
-<li>Do not optimize against an uncalibrated judge.</li>
-<li>For agents, emit trace fields (<code>tools</code>, <code>tool_errors</code>, retrieved docs) so the<br />
-  report can explain failures beyond the final answer.</li>
+<li>Read <a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md">RAG and agent contract details</a>.</li>
+<li>Add semantic scoring only after<br />
+<a href="06-trust-your-llm-judge.html">judge calibration</a>.</li>
+<li>Review <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a>.</li>
+<li><a href="03-dependabot-for-prompts-in-ci.html">Automate only after local validation</a>.</li>
 </ul>
-<p>RAG and agent prompts are brittle to model swaps, but the first trustworthy step<br />
-is boring in the best way: run the same app, keep the index fixed, measure the<br />
-whole pipeline, and review only prompt/config diffs.</p>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="06-trust-your-llm-judge.html"><span>← Previous</span><strong>Free-form answers graded by an LLM judge</strong></a><a class="next" href="08-agent-tool-selection-drift.html"><span>Next →</span><strong>Tool-calling agent: new planner, same tools</strong></a></nav>
   </main>
 </div>

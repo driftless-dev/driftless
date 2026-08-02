@@ -66,88 +66,94 @@
         are an optional external testbed, not the bundled demo.
       </aside>
 <h1 id="free-form-answers-graded-by-an-llm-judge">Free-form answers graded by an LLM judge</h1>
-<h2 id="the-use-case">The use case</h2>
-<p>Not every LLM workflow is a classifier with gold categories. You might summarize<br />
-support tickets, rewrite answers for tone, or grade free-form responses for<br />
-faithfulness. There is no single <code>label_field</code> to compute F1 against. So the team<br />
-adds an <strong>LLM-as-judge</strong>: a second model scores each output against a written<br />
-rubric, and you treat the mean score like a quality metric for migrations.</p>
-<p>That solves the "how do we score this?" problem and creates a new one. If you<br />
-<code>migrate</code> or <code>refine</code> against the judge, you are optimizing prompts toward<br />
-whatever that second model prefers. If the judge is noisy, biased, or drifts when<br />
-you change the grading model, you can ship a "successful" migration that humans<br />
-would reject — with beautiful charts and a green holdout on a bad proxy.</p>
-<p>The use case is the decision <em>before</em> the repair loop: <strong>when is a judge trusted<br />
-enough to optimize against?</strong> You need a human calibration set, a quantitative<br />
-agreement check, and a hard stop when agreement fails — not vibes that "the<br />
-rubric looks good."</p>
-<p><strong>What driftless does here:</strong> treat the judge as a grading mode with an optional<br />
-<strong>human calibration gate</strong>. Measure judge↔human agreement (<code>judge-check</code>) and<br />
-refuse to optimize when MAE / correlation miss your bar.</p>
-<h2 id="start-with-the-bundled-contract-path">Start with the bundled contract path</h2>
+<p><strong>Status: advanced configuration guide.</strong> Driftless does not currently ship a<br />
+judge fixture or a key-free judge-model stub. This post explains how to add judge<br />
+grading to your own workflow. It does not promise a one-command judge demo.</p>
+<h2 id="the-problem-useful-answers-do-not-always-have-labels">The problem: useful answers do not always have labels</h2>
+<p>Suppose your application summarizes a support ticket:</p>
+<ul>
+<li>input: "Please reverse the payment on my latest invoice."</li>
+<li>output: "Customer wants a charge reversed on the latest invoice."</li>
+</ul>
+<p>This is <strong>free-form output</strong>: text with many acceptable wordings, rather than one<br />
+answer from a fixed list. Classification metrics such as F1 cannot tell you<br />
+whether the summary is faithful, concise, and safe.</p>
+<p>One option is <strong>LLM-as-judge</strong>: a second language model grades the application's<br />
+answer. It follows a <strong>rubric</strong>, which is a written description of what earns or<br />
+loses points. The judge can score thousands of answers more cheaply than a human<br />
+reviewer.</p>
+<p>The judge is still a model. It can be inconsistent, biased, or wrong. A repair<br />
+loop can learn to please a bad judge while making answers worse for users.</p>
+<p>The question is therefore not only "What score did the app receive?" It is<br />
+"Does this judge agree with people well enough to guide a migration?"</p>
+<h2 id="mental-model-two-quality-gates">Mental model: two quality gates</h2>
+<p>The first gate checks the judge against people. A <strong>calibration set</strong> is a small,<br />
+representative collection of inputs and outputs that people have already<br />
+scored. Driftless asks the judge to score the same rows and compares the two.</p>
+<p>The comparison uses two measurements:</p>
+<ul>
+<li><strong>Mean absolute error (MAE)</strong> is the judge's average distance from the human<br />
+  score. Lower is better. An MAE of <code>0.15</code> on Driftless's normalized <code>0..1</code><br />
+  scale means the judge is off by 0.15 on average.</li>
+<li><strong>Correlation</strong> measures whether judge scores rise and fall with human scores.<br />
+  Pearson correlation is <code>1</code> for perfect agreement in ordering, <code>0</code> for no<br />
+  linear relationship, and negative when the judge tends to move opposite to<br />
+  people.</li>
+</ul>
+<p>Intuitively, MAE asks "How far off is the judge?" Correlation asks "Does it rank<br />
+better and worse answers in the same direction as people?"</p>
+<p>In plain-text notation, for <code>n</code> examples:</p>
+<p><code>MAE = (|judge_1 - human_1| + ... + |judge_n - human_n|) / n</code></p>
+<p>The vertical bars mean "take the positive distance," so errors above and below<br />
+the human score do not cancel each other out.</p>
+<p>The second gate checks the application on a <strong>holdout</strong>: evaluation rows kept<br />
+away from prompt repair until the final validation. A green holdout is useful<br />
+only after the judge itself has passed calibration.</p>
+<p>Driftless normalizes judge and human scores to <code>0..1</code>, measures agreement with<br />
+<code>judge-check</code>, and blocks optimization when configured MAE or correlation limits<br />
+fail.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>You need:</p>
+<ul>
+<li>a free-form evaluation harness that reads the configured input JSONL and<br />
+  writes one output per row;</li>
+<li>a rubric with concrete good, bad, and borderline behavior;</li>
+<li>a human-scored calibration JSONL;</li>
+<li>credentials for the configured judge provider;</li>
+<li>a Driftless contract that names the files repair may edit.</li>
+</ul>
+<p>A <strong>repair generator</strong> is the component that proposes prompt or configuration<br />
+changes from failed examples. Driftless's LLM repair generator requires provider<br />
+credentials and makes nondeterministic model calls.</p>
+<p>There is no bundled judge fixture. The bundled four-row <code>support-classifier</code><br />
+example is key-free, but it grades category labels with F1. The separate<br />
+290-row external support-classifier testbed is also label-F1 first. Neither<br />
+demonstrates judge reliability.</p>
+<p>If you want to learn the basic contract shape before this guide, the classifier<br />
+smoke check will copy and validate that different kind of fixture:</p>
 <pre><code class="language-bash">pip install driftless
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
 driftless validate -w support_classifier
 </code></pre>
-<p>The bundled classifier is label-F1, not an LLM-judge demo. It gives you a<br />
-key-free four-row contract baseline before you add a judge-graded workflow.<br />
-Judge evaluation and repair require the relevant provider credentials and can<br />
-multiply calls across calibration rows, eval rows, candidates, and iterations.<br />
-Do not infer judge reliability from this smoke fixture.</p>
-<h2 id="optional-full-testbed-appendix">Optional full testbed appendix</h2>
-<p>The external support-classifier testbed is <strong>label-F1 first</strong>. This post uses that as<br />
-contrast, then shows the judge contract shape, CLI, and CI scaffold from the<br />
-product itself.</p>
-<hr />
-<h2 id="three-grading-modes-pick-one">Three grading modes (pick one)</h2>
-<table>
-<thead>
-<tr>
-<th>Mode</th>
-<th>Contract</th>
-<th>Testbed example</th>
-<th>Gate</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Classification</td>
-<td><code>eval.label_field</code></td>
-<td><code>support_classifier</code> → macro-F1</td>
-<td><code>min_f1</code></td>
-</tr>
-<tr>
-<td>Customer score / pass</td>
-<td><code>score_field</code> / <code>pass_field</code></td>
-<td><code>quick_triage</code> → escalate yes/no</td>
-<td><code>min_score</code></td>
-</tr>
-<tr>
-<td>LLM-as-judge</td>
-<td><code>eval.judge</code></td>
-<td><em>(your summarization / RAG write-up)</em></td>
-<td><code>min_score</code> + optional MAE/corr</td>
-</tr>
-</tbody>
-</table>
-<p><code>quick_triage</code> is closer to a rubric <em>in spirit</em> (binary escalate) but still<br />
-uses <strong>gold labels</strong>, not a second model. Jump to judge only when humans cannot<br />
-pre-label every row cheaply — and then calibrate.</p>
-<p>Posts <a href="01-model-swap-is-not-a-migration.html">1</a>–<a href="02-when-labels-move-refine-not-remodel.html">2</a><br />
-stay on the F1 path. This post is for everyone else.</p>
-<hr />
-<h2 id="why-judge-trust-is-a-first-class-problem">Why judge trust is a first-class problem</h2>
-<p>Putting a model inside the trust loop means:</p>
-<ul>
-<li>The judge can be noisy, biased, or <strong>itself</strong> drift when you change the grading model.</li>
-<li>Optimizing prompts against a bad judge produces confident, wrong migrations.</li>
-<li>Holdout on judge scores is not enough if the judge disagrees with humans.</li>
-</ul>
-<p>Driftless keeps the judge injectable (deterministic stubs in tests), normalizes<br />
-scores to 0..1, and exposes <code>judge_agreement()</code> against a human-scored JSONL.</p>
-<hr />
-<h2 id="contract-shape">Contract shape</h2>
+<p>Expect a key-free classifier validation, not judge scores or a calibration<br />
+result. Do not use it as evidence that an LLM judge is trustworthy.</p>
+<h2 id="walkthrough">Walkthrough</h2>
+<h3 id="1-define-the-human-grading-standard">1. Define the human grading standard</h3>
+<p>Write a rubric before configuring Driftless. For a support summary, it might<br />
+award full marks only when the answer is faithful, names the request category,<br />
+stays under three sentences, and does not expose internal IDs.</p>
+<p>Then create one human-scored JSON object per line:</p>
+<pre><code class="language-jsonl">{&quot;input&quot;: &quot;Please reverse the payment on my latest invoice.&quot;, &quot;output&quot;: &quot;Customer wants a charge reversed on the latest invoice.&quot;, &quot;score&quot;: 5}
+{&quot;input&quot;: &quot;App crashes on login.&quot;, &quot;output&quot;: &quot;The weather in Paris is lovely.&quot;, &quot;score&quot;: 0}
+</code></pre>
+<p>These two rows illustrate the file format, not a sufficient calibration set.<br />
+Include representative good, bad, format-breaking, unsupported, and borderline<br />
+answers. Every <code>score</code> must use the rubric's scale, <code>0..5</code> in this example.</p>
+<h3 id="2-add-the-workflow-contract">2. Add the workflow contract</h3>
+<p>This configuration connects your existing harness to an OpenAI judge. Replace<br />
+the example paths, fields, model, and credential provider with your application's<br />
+real values.</p>
 <pre><code class="language-yaml">workflows:
   support_summary:
     run:
@@ -161,6 +167,8 @@ scores to 0..1, and exposes <code>judge_agreement()</code> against a human-score
       editable: [prompts/summary.md]
     eval:
       judge:
+        provider: openai
+        model: gpt-4o-mini
         rubric: |
           Award full marks if the summary is faithful to the ticket,
           names the category of ask, and stays under 3 sentences.
@@ -170,50 +178,57 @@ scores to 0..1, and exposes <code>judge_agreement()</code> against a human-score
         # input_field: text
         # output_field: summary   # if output is JSON; else raw text
         calibration_path: evals/judge_calibration.jsonl
-        max_mae: 0.15             # gate: refuse migrate/compare if exceeded
-        min_correlation: 0.80     # Pearson r vs human scores
+        max_mae: 0.15
+        min_correlation: 0.80
     thresholds:
       min_score: 0.85
     migration:
       holdout_required: true
 </code></pre>
-<p>Calibration JSONL — one human-scored example per line:</p>
-<pre><code class="language-jsonl">{&quot;input&quot;: &quot;Please reverse the payment on my latest invoice.&quot;, &quot;output&quot;: &quot;Customer wants a charge reversed on the latest invoice.&quot;, &quot;score&quot;: 5}
-{&quot;input&quot;: &quot;App crashes on login.&quot;, &quot;output&quot;: &quot;The weather in Paris is lovely.&quot;, &quot;score&quot;: 0}
+<p><code>min_score: 0.85</code> means the normalized mean judge score must be at least 0.85.<br />
+<code>max_mae: 0.15</code> allows an average judge-to-human difference of at most 0.15.<br />
+<code>min_correlation: 0.80</code> requires strong positive score movement with humans.</p>
+<p>For comparison, <code>score_field</code> is a contract setting for workflows whose own<br />
+evaluator already emits a numeric score. <code>eval.judge</code> is for workflows that ask<br />
+a second model to produce that score. <code>quick_triage</code> in the external testbed<br />
+uses gold values through <code>pass_field</code>; it is not an LLM judge.</p>
+<p>Scaffold comments for judge configuration also live in <code>driftless init</code><br />
+templates.</p>
+<h3 id="3-check-wiring-before-spending-judge-calls">3. Check wiring before spending judge calls</h3>
+<p>If the repository has no contract, this command creates a template. Skip it when<br />
+<code>driftless.yml</code> already exists, then add your real workflow:</p>
+<pre><code class="language-bash">driftless init --path driftless.yml
 </code></pre>
-<p><code>score</code> is on the rubric's <code>scale_max</code> (here 0..5). Driftless normalizes both<br />
-human and judge scores to 0..1 before MAE / correlation.</p>
-<p>Scaffold comments for this block also live in <code>driftless init</code> templates.</p>
-<hr />
-<h2 id="measure-before-you-optimize">Measure before you optimize</h2>
-<pre><code class="language-bash">driftless judge-check -w support_summary
-# prints records, MAE, correlation, and gate status (ok/FAIL) when configured
-
-driftless judge-check -w support_summary --enforce
-# same gates migrate/compare/refine apply — exit non-zero on failure
+<p>Next, check paths and contract structure without running the application:</p>
+<pre><code class="language-bash">driftless validate -w support_summary --no-run
 </code></pre>
-<p>Example shape of a passing check:</p>
-<pre><code>support_summary — judge calibration check
-
-  records: 40
-  MAE: 0.112
-  correlation: 0.86
-  gates: max_mae=0.15 (ok), min_correlation=0.8 (ok)
-
-gates passed — judge vs. human on 40 records: MAE=0.112, corr=0.86
+<p>Expect either a configuration error you can fix without model calls or a<br />
+successful wiring check. Full validation then runs your harness and may require<br />
+the application's provider credential:</p>
+<pre><code class="language-bash">driftless validate -w support_summary
 </code></pre>
-<p>If MAE is 0.22 against <code>max_mae: 0.15</code>, <strong>stop</strong>. Fix the rubric, calibration<br />
-set, or judge model — do not run <code>migrate</code>.</p>
-<p>With gates set on the contract, <code>compare</code> / <code>migrate</code> / <code>refine</code> call<br />
-<code>require_judge_agreement()</code> automatically. You do not need <code>--enforce</code> for<br />
-those commands; <code>judge-check --enforce</code> is the preflight you run in CI and<br />
-locally.</p>
-<hr />
-<h2 id="ci-path-filtered-judge-check">CI: path-filtered judge-check</h2>
+<p>Expect one normal application evaluation. This is not yet the human-agreement<br />
+check.</p>
+<h3 id="4-measure-and-enforce-judge-agreement">4. Measure and enforce judge agreement</h3>
+<p>The example contract explicitly selects OpenAI, so provide its credential. Use<br />
+the corresponding credential when you configure another supported provider.</p>
+<pre><code class="language-bash">export OPENAI_API_KEY=...
+driftless judge-check -w support_summary
+</code></pre>
+<p><code>judge-check</code> calls the configured judge once per calibration row. It reports<br />
+the row count, normalized MAE, and Pearson correlation.</p>
+<p>After inspecting the measurements, enforce the limits from the contract:</p>
+<pre><code class="language-bash">driftless judge-check -w support_summary --enforce
+</code></pre>
+<p>Expect exit code zero only when MAE is no greater than <code>0.15</code> and correlation is<br />
+at least <code>0.80</code>. Correlation is undefined when there are fewer than two rows or<br />
+no score variance; an enforced correlation gate then fails.</p>
+<h3 id="5-add-the-check-to-ci">5. Add the check to CI</h3>
+<p>This command emits a path-filtered CI workflow for judge calibration:</p>
 <pre><code class="language-bash">driftless init-ci --judge-check
 </code></pre>
-<p>Emits a workflow that re-runs when the rubric or calibration file changes, using<br />
-the composite Action:</p>
+<p>Expect generated CI configuration that reruns when the rubric or calibration<br />
+file changes. Its important step has this shape:</p>
 <pre><code class="language-yaml">- uses: driftless-dev/driftless@v0.3.2
   with:
     command: judge-check
@@ -222,87 +237,66 @@ the composite Action:</p>
   env:
     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 </code></pre>
-<p>Same Dependabot-shaped idea as <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>:<br />
-the file that defines "good" is what triggers the check.</p>
-<hr />
-<h2 id="evidence-in-the-migration-pr">Evidence in the migration PR</h2>
-<p>When a judge-graded migrate succeeds, the report and <code>driftless view</code> include:</p>
+<p>The CI secret pays for one judge call per calibration row. This follows the<br />
+same file-triggered approach as <a href="03-dependabot-for-prompts-in-ci.html">post 3</a>.</p>
+<h3 id="6-optimize-only-after-calibration-passes">6. Optimize only after calibration passes</h3>
+<p>With agreement gates in the contract, <code>compare</code>, <code>migrate</code>, and <code>refine</code> call<br />
+the agreement requirement automatically. You do not need an extra <code>--enforce</code><br />
+flag on those commands.</p>
+<p>Judge grading and repair can multiply calls across calibration rows, evaluation<br />
+rows, repair candidates, and iterations. A rough mental model is:</p>
+<p>[<br />
+\text{work} \approx<br />
+\text{rows} \times \text{evaluation runs}<br />
++ \text{calibration rows} \times \text{agreement checks}<br />
+]</p>
+<p>Retrieval, tool calls, retries, and multiple repair candidates add more work.<br />
+Start with a representative set and a small repair budget.</p>
+<h2 id="interpret-the-result">Interpret the result</h2>
+<p>A passing <code>judge-check --enforce</code> means this judge met the contract's agreement<br />
+limits on this calibration set. It does not prove the rubric is complete or that<br />
+the judge will generalize to every production answer.</p>
+<p>A successful judge-graded migration report and <code>driftless view</code> can include:</p>
 <ul>
-<li>Mean judge score (baseline vs target / repaired)</li>
-<li>Holdout check on <code>min_score</code></li>
-<li><strong>Judge agreement</strong> summary when calibration ran</li>
-<li>Per-record <strong>rationales</strong> in the attempt log (why the judge dinged a row)</li>
+<li>baseline, target, and repaired mean judge scores;</li>
+<li>the holdout check against <code>min_score</code>;</li>
+<li>the judge-agreement summary;</li>
+<li>low-scoring records and the judge's rationale for each.</li>
 </ul>
-<p>That is the same evidence path as classification migrations — different oracle.</p>
-<hr />
-<h2 id="honest-limits">Honest limits</h2>
-<table>
-<thead>
-<tr>
-<th>Risk</th>
-<th>Mitigation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Judge drifts when <em>grading</em> model changes</td>
-<td>Re-run <code>judge-check --enforce</code>; bump calibration</td>
-</tr>
-<tr>
-<td>Thin calibration set</td>
-<td>Agreement undefined / weak — add rows before gating</td>
-</tr>
-<tr>
-<td>Optimizing to game the judge</td>
-<td>Keep humans in the loop; refresh calibration from production spot-checks</td>
-</tr>
-<tr>
-<td>Confusing judge trust with label trust</td>
-<td>Classification → <a href="05-audit-labels-before-you-trust-f1.html">post 5</a>; free-form → this post</td>
-</tr>
-</tbody>
-</table>
-<p>Judge trust ≠ "the numbers look smooth." It means <strong>documented agreement with<br />
-humans</strong> before the repair loop spends tokens.</p>
-<hr />
-<h2 id="how-this-relates-to-the-testbed">How this relates to the testbed</h2>
-<table>
-<thead>
-<tr>
-<th>Workflow</th>
-<th>Grading</th>
-<th>Preflight</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>support_classifier</code></td>
-<td>F1 on categories</td>
-<td><code>audit-labels</code></td>
-</tr>
-<tr>
-<td><code>quick_triage</code></td>
-<td><code>pass_field: escalate</code></td>
-<td>gold labels (no judge)</td>
-</tr>
-<tr>
-<td>Your free-form workflow</td>
-<td><code>eval.judge</code></td>
-<td><code>judge-check --enforce</code></td>
-</tr>
-</tbody>
-</table>
-<p>A future testbed addition could ship a tiny summarization workflow + calibration<br />
-file for a one-command demo. Until then, start from <code>driftless init</code> comments or<br />
-a RAG/agent fixture that already uses <code>score_field</code> /<br />
-<a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md"><code>docs/rag-and-agents.md</code></a> and graduate to <code>eval.judge</code><br />
-when you need rubrics.</p>
-<hr />
+<p>Those rationales are evidence to inspect, not ground truth.</p>
+<h2 id="safety-and-failure-behavior">Safety and failure behavior</h2>
+<p>When MAE is too high, correlation is too low or undefined, or the calibration<br />
+set is empty, the agreement gate fails. CI should stay red. Fix the rubric,<br />
+calibration examples, or judge model before asking the repair generator to<br />
+optimize. This failure says the judge is not trusted by the contract; it does<br />
+not say the application model failed.</p>
+<p>A judge call exception or a response without a numeric score receives a<br />
+normalized score of <code>0.0</code> with a rationale describing the failure. Raw judge<br />
+scores are clamped to the <code>0..1</code> normalized range.</p>
+<p>Other important limits:</p>
+<ul>
+<li>Changing the grading model can change the judge. Rerun<br />
+<code>judge-check --enforce</code>.</li>
+<li>A thin calibration set produces weak evidence. Add representative rows.</li>
+<li>Repeated optimization can teach prompts to game the rubric. Keep human<br />
+  spot-checks and refresh calibration examples from production.</li>
+<li>Judge trust is different from label trust. For classification, use the<br />
+<a href="05-audit-labels-before-you-trust-f1.html">label audit</a>.</li>
+</ul>
 <h2 id="next-steps">Next steps</h2>
 <ul>
-<li>Classification teams: stay on <a href="01-model-swap-is-not-a-migration.html">posts 1–2</a>; add <a href="05-audit-labels-before-you-trust-f1.html">label audit</a></li>
-<li>Free-form teams: add <code>eval.judge</code> + calibration → <code>judge-check --enforce</code> → then <code>migrate</code></li>
-<li>CI: <code>driftless init-ci --judge-check</code> next to your migrate workflow (<a href="03-dependabot-for-prompts-in-ci.html">post 3</a>)</li>
+<li>Add <code>eval.judge</code>, human calibration, and <code>judge-check --enforce</code> to your own<br />
+  free-form workflow.</li>
+<li>For label classification, keep the F1 workflow from<br />
+<a href="01-model-swap-is-not-a-migration.html">posts 1</a> and<br />
+<a href="02-when-labels-move-refine-not-remodel.html">2</a>, then add the<br />
+<a href="05-audit-labels-before-you-trust-f1.html">label audit</a>.</li>
+<li>Read the <a href="07-rag-prompts-drift-too.html">RAG example</a> for a bundled key-free<br />
+  workflow that uses <code>score_field</code>, not a judge, and the broader<br />
+<a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md">RAG and agent contract guide</a>.</li>
+<li>Add CI only after local validation, following<br />
+<a href="03-dependabot-for-prompts-in-ci.html">post 3</a>.</li>
+<li>Review <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a> before scaling.</li>
 </ul>
 <nav class="post-nav" aria-label="Adjacent posts"><a class="previous" href="05-audit-labels-before-you-trust-f1.html"><span>← Previous</span><strong>Offline F1 is lying — labels conflict</strong></a><a class="next" href="07-rag-prompts-drift-too.html"><span>Next →</span><strong>RAG QA: new answer model, same knowledge base</strong></a></nav>
   </main>
