@@ -70,7 +70,9 @@ if [[ "$REMOTE" == true ]]; then
   git ls-remote --exit-code --tags https://github.com/driftless-dev/driftless.git \
     "refs/tags/v${VERSION}" >/dev/null \
     || die "GitHub tag v${VERSION} is not published"
-  python - "$VERSION" <<'PY' || exit 1
+  PYTHON_BIN="$(command -v python3 || command -v python || true)"
+  [[ -n "$PYTHON_BIN" ]] || die "python3 (or python) is required for --remote"
+  "$PYTHON_BIN" - "$VERSION" <<'PY' || exit 1
 import json
 import sys
 import urllib.request
