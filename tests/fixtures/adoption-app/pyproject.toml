@@ -1,0 +1,6 @@
+[project]
+name = "incident-brief"
+version = "0.1.0"
+description = "Turn incident reports into structured, actionable briefs with an LLM."
+requires-python = ">=3.10"
+dependencies = []

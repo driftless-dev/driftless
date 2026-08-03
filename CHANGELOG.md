@@ -11,12 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Richer `configure` inference** — scaffolds fill description from
+  `pyproject.toml` / README (or a humanized workflow name), prefer cheaper
+  same-provider catalog targets when no lifecycle replacement exists, and mark
+  common `src/` / `evals/` / `tests/` trees readonly.
+
 ### Fixed
 
 - **Publish cold-install verification** — assert the installed package version via
   import (and ANSI-stripped CLI output) so Rich digit highlighting under
   `GITHUB_ACTIONS` cannot false-fail the post-publish gate; `release-check
   --remote` prefers `python3`.
+- **Adoption battletest fixture** — includes `pyproject.toml` so `init-ci`
+  exercises application setup inference without `--setup-command`.
 
 ---
 

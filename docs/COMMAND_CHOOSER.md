@@ -79,6 +79,7 @@ The migration is expected to exit non-zero. The final command is a dry run by
 default.
 
 For an existing repository, use `driftless scan`, then
-`driftless configure <workflow> --apply`. Complete every reported placeholder
-before `validate`, `compare`, or `init-ci`.
+`driftless configure <workflow> --apply`. Review the inferred contract and
+complete any remaining placeholders before `validate`, `compare`, or
+`init-ci`.
 

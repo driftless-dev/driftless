@@ -166,6 +166,57 @@ def _is_generative(info: ModelInfo) -> bool:
     return info.pricing is None or info.pricing.output_per_1m > 0
 
 
+def suggest_target_candidate(
+    current: str | None,
+    *,
+    recommended: str | None = None,
+    detected_models: list[str] | None = None,
+    lifecycle: Lifecycle | None = None,
+) -> str | None:
+    """Best-effort migration target for configure scaffolds.
+
+    Preference order:
+    1. lifecycle ``recommended_replacement`` (at-risk models)
+    2. another non-alias model already detected in the repository
+    3. cheapest active same-provider catalog model that is priced lower
+    """
+    lifecycle = lifecycle or load_lifecycle()
+    if recommended:
+        return recommended
+
+    for model in detected_models or []:
+        if not model or model == current:
+            continue
+        if current and _is_alias(model, current):
+            continue
+        return model
+
+    if not current:
+        return None
+    cur = lifecycle.lookup(current)
+    if cur is None or _blended_cost(cur.pricing) is None:
+        return None
+
+    cheaper: list[tuple[float, int, str]] = []
+    for model_info in lifecycle.models():
+        if model_info.status != "active" or model_info.provider != cur.provider:
+            continue
+        if model_info.model == current or _is_alias(model_info.model, current):
+            continue
+        if not _is_generative(model_info):
+            continue
+        change = estimate_cost_change_pct(current, model_info.model, lifecycle)
+        if change is None or change >= 0:
+            continue
+        cheaper.append(
+            (change, -capability_rank(model_info.capability_tier), model_info.model)
+        )
+    if not cheaper:
+        return None
+    cheaper.sort()
+    return cheaper[0][2]
+
+
 def _within_cooldown(info: ModelInfo, as_of: date, cooldown_days: int | None) -> bool:
     """True if ``info`` was released too recently to chase opportunistically."""
     if not cooldown_days:

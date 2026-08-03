@@ -33,13 +33,17 @@ if "$DRIFTLESS" migrate -w incident_brief --to gpt-4o-mini --generator none; the
 fi
 "$DRIFTLESS" report -w incident_brief --raw
 "$DRIFTLESS" open-pr -w incident_brief
-"$DRIFTLESS" init-ci --setup-command "python -m pip install -e ."
+# Exercise setup-command inference from pyproject.toml (no --setup-command).
+"$DRIFTLESS" init-ci
 
 "$TMP/venv/bin/python" - <<'PY'
 from pathlib import Path
 
 import yaml
 
+migrate = Path(".github/workflows/driftless-model-migrate.yml").read_text()
+assert "Set up application" in migrate, migrate
+assert "pip install -e ." in migrate, migrate
 for path in Path(".github/workflows").glob("*.yml"):
     yaml.safe_load(path.read_text())
 print("new-repository battletest passed")

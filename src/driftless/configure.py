@@ -8,21 +8,26 @@ it for the user to drop in.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from .discovery import suggest_target_candidate
 from .errors import DriftlessError
 from .lifecycle import load_lifecycle
 from .scanner import scan_repo
 
 
-def _detect_primary(path: Path) -> tuple[str | None, str | None, str | None, str | None]:
-    """Return (model, provider, env_var, recommended_replacement) best-effort.
+def _detect_primary(
+    path: Path,
+) -> tuple[str | None, str | None, str | None, str | None, list[str]]:
+    """Return (model, provider, env_var, recommended_replacement, other_models).
 
     Prefers an at-risk model so the scaffold targets the most urgent migration.
+    ``other_models`` lists distinct non-chosen model ids detected in the repo.
     """
     lifecycle = load_lifecycle()
     result = scan_repo(path, lifecycle=lifecycle)
@@ -45,7 +50,8 @@ def _detect_primary(path: Path) -> tuple[str | None, str | None, str | None, str
     )
     env_var = env_counts.most_common(1)[0][0] if env_counts else None
     replacement = info.recommended_replacement if info else None
-    return chosen_model, provider, env_var, replacement
+    other_models = [model for model, _ in model_counts.most_common() if model != chosen_model]
+    return chosen_model, provider, env_var, replacement, other_models
 
 
 def _first_relative(path: Path, patterns: tuple[str, ...]) -> str | None:
@@ -54,6 +60,54 @@ def _first_relative(path: Path, patterns: tuple[str, ...]) -> str | None:
         if matches:
             return matches[0].relative_to(path).as_posix()
     return None
+
+
+def _humanize_workflow_name(name: str) -> str:
+    words = name.replace("-", "_").split("_")
+    label = " ".join(word for word in words if word)
+    if not label:
+        return "LLM workflow"
+    return label[:1].upper() + label[1:] + " workflow."
+
+
+def _infer_description(path: Path, name: str) -> str:
+    """Prefer package/README copy; otherwise a humanized workflow name."""
+    pyproject = path / "pyproject.toml"
+    if pyproject.is_file():
+        match = re.search(
+            r'(?m)^description\s*=\s*([\'"])(.*?)\1',
+            pyproject.read_text(encoding="utf-8", errors="ignore"),
+        )
+        if match and match.group(2).strip():
+            return match.group(2).strip()
+
+    for readme_name in ("README.md", "readme.md", "README.rst", "README"):
+        readme = path / readme_name
+        if not readme.is_file():
+            continue
+        title: str | None = None
+        for raw in readme.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("```"):
+                continue
+            if line.startswith("#"):
+                title = line.lstrip("#").strip() or None
+                continue
+            if title:
+                return line
+            return line
+        if title:
+            return title
+
+    return _humanize_workflow_name(name)
+
+
+def _infer_readonly(path: Path) -> list[str]:
+    readonly: list[str] = []
+    for relative in ("src/", "evals/", "tests/"):
+        if (path / relative.rstrip("/")).is_dir():
+            readonly.append(relative)
+    return readonly
 
 
 def _detect_repo_shape(path: Path, name: str) -> dict[str, Any]:
@@ -104,15 +158,23 @@ def _detect_repo_shape(path: Path, name: str) -> dict[str, Any]:
         "output_path": output_path,
         "editable": editable,
         "score_graded": score_graded,
+        "readonly": _infer_readonly(path),
+        "description": _infer_description(path, name),
     }
 
 
 def build_workflow_scaffold(name: str, path: Path) -> tuple[str, str | None]:
     """Build a YAML snippet for ``name``; return (snippet, detected_model)."""
-    model, provider, env_var, replacement = _detect_primary(path)
+    model, provider, env_var, replacement, other_models = _detect_primary(path)
     shape = _detect_repo_shape(path, name)
-
-    target_candidates = [replacement] if replacement else ["<target-model>"]
+    lifecycle = load_lifecycle()
+    target = suggest_target_candidate(
+        model,
+        recommended=replacement,
+        detected_models=other_models,
+        lifecycle=lifecycle,
+    )
+    target_candidates = [target] if target else ["<target-model>"]
 
     if shape["score_graded"]:
         eval_spec = {
@@ -137,7 +199,7 @@ def build_workflow_scaffold(name: str, path: Path) -> tuple[str, str | None]:
         }
 
     workflow = {
-        "description": f"TODO: describe what {name} does.",
+        "description": shape["description"],
         "run": {
             "command": shape["command"],
             "input_path": shape["input_path"],
@@ -151,7 +213,7 @@ def build_workflow_scaffold(name: str, path: Path) -> tuple[str, str | None]:
         },
         "files": {
             "editable": [shape["editable"]],
-            "readonly": [],
+            "readonly": shape["readonly"],
         },
         "eval": eval_spec,
         "thresholds": thresholds,
