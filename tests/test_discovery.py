@@ -135,6 +135,28 @@ def test_all_kinds_disabled_returns_nothing():
     assert discover_opportunistic_triggers(contract, policy=policy) == []
 
 
+def test_suggest_target_candidate_prefers_recommended_then_cheaper():
+    from driftless.discovery import suggest_target_candidate
+
+    assert (
+        suggest_target_candidate(
+            "gpt-3.5-turbo",
+            recommended="gpt-4o-mini",
+            detected_models=["gpt-4o"],
+        )
+        == "gpt-4o-mini"
+    )
+    assert (
+        suggest_target_candidate(
+            "gpt-4o",
+            detected_models=["gpt-4o-mini"],
+        )
+        == "gpt-4o-mini"
+    )
+    assert suggest_target_candidate("gpt-4o") == "gpt-4o-mini"
+    assert suggest_target_candidate(None) is None
+
+
 def test_estimate_cost_change_is_negative_for_cheaper_candidate():
     # opus ~$90 blended -> sonnet ~$18 blended: a large negative (cheaper) change.
     change = estimate_cost_change_pct("claude-3-opus-20240229", "claude-3-5-sonnet")

@@ -85,8 +85,10 @@ driftless configure <workflow> --apply
 `configure` writes a reviewable draft at
 `.driftless/configure/<workflow>.yml`. With `--apply`, it also creates
 `driftless.yml` or appends a new workflow without rewriting existing comments.
-Without `--apply`, copy the reviewed workflow block manually. Driftless refuses
-to load a contract while `TODO` or `<placeholder>` values remain.
+It prefills description, harness paths, model/env, a cheaper same-provider
+target when known, and common readonly trees. Without `--apply`, copy the
+reviewed workflow block manually. Driftless refuses to load a contract while
+`TODO` or `<placeholder>` values remain.
 
 ### 1. Turn the draft into a concrete contract
 
