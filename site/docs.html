@@ -172,13 +172,13 @@ driftless open-pr -w support_classifier</code></pre>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>cd your-existing-repo
 driftless scan
 driftless configure &lt;workflow&gt; --apply
-<span class="tok-c"># Complete every reported TODO or placeholder.</span>
+<span class="tok-c"># Review the inferred contract; resolve any remaining placeholders.</span>
 driftless validate -w &lt;workflow&gt;
 driftless compare -w &lt;workflow&gt; --to &lt;model&gt;
-driftless init-ci --setup-command 'pip install -e ".[dev]"'</code></pre>
+driftless init-ci</code></pre>
         <div class="callout warn">
           <span class="ci" aria-hidden="true">!</span>
-          <p><code class="inline">configure</code> always writes a reviewable draft. Add <code class="inline">--apply</code> to create or safely append root <code class="inline">driftless.yml</code> without rewriting existing comments. Driftless refuses to run until every placeholder is resolved.</p>
+          <p><code class="inline">configure --apply</code> writes a reviewable draft and safely creates or appends root <code class="inline">driftless.yml</code> without rewriting existing comments. It prefills description, harness paths, model/env, a cheaper same-provider target when known, and common readonly trees. Driftless refuses to run until every remaining placeholder is resolved. <code class="inline">init-ci</code> infers app setup from <code class="inline">pyproject.toml</code> / <code class="inline">requirements.txt</code> / Node manifests; override with <code class="inline">--setup-command</code> when needed.</p>
         </div>
         <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template. The <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository">guided repository walkthrough</a> includes a concrete draft-to-contract before/after, provider-cost guidance, and a staged safety checklist.</p>
       </section>
@@ -395,7 +395,7 @@ driftless init-ci --setup-command 'pip install -e ".[dev]"'</code></pre>
             <tr><td><code>copy-example &lt;name&gt;</code></td><td>Copy a bundled project: <code>support-classifier</code>, <code>rag-qa</code>, or <code>tool-agent</code>.</td></tr>
             <tr><td><code>init</code></td><td>Scaffold a neutral <code>driftless.yml</code> with explicit placeholders.</td></tr>
             <tr><td><code>init-policy</code></td><td>Scaffold migration-trigger policy.</td></tr>
-            <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions; pass <code>--setup-command</code> for app dependencies and opt into <code>--refine-on-push</code>.</td></tr>
+            <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions; infers app setup when possible, or pass <code>--setup-command</code>; opt into <code>--refine-on-push</code>.</td></tr>
             <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
             <tr><td><code>configure &lt;workflow&gt; --apply</code></td><td>Write a reviewable draft and safely create or append root <code>driftless.yml</code>.</td></tr>
@@ -511,7 +511,7 @@ driftless view -w support_classifier</code></pre>
       <!-- GITHUB -->
       <section id="github">
         <h2>GitHub Action</h2>
-        <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. After validating locally, run <code class="inline">driftless init-ci --setup-command '&lt;install your app&gt;'</code>, review the generated files, and commit only the automation you need. Refinement remains manually dispatched unless <code class="inline">--refine-on-push</code> is explicit.</p>
+        <p>A composite GitHub Action wraps the CLI so scans and migrations can run in CI. After validating locally, run <code class="inline">driftless init-ci</code>, review the generated files (and any inferred setup step), and commit only the automation you need. Override setup with <code class="inline">--setup-command</code> when inference does not fit. Refinement remains manually dispatched unless <code class="inline">--refine-on-push</code> is explicit.</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-c"># .github/workflows/driftless-plan-preview.yml</span>
 <span class="tok-k">name</span>: Driftless plan preview
 <span class="tok-k">on</span>:
@@ -522,8 +522,8 @@ driftless view -w support_classifier</code></pre>
   <span class="tok-k">plan</span>:
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
-      - <span class="tok-k">uses</span>: actions/checkout@v4
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.2
+      - <span class="tok-k">uses</span>: actions/checkout@v5
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.3
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>This is a policy <code class="inline">plan</code> preview, not the dependency-only <code class="inline">scan</code> workflow. A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>

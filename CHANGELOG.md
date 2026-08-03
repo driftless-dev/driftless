@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Hosted site adoption copy** — landing and docs match `configure --apply`,
+  inferred `init-ci` setup, and Action pin `v0.3.3`.
+
 ### Fixed
 
 ---
