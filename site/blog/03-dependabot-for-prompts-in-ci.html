@@ -140,11 +140,11 @@ show the <code>open-pr</code> evidence shape; see the<br />
 <p><a href="https://github.com/driftless-dev/support-classifier-svc/pull/4">Open the public draft PR and inspect the generated report and diff.</a></p>
 <h2 id="walkthrough-2-discover-an-existing-application">Walkthrough 2: discover an existing application</h2>
 <p>Run <code>scan</code> before configuration so you can see what Driftless can detect without<br />
-changing files. Then create a draft workflow contract, complete its TODOs, merge<br />
-it into the root <code>driftless.yml</code>, and validate it:</p>
+changing files. Then apply a workflow contract, review the inferred fields,<br />
+resolve any remaining placeholders, and validate it:</p>
 <pre><code class="language-bash">driftless scan .
-driftless configure support_classifier .
-# complete the generated TODOs and merge the draft into root driftless.yml
+driftless configure support_classifier --apply
+# review the inferred contract; resolve any remaining placeholders
 driftless validate -w support_classifier
 </code></pre>
 <p>The scan should list probable LLM files and known model lifecycle risks.<br />
@@ -158,7 +158,7 @@ driftless init-ci        # writes .github/workflows/driftless-*.yml
 </code></pre>
 <p>These are generated starting points. The external<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
-testbed instead dogfoods hand-written workflows pinned to <code>driftless==0.3.2</code>.<br />
+testbed instead dogfoods hand-written workflows pinned to <code>driftless==0.3.3</code>.<br />
 Use its <a href="https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows">workflow directory</a><br />
 when you need examples of testbed-specific path filters, manual-dispatch inputs,<br />
 simulator setup, or staged rollout.</p>

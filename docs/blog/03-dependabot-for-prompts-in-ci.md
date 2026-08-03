@@ -91,13 +91,13 @@ show the `open-pr` evidence shape; see the
 ## Walkthrough 2: discover an existing application
 
 Run `scan` before configuration so you can see what Driftless can detect without
-changing files. Then create a draft workflow contract, complete its TODOs, merge
-it into the root `driftless.yml`, and validate it:
+changing files. Then apply a workflow contract, review the inferred fields,
+resolve any remaining placeholders, and validate it:
 
 ```bash
 driftless scan .
-driftless configure support_classifier .
-# complete the generated TODOs and merge the draft into root driftless.yml
+driftless configure support_classifier --apply
+# review the inferred contract; resolve any remaining placeholders
 driftless validate -w support_classifier
 ```
 
@@ -116,7 +116,7 @@ driftless init-ci        # writes .github/workflows/driftless-*.yml
 
 These are generated starting points. The external
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
-testbed instead dogfoods hand-written workflows pinned to `driftless==0.3.2`.
+testbed instead dogfoods hand-written workflows pinned to `driftless==0.3.3`.
 Use its [workflow directory](https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows)
 when you need examples of testbed-specific path filters, manual-dispatch inputs,
 simulator setup, or staged rollout.

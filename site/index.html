@@ -339,7 +339,7 @@
           <h2>See the synchronization loop in under a minute.</h2>
           <p>The bundled demo deterministically shows a model dependency change, the resulting quality regression, and a blocked key-free analysis. It is separate from public testbed PR #4 and does not ship a deterministic repair generator.</p>
           <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
-          <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt;</code> writes a draft to <code>.driftless/configure/&lt;workflow&gt;.yml</code>; complete every <code>TODO</code>, then manually merge its workflow block into root <code>driftless.yml</code> before running <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
+          <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt; --apply</code> writes a reviewable draft and safely creates or appends root <code>driftless.yml</code>. Review the inferred contract, resolve any remaining placeholders, then run <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
             <span>✓ Reproducible fixture</span>
