@@ -176,8 +176,9 @@ no GitHub operation. A blocked migration has no shippable file change.
 Driftless therefore previews an **issue** that records the blocker rather than a
 pull request that implies the migration is ready.
 
-A successful repair requires an LLM generator credential and nondeterministic
-provider calls. Review that result before considering `open-pr --create`.
+A successful repair on this bundled example is also available key-free with
+`--generator fixture`. Real workflows still need `--generator llm` and provider
+credentials. Review that result before considering `open-pr --create`.
 
 ![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 

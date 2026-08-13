@@ -68,11 +68,10 @@ cannot fix an evaluation set that defines “correct” inconsistently. Follow
 
 ### Repair reproduction boundary
 
-The historical passing pull request #4 used testbed-specific deterministic
-repair tooling that is not shipped as a Driftless CLI generator. Exact key-free
-reproduction covers comparison and the blocked `--generator none` path. A
-successful repair with the published CLI requires provider credentials, is
-nondeterministic, and may produce a different prompt.
+The historical passing pull request #4 is a 290-label testbed artifact. The
+published CLI reproduces a passing four-row repair with `--generator fixture`.
+Regenerating PR #4's exact patch still needs provider-backed `--generator llm`
+(or the testbed's own simulator) and may differ.
 
 [`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) keeps that 290-label testbed
 result—`0.904` tuning and `0.901` holdout—separate from the bundled four-row
@@ -103,8 +102,10 @@ that the sample is too small for a reliable production migration decision; they
 do not contradict the deterministic demo result.
 
 You can continue key-free with `migrate ... --generator none`, which records an
-intentional `BLOCKED` result because no repair is attempted. Successful repair
-requires provider credentials and is nondeterministic.
+intentional `BLOCKED` result because no repair is attempted. On the bundled
+demo, `migrate ... --generator fixture` records a passing repair without
+provider credentials. On a real workflow, `--generator llm` needs credentials
+and is nondeterministic.
 
 ![Actual Driftless compare output showing the target model blocked by the quality gate](../visuals/compare-terminal.png)
 

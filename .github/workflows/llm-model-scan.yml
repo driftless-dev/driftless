@@ -12,6 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Scan for at-risk model dependencies
-        uses: driftless-dev/driftless@v0.3.3
+        uses: driftless-dev/driftless@v0.3.4
         with:
           command: scan

@@ -24,11 +24,13 @@ failures ─▶ PatchGenerator.generate(context) ─▶ candidate Patches
                           keeps the best, validates on holdout, commits
 ```
 
-There are two ways to influence repair, from least to most effort:
+There are three built-in generators, then a custom seam:
 
-1. **Customize the prompt** of the built-in `LLMPatchGenerator` via the contract
-   (no code).
-2. **Write your own generator** that implements the `PatchGenerator` protocol.
+1. **`--generator none`** — propose nothing; useful for a blocked orchestration check.
+2. **`--generator fixture`** — apply the known-good patch for a bundled example
+   (`support-classifier`, `rag-qa`, `tool-agent`). Key-free reproduction only.
+3. **`--generator llm`** — ask OpenAI or Anthropic to repair `files.editable`.
+4. **Write your own generator** that implements the `PatchGenerator` protocol.
 
 ## The migration loop
 

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="assets/landing.css?v=v6" />
+<link rel="stylesheet" href="assets/landing.css?v=v7" />
 <link rel="stylesheet" href="assets/docs.css?v=v1" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1514'/%3E%3Cpath d='M8 21V10l8 7 8-7v11' fill='none' stroke='%235ce1c3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
@@ -97,7 +97,7 @@
 
       <section id="public-alpha">
         <h2>Public alpha</h2>
-        <p>Driftless is published for technical early adopters who already have an executable LLM eval. The bundled example is key-free, and the CLI plus composite Action support real local and CI adoption. Integrating your own workflow requires a contract, a reliable eval harness, and deliberate provider-cost and secret handling.</p>
+        <p>Driftless is published for technical early adopters who already have an executable LLM eval. The bundled examples are key-free (blocked with <code class="inline">--generator none</code>, passing with <code class="inline">--generator fixture</code>), and the CLI plus composite Action support real local and CI adoption. Integrating your own workflow requires a contract, a reliable eval harness, and deliberate provider-cost and secret handling. Hosted bot/SaaS features are out of scope; see <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GA.md">GA criteria</a>.</p>
         <div class="callout warn">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <p>Before wiring Driftless into CI, review the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">known limits</a> and <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a>. Existing 0.2.x users should follow the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">0.3 upgrade guide</a>.</p>
@@ -128,7 +128,7 @@
 <pre class="has-copy"><button class="copy-btn">copy</button><code>python -m venv .venv
 source .venv/bin/activate
 pip install -e <span class="tok-s">".[dev]"</span></code></pre>
-        <p>The bundled examples and <code class="inline">--generator none</code> path need no provider key. For LLM-backed repair, install the optional extra and export a key:</p>
+        <p>The bundled examples, <code class="inline">--generator none</code>, and <code class="inline">--generator fixture</code> paths need no provider key. For LLM-backed repair, install the optional extra and export a key:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>pip install <span class="tok-s">"driftless[llm]"</span>      <span class="tok-c"># openai + anthropic SDKs</span>
 export OPENAI_API_KEY=<span class="tok-s">sk-...</span>   <span class="tok-c"># or ANTHROPIC_API_KEY</span></code></pre>
         <div class="callout">
@@ -151,11 +151,12 @@ driftless compare -w support_classifier --to gpt-4o-mini</code></pre>
           <span class="ci" aria-hidden="true">!</span>
           <p><strong>Four-row smoke demo:</strong> this proves installation, contract execution, quality-gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
         </div>
-        <p>Continue through the key-free blocked path:</p>
+        <p>Continue through the key-free blocked path, or reproduce a passing bundled repair:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator none
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 driftless report -w support_classifier
 driftless open-pr -w support_classifier</code></pre>
-        <p><code class="inline">migrate</code> intentionally exits non-zero with <code class="inline">BLOCKED</code>. Run the following commands afterward: <code class="inline">report</code> renders the saved evidence, and <code class="inline">open-pr</code> previews the issue without creating it. Pass <code class="inline">--create</code> only when you want the external side effect.</p>
+        <p><code class="inline">--generator none</code> exits non-zero with <code class="inline">BLOCKED</code>. <code class="inline">--generator fixture</code> applies the known-good bundled patch and can <code class="inline">PASS</code>. Neither calls a provider. <code class="inline">open-pr</code> previews the issue or PR without creating it unless you pass <code class="inline">--create</code>.</p>
         <p>All bundled projects can be copied with <code class="inline">copy-example</code>: <code class="inline">support-classifier</code>, <code class="inline">rag-qa</code>, and <code class="inline">tool-agent</code>.</p>
       </section>
 
@@ -347,10 +348,11 @@ driftless init-ci</code></pre>
       <section id="limits">
         <h2>Known limits</h2>
         <ul>
-          <li>There is no hosted bot: run the composite Action in infrastructure you control.</li>
+          <li>The supported surface is the CLI plus composite Action in CI you control. There is no hosted bot; that is out of scope, not an unfinished 1.0 feature.</li>
           <li>Embedding migrations and vector-index rebuilds are out of scope; RAG migrations keep retrieval fixed.</li>
           <li>Agent tools should be fake or sandboxed, and provider lifecycle data is bundled/CI-refreshed rather than a live hosted catalog.</li>
-          <li>Small evals can produce noisy passes. Use representative data, meaningful holdout, and multiple seeds for high-risk changes.</li>
+          <li>Small evals can produce noisy passes. Use representative data, meaningful holdout, and multiple seeds for high-risk changes. See <a href="https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md">eval confidence</a>.</li>
+          <li><code class="inline">--generator fixture</code> only repairs bundled examples. Customer workflows use <code class="inline">--generator llm</code>.</li>
         </ul>
         <p>Read the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">full limits and ownership boundaries</a> before broad rollout.</p>
       </section>
@@ -414,7 +416,7 @@ driftless init-ci</code></pre>
         </table>
         <p>Useful flags on <code class="inline">migrate</code>:</p>
         <ul>
-          <li><code class="inline">--generator llm|none</code> — the repair strategy (LLM-backed by default; <code class="inline">none</code> turns the loop into a dry analysis).</li>
+          <li><code class="inline">--generator llm|none|fixture</code> — repair strategy (LLM-backed by default; <code class="inline">none</code> is a dry analysis; <code class="inline">fixture</code> reproduces bundled-example patches).</li>
           <li><code class="inline">--to &lt;model&gt;</code> — the target model to migrate to (otherwise the contract's candidates are used).</li>
           <li><code class="inline">--strict-label-audit</code> — block when duplicate/near-duplicate inputs disagree on gold labels (warns by default).</li>
         </ul>
@@ -489,16 +491,17 @@ driftless init-ci</code></pre>
         <p>After <code class="inline">migrate</code> or <code class="inline">refine</code>, inspect the optimization trajectory in a local web UI — iteration metrics chart, failure-cluster trends, and a full attempt log (rationales, scores, diff sizes, accept/reject).</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless view                    <span class="tok-c"># opens http://localhost:8777/runs.html</span>
 driftless view -w support_classifier</code></pre>
-        <p>The viewer reads <code class="inline">.driftless/migrations/&lt;workflow&gt;.json</code> from the current project. You can also load any result JSON via file picker or drag-and-drop. Static demo: <a href="runs.html">runs.html</a> → <strong>Load saved passing fixture</strong>. That fixture demonstrates viewer fields and is separate from the key-free quickstart, which intentionally ends <code class="inline">BLOCKED</code>.</p>
+        <p>The viewer reads <code class="inline">.driftless/migrations/&lt;workflow&gt;.json</code> from the current project. You can also load any result JSON via file picker or drag-and-drop. Static demo: <a href="runs.html">runs.html</a> → <strong>Load saved passing fixture</strong>. Reproduce that passing path locally with <code class="inline">migrate --generator fixture</code> on a bundled example. The <code class="inline">--generator none</code> quickstart still ends <code class="inline">BLOCKED</code>.</p>
       </section>
 
       <!-- REPAIR -->
       <section id="repair">
         <h2>Repair &amp; custom generators</h2>
-        <p>The engine defines a <code class="inline">PatchGenerator</code> protocol; the repair <em>strategy</em> is swappable. Two ship out of the box:</p>
+        <p>The engine defines a <code class="inline">PatchGenerator</code> protocol; the repair <em>strategy</em> is swappable. Three ship out of the box:</p>
         <ul>
           <li><strong><code class="inline">LLMPatchGenerator</code></strong> (default) — asks an LLM to rewrite the editable files to fix the observed failure clusters. Provider-neutral, requests strict JSON, and varies temperature across candidates.</li>
           <li><strong><code class="inline">NoOpPatchGenerator</code></strong> (<code class="inline">--generator none</code>) — proposes nothing; the loop becomes a dry analysis, useful offline and for CI gating.</li>
+          <li><strong><code class="inline">FixturePatchGenerator</code></strong> (<code class="inline">--generator fixture</code>) — applies the known-good patch for a bundled example so a passing repair is reproducible without provider keys.</li>
         </ul>
         <p>You can customize repair via the contract's <code class="inline">repair:</code> block — append domain <code class="inline">guidance</code>, fully replace the system prompt, or supply a <code class="inline">user_template</code> with <code class="inline">{{placeholder}}</code> substitution (placeholders include <code class="inline">failure_clusters</code>, <code class="inline">failing_examples</code>, <code class="inline">editable_files</code>, <code class="inline">metrics</code>, and <code class="inline">target_model</code>).</p>
         <p>A generator only ever <em>proposes</em> — the engine owns acceptance. See <a href="#loop">The migration loop</a> for the full algorithm (sandboxing, crash isolation, the minimal-change tie-breaker, stall-escalation, and holdout gating).</p>
@@ -523,7 +526,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v5
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.3
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.4
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>This is a policy <code class="inline">plan</code> preview, not the dependency-only <code class="inline">scan</code> workflow. A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>

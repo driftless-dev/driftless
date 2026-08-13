@@ -4,8 +4,9 @@ This page documents two different passing-path artifacts:
 
 1. public testbed [draft PR #4](https://github.com/driftless-dev/support-classifier-svc/pull/4),
    captured from a 290-label testbed run; and
-2. the small saved success fixture embedded below, generated from the bundled
-   four-row `support-classifier` demo.
+2. the small saved success fixture embedded below, which the published CLI can
+   regenerate from the bundled four-row `support-classifier` demo with
+   `--generator fixture`.
 
 They use the same report/PR planning path, but they are not the same run and
 their metrics must not be compared as if they were.
@@ -22,41 +23,31 @@ repair recovered tuning F1 to `0.904` and passed the untouched holdout at
 
 ![GitHub files view with the prompt and model configuration diff](./visuals/github-migration-diff.png)
 
-The testbed proof was prepared with testbed-specific deterministic patch
-tooling so the engine and PR path could be exercised without provider
-credentials. That patch tooling is not a generator shipped by Driftless.
-Consequently, the published CLI can reproduce the bundled comparison and
-key-free blocked path exactly, but it cannot regenerate PR #4's successful
-repair deterministically. A normal `--generator llm` rerun needs provider
-credentials and may produce a different patch or a blocked result.
+PR #4 is historical proof of a larger testbed run. Regenerating that exact
+patch still needs the testbed harness plus `--generator llm` (or the testbed's
+own simulator) and may differ. The published CLI's key-free passing path is
+`--generator fixture` on the bundled four-row example below.
 
 ## Saved Fixture
 
-The artifact below is a **separate saved success fixture**, not PR #4 and not
-the key-free quickstart. It uses four labeled rows and reports `1.000` metrics;
-PR #4 uses the public 290-label testbed and reports `0.904` tuning / `0.901`
-holdout. The default `migrate` command uses an LLM patch generator and requires
-an OpenAI or Anthropic API key. Results are nondeterministic and may be blocked
-if no generated patch passes holdout. To reproduce the deterministic key-free
-blocked path instead, use `--generator none` and see
-[`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md).
-
-## Commands
+The artifact below is a **separate saved success fixture**, not PR #4. It uses
+four labeled rows and reports `1.000` metrics; PR #4 uses the public 290-label
+testbed and reports `0.904` tuning / `0.901` holdout. Reproduce it from a
+published wheel:
 
 ```bash
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
 driftless compare -w support_classifier --to gpt-4o-mini
-# Requires OPENAI_API_KEY or ANTHROPIC_API_KEY:
-driftless migrate -w support_classifier --to gpt-4o-mini
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 driftless report -w support_classifier --raw
 driftless open-pr -w support_classifier
 ```
 
-These commands exactly reproduce the bundled `compare` result. The provider-
-backed `migrate` command demonstrates the live repair path, but does not promise
-the saved success fixture's patch or scores. The fixture below is committed
-reference output showing how `open-pr` represents a successful result.
+`--generator fixture` applies the known-good bundled patch. It does not call a
+provider. Default `--generator llm` still needs an OpenAI or Anthropic API key
+and is nondeterministic. To reproduce the key-free blocked path instead, use
+`--generator none` and see [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md).
 
 ## Dry-Run GitHub Action
 

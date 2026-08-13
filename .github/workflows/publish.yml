@@ -101,3 +101,8 @@ jobs:
           /tmp/driftless-release/bin/driftless --version \
             | sed $'s/\x1b\\[[0-9;]*m//g' \
             | grep -F "driftless ${VERSION}"
+          /tmp/driftless-release/bin/driftless copy-example support-classifier --out-dir /tmp/driftless-demo
+          (
+            cd /tmp/driftless-demo
+            /tmp/driftless-release/bin/driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+          )

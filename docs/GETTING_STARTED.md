@@ -50,6 +50,18 @@ afterward. `--generator none` makes no edits and needs no provider credentials.
 `report` renders the evidence saved by the migration, and `open-pr` previews the
 issue it would create. It is a dry run unless you add `--create`.
 
+Reproduce a passing repair on the same example, still without keys:
+
+```bash
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+driftless report -w support_classifier
+driftless open-pr -w support_classifier
+```
+
+`--generator fixture` applies the known-good bundled patch. It is a
+reproduction aid, not a general optimizer. The four-row set still needs the
+[confidence caveats](./CONFIDENCE.md).
+
 ## Other Bundled Examples
 
 `copy-example` includes all three examples:
@@ -67,8 +79,20 @@ selection even when the final text sounds plausible.
 ## Adopt Driftless in an Existing Repository
 
 The bundled example is the fastest product tour. For a repository that already
-contains an LLM workflow, use this guided path. It keeps discovery, contract
-editing, paid repair, and CI as separate review points.
+contains an LLM workflow, use this guided path. Driftless will not invent your
+eval; you supply the harness, override, editable files, and thresholds.
+
+### Checklist (you own these)
+
+1. **Eval command** — a repeatable harness that writes JSONL to `run.output_path`.
+2. **Model override** — `model.env_var` or `model.config_file` + `model.config_path`.
+3. **Editable scope** — exact paths in `files.editable`; everything else is read-only.
+4. **Labels or scorer** — `eval.labels_path` / `score_field` / `pass_field` / `judge`.
+5. **Thresholds** — start from `calibrate`, then review; do not auto-accept.
+6. **Credentials and budget** — provider keys only for `--generator llm` / judges;
+   see [`.env.example`](../.env.example) and [`COST_AND_BUDGETS.md`](./COST_AND_BUDGETS.md).
+7. **Sandbox** — agent tools and `run.command` execute in *your* CI. Review the
+   contract like any other workflow that can run shell.
 
 A complete application built before Driftless was added is available at
 [`alexminnaar/incident-brief-driftless-battletest`](https://github.com/alexminnaar/incident-brief-driftless-battletest).
@@ -181,6 +205,9 @@ Start with a small representative eval, inspect estimated/measured cost, and see
 # Key-free orchestration check: records BLOCKED evidence and makes no repair.
 driftless migrate -w support_summary --to gpt-4o-mini --generator none
 
+# Bundled examples only: known-good passing repair, still key-free.
+# driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+
 # Paid, nondeterministic repair:
 export OPENAI_API_KEY=...  # or ANTHROPIC_API_KEY
 driftless migrate -w support_summary --to gpt-4o-mini --generator llm
@@ -226,5 +253,6 @@ issue body and dry-run GitHub action produced by the same blocked path.
 - Endpoint `401` or `403`: set `DRIFTLESS_ENDPOINT_TOKEN` if your endpoint
   expects a bearer token. For custom auth headers, wrap the endpoint call in
   `run.command`.
-- Provider-backed repair needs provider credentials. The bundled example flow
-  works without keys when you use `--generator none`.
+- Provider-backed repair needs provider credentials. Bundled examples work
+  without keys using `--generator none` (blocked) or `--generator fixture`
+  (passing). Customer workflows should not use `fixture`.

@@ -17,8 +17,8 @@ Tiers:
 * **Tier 2 - opportunistic**: ``cost`` / ``quality`` / ``new_model`` (only open a
   PR when the candidate passes thresholds *and* materially wins).
 
-This module is intentionally pure (no I/O) and not yet wired into the CLI; it's
-the decision core you can call from `scan`/CI once candidate discovery exists.
+This module is the decision core used by `plan` and discovery: it scores
+triggers against measured eval outcomes.
 """
 
 from __future__ import annotations

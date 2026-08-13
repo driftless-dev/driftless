@@ -60,8 +60,9 @@
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only, and it intentionally ends
-        <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only.
+        <code>--generator none</code> ends <strong>BLOCKED</strong>;
+        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
         are an optional external testbed, not the bundled demo.
       </aside>
@@ -200,9 +201,10 @@ groups, and holdout information when that stage was reached.</p>
 blocked result has no shippable prompt change. Driftless therefore previews an<br />
 <strong>issue</strong> describing the blocker rather than a pull request that implies the<br />
 migration is ready.</p>
-<p>A passing repair requires an LLM generator credential and nondeterministic<br />
-provider calls. Review the resulting trace evidence before previewing or creating<br />
-a pull request.</p>
+<p>A passing repair on this bundled example is also available key-free with<br />
+<code>--generator fixture</code>. Real workflows still need <code>--generator llm</code> and<br />
+provider credentials. Review the resulting trace evidence before previewing or<br />
+creating a pull request.</p>
 <p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
 <p>The report and delivery evidence shape is also shown in<br />
 <a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a>. See the<br />

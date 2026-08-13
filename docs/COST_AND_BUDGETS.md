@@ -69,6 +69,10 @@ migration:
 Then increase iterations only after the first blocked/partial report shows the
 repair loop is learning useful changes.
 
+For whether a `pass` is trustworthy, see [`CONFIDENCE.md`](./CONFIDENCE.md).
+Do not treat bundled four-row demos, including `--generator fixture` successes,
+as production evidence.
+
 ## RAG Workflows
 
 Keep the retrieval index fixed for prompt/config migration. If the RAG pipeline

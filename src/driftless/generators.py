@@ -57,7 +57,10 @@ def _resolve_provider(provider: str | None) -> str:
         return "anthropic"
     raise DriftlessError(
         "no LLM provider API key found for patch generation",
-        hint="set OPENAI_API_KEY or ANTHROPIC_API_KEY, or pass --generator none",
+        hint=(
+            "set OPENAI_API_KEY or ANTHROPIC_API_KEY, pass --generator none, "
+            "or use --generator fixture with a bundled example"
+        ),
     )
 
 
@@ -476,6 +479,126 @@ class LLMPatchGenerator:
         return patches
 
 
+# --------------------------------------------------------------------------- #
+# Bundled-example fixture generator (key-free success path)
+# --------------------------------------------------------------------------- #
+# These patches are the known-good repairs for the three packaged examples.
+# They exist so `migrate --generator fixture` can reproduce a passing migration
+# from the published CLI without provider credentials. They are not a general
+# repair strategy for customer workflows.
+_FIXTURE_HINT = (
+    "use --generator fixture only with a bundled example from "
+    "`driftless copy-example`, or pass --generator llm / none"
+)
+
+_CLASSIFIER_PROMPT = (
+    "Classify each support ticket by its main customer intent.\n"
+    "\n"
+    "Use exact labels only: billing, technical, account, shipping.\n"
+    "\n"
+    "Return one short category label and no extra text.\n"
+)
+_RAG_ANSWER_PROMPT = (
+    "Answer the customer question using the retrieved support article.\n"
+    "\n"
+    "Use only retrieved context. Cite every factual answer with the document id.\n"
+    "\n"
+    "Keep the answer concise.\n"
+)
+_RAG_REWRITE_PROMPT = (
+    "Rewrite the user question into a short search query for the support knowledge\n"
+    "base.\n"
+    "\n"
+    "Preserve product nouns. Prefer simple words over generic phrasing.\n"
+)
+_AGENT_PLANNER_PROMPT = (
+    "Choose tools that seem directly related to the customer request.\n"
+    "\n"
+    "lookup_order before refund. check_policy before refund_payment.\n"
+    "\n"
+    "Include the tool trace in the result. Keep the answer short and helpful.\n"
+)
+_AGENT_TOOLS_PROMPT = (
+    "lookup_order(order_id): fetch basic order details.\n"
+    "check_policy(order): inspect refund rules for an order.\n"
+    "refund_payment(order): issue a refund for an order. "
+    "refund_payment requires eligibility from check_policy.\n"
+    "send_invoice(order): send an invoice copy.\n"
+    "reset_password(account_email): send a password reset link.\n"
+)
+
+
+def _fixture_recipe(files: dict[str, str]) -> dict[str, str] | None:
+    """Return a patch for a bundled example, ``{}`` if already repaired, or None."""
+    classifier = files.get("prompts/classifier.md", "")
+    if "classify each support ticket by its main customer intent" in classifier.lower():
+        if "use exact labels only" in classifier.lower():
+            return {}
+        return {"prompts/classifier.md": _CLASSIFIER_PROMPT}
+
+    rag_answer = files.get("prompts/rag_answer.md", "")
+    rag_rewrite = files.get("prompts/retrieval_rewrite.md", "")
+    if "using the retrieved support article" in rag_answer.lower():
+        if (
+            "use only retrieved context" in rag_answer.lower()
+            and "cite every factual answer" in rag_answer.lower()
+            and "preserve product nouns" in rag_rewrite.lower()
+        ):
+            return {}
+        if "prompts/retrieval_rewrite.md" not in files:
+            return None
+        return {
+            "prompts/rag_answer.md": _RAG_ANSWER_PROMPT,
+            "prompts/retrieval_rewrite.md": _RAG_REWRITE_PROMPT,
+        }
+
+    planner = files.get("prompts/planner.md", "")
+    tools = files.get("prompts/tool_descriptions.md", "")
+    if "choose tools that seem directly related" in planner.lower():
+        if (
+            "lookup_order before refund" in planner.lower()
+            and "check_policy before refund_payment" in planner.lower()
+            and "include the tool trace" in planner.lower()
+            and "refund_payment requires eligibility" in tools.lower()
+        ):
+            return {}
+        if "prompts/tool_descriptions.md" not in files:
+            return None
+        return {
+            "prompts/planner.md": _AGENT_PLANNER_PROMPT,
+            "prompts/tool_descriptions.md": _AGENT_TOOLS_PROMPT,
+        }
+
+    return None
+
+
+class FixturePatchGenerator:
+    """Apply the known-good patch for a bundled Driftless example.
+
+    This is a reproduction aid, not a general optimizer. Customer workflows
+    should use ``--generator llm`` (or a custom ``PatchGenerator``).
+    """
+
+    kind = "fixture"
+
+    def generate(self, context: PatchContext) -> list[Patch]:
+        recipe = _fixture_recipe(context.editable_files)
+        if recipe is None:
+            raise DriftlessError(
+                "fixture generator has no patch for this workflow",
+                hint=_FIXTURE_HINT,
+            )
+        if not recipe:
+            return []
+        return [
+            Patch(
+                files=recipe,
+                rationale="bundled-example fixture repair",
+                kind="fixture",
+            )
+        ]
+
+
 def build_generator(
     kind: str,
     *,
@@ -486,8 +609,13 @@ def build_generator(
     """Factory used by the CLI. Returns ``None`` for the no-op generator."""
     if kind == "none":
         return None
+    if kind == "fixture":
+        return FixturePatchGenerator()
     if kind == "llm":
         return LLMPatchGenerator(
             provider=provider, model=model, num_candidates=num_candidates
         )
-    raise DriftlessError(f"unknown generator: {kind!r}", hint="choose 'llm' or 'none'")
+    raise DriftlessError(
+        f"unknown generator: {kind!r}",
+        hint="choose 'llm', 'none', or 'fixture'",
+    )

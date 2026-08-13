@@ -3,8 +3,9 @@
 Driftless is a public alpha for design partners and technical early adopters.
 The package, Action, hosted site, genuine captures, and key-free tour make the
 first evaluation self-serve. Existing-repository adoption is documented
-end-to-end, but users bringing an arbitrary workflow still own the reliability
-of its eval, model override, thresholds, credentials, and budget.
+end-to-end. Users bringing an arbitrary workflow still own the reliability of
+its eval, model override, thresholds, credentials, and budget — that is the
+product, not a missing wizard. See [`GA.md`](./GA.md).
 
 This plan records completed readiness work and the remaining boundaries between
 public alpha and "a new user can understand the value, integrate a real
@@ -51,18 +52,24 @@ Recently improved:
   `.driftless/configure/<workflow>.yml` draft while safely creating or appending
   root `driftless.yml`; unresolved placeholders block execution.
 
-Still not fully self-serve:
+Still not a hosted product:
 
-- Existing-repository adoption still assumes the user can supply a reliable eval
-  command, model override, exact editable-file scope, labels/scorer, and
-  thresholds.
-- There is no hosted bot or onboarding flow; users review `init-ci` output and
-  manage provider credentials, permissions, and budget in their own CI.
-- The public PR #4 proof used testbed-specific deterministic patch tooling. That
-  tooling is not shipped in the CLI, so the public-alpha docs must not imply an
-  exact key-free reproduction of the successful repair.
-- More cold-user feedback is needed across repositories whose harnesses differ
-  from the bundled classifier, RAG, and tool-agent examples.
+- There is no hosted bot or onboarding wizard; users review `init-ci` output and
+  manage provider credentials, permissions, and budget in their own CI. That is
+  the supported surface, documented in [`GA.md`](./GA.md).
+- Existing-repository adoption still requires a reliable eval command, model
+  override, editable-file scope, labels/scorer, and thresholds. Those are
+  customer-owned by design; the
+  [adoption checklist](./GETTING_STARTED.md#adopt-driftless-in-an-existing-repository)
+  makes each item explicit.
+- More cold-user feedback is still useful across repositories whose harnesses
+  differ from the bundled classifier, RAG, and tool-agent examples.
+
+Closed since the previous readiness pass:
+
+- Bundled examples can reproduce a **passing** migration with
+  `--generator fixture` (no provider keys). PR #4 remains historical proof of a
+  larger testbed run; it is no longer the only success artifact.
 
 ## Completed Readiness Foundations
 
@@ -153,7 +160,7 @@ Acceptance criteria:
 
 ### 6. Release/version polish
 
-Status: implemented locally for the `0.3.2` release candidate. Publication is
+Status: implemented locally for the current `0.3.x` line. Publication is
 not complete until the matching GitHub tag and PyPI wheel exist;
 `scripts/release-check.sh --remote` verifies both in addition to local version
 alignment.
@@ -215,7 +222,7 @@ Acceptance criteria:
 
 ## Not Blocking Design Partners
 
-These do not block showing the project to early users:
+These are out of scope for the CLI/Action product, not leftover 1.0 work:
 
 - Hosted dashboard.
 - Hosted catalog service.
@@ -223,7 +230,9 @@ These do not block showing the project to early users:
 - Embedding-model migration.
 - Full agent sandboxing, as long as examples and CI usage stay local and
   side-effect-free.
-- Statistical significance reporting.
+
+Statistical significance reporting is also out of scope; use
+[`CONFIDENCE.md`](./CONFIDENCE.md) and `migration.split_seed_count` instead.
 
 ## Ongoing Maintenance
 

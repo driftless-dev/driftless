@@ -60,8 +60,9 @@
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only, and it intentionally ends
-        <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only.
+        <code>--generator none</code> ends <strong>BLOCKED</strong>;
+        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
         are an optional external testbed, not the bundled demo.
       </aside>
@@ -133,8 +134,9 @@ verifies command wiring, not provider behavior or a successful repair. Acting<br
 on plans and LLM-backed repair require credentials; <code>--create</code> adds GitHub side<br />
 effects.</p>
 <p><a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> distinguishes public<br />
-testbed PR #4 from the different bundled four-row saved success fixture. Both<br />
-show the <code>open-pr</code> evidence shape; see the<br />
+testbed PR #4 from the bundled four-row success fixture, which<br />
+<code>--generator fixture</code> regenerates. Both show the <code>open-pr</code> evidence shape; see<br />
+the<br />
 <a href="01-model-swap-is-not-a-migration.html#repair-reproduction-boundary">repair reproduction boundary</a>.</p>
 <p><img alt="Real GitHub pull request containing Driftless migration evidence" src="../visuals/github-migration-pr.png" /></p>
 <p><a href="https://github.com/driftless-dev/support-classifier-svc/pull/4">Open the public draft PR and inspect the generated report and diff.</a></p>
@@ -158,7 +160,7 @@ driftless init-ci        # writes .github/workflows/driftless-*.yml
 </code></pre>
 <p>These are generated starting points. The external<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />
-testbed instead dogfoods hand-written workflows pinned to <code>driftless==0.3.3</code>.<br />
+testbed instead dogfoods hand-written workflows pinned to <code>driftless==0.3.4</code>.<br />
 Use its <a href="https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows">workflow directory</a><br />
 when you need examples of testbed-specific path filters, manual-dispatch inputs,<br />
 simulator setup, or staged rollout.</p>

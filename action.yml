@@ -18,13 +18,13 @@ inputs:
     required: false
     default: ""
   args:
-    description: "Extra raw arguments appended to the command."
+    description: "Extra raw arguments appended to the command (e.g. '--generator fixture')."
     required: false
     default: ""
   version:
-    description: "driftless version/spec to install (e.g. '==0.3.3' or a git URL)."
+    description: "driftless version/spec to install (e.g. '==0.3.4' or a git URL)."
     required: false
-    default: "==0.3.3"
+    default: "==0.3.4"
 
 runs:
   using: "composite"

@@ -60,23 +60,38 @@ driftless open-pr -w support_classifier
 no repair edits, `report` renders the saved evidence, and `open-pr` is a dry run
 unless you explicitly pass `--create`.
 
+To reproduce a **passing** repair on the same bundled example, still without
+provider keys:
+
+```bash
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+driftless report -w support_classifier
+driftless open-pr -w support_classifier
+```
+
+`--generator fixture` applies the known-good prompt patch shipped for this
+example. It proves the published CLI can open a passing evidence artifact; it
+does not replace `--generator llm` on a real workflow. The four-row set is still
+too small for production confidence — see
+[eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md).
+
 ## Product proof
 
 This is the actual output of the cold-install quickstart:
 
 ![Terminal output from Driftless compare showing a cheaper target blocked by the F1 gate](https://raw.githubusercontent.com/driftless-dev/driftless/main/docs/visuals/compare-terminal.png)
 
-A deterministic offline migration was also run against the public
+A larger offline migration was also run against the public
 [`support-classifier-svc`](https://github.com/driftless-dev/support-classifier-svc)
 testbed. It produced [draft PR #4](https://github.com/driftless-dev/support-classifier-svc/pull/4)
 with the generated scorecard, holdout evidence, prompt diff, and model update:
 
 ![Real GitHub pull request created from a passing Driftless migration](https://raw.githubusercontent.com/driftless-dev/driftless/main/docs/visuals/github-migration-pr.png)
 
-PR #4 used testbed-specific deterministic patch tooling that is not shipped as
-a Driftless CLI generator. It is genuine historical proof of the orchestration
-and review artifact, not a claim that the published CLI reproduces that exact
-repair without provider credentials.
+PR #4 is historical proof of a 290-label testbed run. The published CLI
+reproduces a passing four-row repair with `--generator fixture`; regenerating
+PR #4's exact patch still needs provider-backed `--generator llm` (or the
+testbed's own simulator) and may differ.
 
 Other bundled examples are available for retrieval QA and tool-using agents:
 
@@ -159,7 +174,7 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 `plan --act` triage, and manually-triggered migration workflows.
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.3
+- uses: driftless-dev/driftless@v0.3.4
   with:
     command: scan
 ```
@@ -173,7 +188,9 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — run the bundled classifier, RAG, and agent examples.
 - [Upgrading to 0.3](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) — replace legacy `migration.allow_*` fields with exact `files.editable` paths.
 - [Command chooser](https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
-- [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — current public-alpha boundaries.
+- [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — supported CLI/Action surface and ownership boundaries.
+- [Eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md) — when a pass is trustworthy.
+- [GA criteria](https://github.com/driftless-dev/driftless/blob/main/docs/GA.md) — what 1.0 will and will not include.
 - [Cost and budget guidance](https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
 - [Launch check](https://github.com/driftless-dev/driftless/blob/main/docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
 - [Visual proof inventory](https://github.com/driftless-dev/driftless/blob/main/docs/VISUAL_PROOF_PLAN.md) — genuine captures, provenance, and reproduction notes.
@@ -183,5 +200,6 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
 - [User readiness plan](https://github.com/driftless-dev/driftless/blob/main/docs/USER_READINESS_PLAN.md) — current adoption boundaries and wider-launch follow-up.
 - [Release process](https://github.com/driftless-dev/driftless/blob/main/docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
 - [Changelog](https://github.com/driftless-dev/driftless/blob/main/CHANGELOG.md) — version history.
+- [Contributing](https://github.com/driftless-dev/driftless/blob/main/CONTRIBUTING.md) — local setup, checks, and dependency policy.
 - [Repair prompts & custom generators](https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md) — customize
   the LLM repair prompt or plug in your own patch generator.

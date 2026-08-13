@@ -28,5 +28,13 @@ driftless open-pr -w support_classifier
 `migrate` is expected to exit non-zero with `BLOCKED`. Run the remaining
 commands afterward. `open-pr` is a dry run unless `--create` is supplied.
 
+To reproduce a passing repair on this example without provider keys:
+
+```bash
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+```
+
+`--generator fixture` is a bundled-example aid. Real workflows use `--generator llm`.
+
 The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
 and `tool-agent`.

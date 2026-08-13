@@ -48,3 +48,12 @@ for path in Path(".github/workflows").glob("*.yml"):
     yaml.safe_load(path.read_text())
 print("new-repository battletest passed")
 PY
+
+# Published-CLI success path: bundled example + fixture generator, no keys.
+cd "$TMP"
+"$DRIFTLESS" copy-example support-classifier --out-dir "$TMP/demo"
+cd "$TMP/demo"
+"$DRIFTLESS" migrate -w support_classifier --to gpt-4o-mini --generator fixture
+"$DRIFTLESS" report -w support_classifier --raw
+"$DRIFTLESS" open-pr -w support_classifier
+echo "fixture-generator battletest passed"
