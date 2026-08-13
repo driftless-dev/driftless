@@ -11,10 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+---
+
+## [0.3.4] - 2026-08-12
+
+### Added
+
+- **`--generator fixture`** — key-free passing repair for bundled examples
+  (`support-classifier`, `rag-qa`, `tool-agent`), so the published CLI can
+  reproduce a successful migration without provider credentials.
+- **Contributor and operator docs** — `CONTRIBUTING.md`, `.env.example`,
+  eval-confidence guidance, and explicit 1.0 / GA criteria (CLI + Action, not
+  a hosted bot).
+
+### Changed
+
 - **Hosted site adoption copy** — landing and docs match `configure --apply`,
-  inferred `init-ci` setup, and Action pin `v0.3.3`.
+  inferred `init-ci` setup, and Action pin `v0.3.4`.
+- **Landing page story** — hero has one primary CTA; scenario cards match their
+  markup; outcomes show reproducible `--generator none` / `--generator fixture`
+  paths; PR #4 is captioned as historical proof.
+- **Supported-surface limits** — hosted GitHub App, catalog SaaS, and agent
+  sandboxing are documented as out of scope rather than unfinished GA work.
+- **Live optimizer gate** — scheduled runs on `driftless-dev/driftless` fail
+  when no provider secrets are configured, instead of skipping green.
+- **Publish cold-install** — after installing the wheel from PyPI, copy the
+  bundled classifier example and run `migrate --generator fixture`.
 
 ### Fixed
+
+- **Wheel metadata** — cap `hatchling` below 1.30 so sdist/wheel emit
+  Metadata-Version 2.4, which released twine and PyPI accept.
 
 ---
 
@@ -419,7 +448,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/driftless-dev/driftless/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/driftless-dev/driftless/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/driftless-dev/driftless/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/driftless-dev/driftless/compare/v0.3.0...v0.3.1

@@ -57,7 +57,7 @@
   </header>
 
   <div id="viewerStatus" class="viewer-status" role="status" aria-live="polite" aria-atomic="true">
-    No run loaded. The saved passing fixture is separate from the key-free quickstart, which intentionally ends BLOCKED.
+    No run loaded. Load the saved passing fixture, or generate one with <code>migrate --generator fixture</code> on a bundled example. <code>--generator none</code> still ends BLOCKED.
   </div>
 
   <div id="dropZone" class="runs-drop" role="status" aria-live="polite" hidden>
@@ -66,7 +66,7 @@
 
   <div id="emptyState" class="runs-empty">
     <p>Load a migration result JSON, pick a run from the current project, or try the saved passing fixture.</p>
-    <p class="dim">The fixture demonstrates a successful viewer result. It is not the key-free quickstart, which intentionally ends <strong>BLOCKED</strong>.</p>
+    <p class="dim">The fixture demonstrates a successful viewer result. Reproduce it with <code>migrate --generator fixture</code> on a bundled example. <code>--generator none</code> still ends <strong>BLOCKED</strong>.</p>
     <p class="dim">From your repo: <code>driftless view</code> then open <code>http://localhost:8777/runs.html</code></p>
   </div>
 

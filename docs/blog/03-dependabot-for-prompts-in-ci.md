@@ -80,8 +80,9 @@ on plans and LLM-backed repair require credentials; `--create` adds GitHub side
 effects.
 
 [`EXAMPLE_SUCCESS_PR.md`](../EXAMPLE_SUCCESS_PR.md) distinguishes public
-testbed PR #4 from the different bundled four-row saved success fixture. Both
-show the `open-pr` evidence shape; see the
+testbed PR #4 from the bundled four-row success fixture, which
+`--generator fixture` regenerates. Both show the `open-pr` evidence shape; see
+the
 [repair reproduction boundary](./01-model-swap-is-not-a-migration.md#repair-reproduction-boundary).
 
 ![Real GitHub pull request containing Driftless migration evidence](../visuals/github-migration-pr.png)
@@ -116,7 +117,7 @@ driftless init-ci        # writes .github/workflows/driftless-*.yml
 
 These are generated starting points. The external
 [support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)
-testbed instead dogfoods hand-written workflows pinned to `driftless==0.3.3`.
+testbed instead dogfoods hand-written workflows pinned to `driftless==0.3.4`.
 Use its [workflow directory](https://github.com/driftless-dev/support-classifier-svc/tree/main/.github/workflows)
 when you need examples of testbed-specific path filters, manual-dispatch inputs,
 simulator setup, or staged rollout.

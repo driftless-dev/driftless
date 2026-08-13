@@ -36,7 +36,7 @@ migration is documented in [`UPGRADING.md`](./UPGRADING.md).
 Choose the next version once, then use it everywhere in this checklist:
 
 ```bash
-VERSION=0.3.2
+VERSION=0.3.4
 git checkout -b "release/$VERSION"
 ```
 
@@ -44,7 +44,7 @@ git checkout -b "release/$VERSION"
    [`CHANGELOG.md`](../CHANGELOG.md):
 
    ```markdown
-   ## [0.3.2] - 2026-07-31
+   ## [0.3.4] - 2026-08-12
 
    ### Added
    - ...
@@ -65,14 +65,14 @@ git checkout -b "release/$VERSION"
    twine check dist/*
    ```
 
-4. Open a PR titled `Release 0.3.2`, get review, merge to `main`.
+4. Open a PR titled `Release 0.3.4`, get review, merge to `main`.
 
 ### 2. Tag and GitHub Release
 
 After merge to `main`:
 
 ```bash
-VERSION=0.3.2
+VERSION=0.3.4
 git checkout main && git pull
 git tag -a "v$VERSION" -m "driftless $VERSION"
 git push origin "v$VERSION"
@@ -80,23 +80,24 @@ git push origin "v$VERSION"
 
 Then on GitHub: **Releases → Draft a new release**
 
-- **Choose tag:** `v0.3.2` (must match `__version__` with a `v` prefix)
-- **Title:** `driftless 0.3.2`
-- **Description:** paste the `## [0.3.2]` section from `CHANGELOG.md`
+- **Choose tag:** `v0.3.4` (must match `__version__` with a `v` prefix)
+- **Title:** `driftless 0.3.4`
+- **Description:** paste the `## [0.3.4]` section from `CHANGELOG.md`
 - **Publish release** (not draft — `publish.yml` listens for `release: published`)
 
 The **Publish to PyPI** workflow builds sdist + wheel, runs checks, uploads, then
 waits for both the GitHub tag and PyPI release to become public. Its final job
-cold-installs the published wheel.
+cold-installs the published wheel and runs `copy-example` +
+`migrate --generator fixture` on the bundled classifier.
 
 ### 3. Verify PyPI
 
 Wait ~1–2 minutes, then:
 
 ```bash
-pip install "driftless==0.3.2"
+pip install "driftless==0.3.4"
 driftless --version
-pipx install driftless==0.3.2   # optional smoke test
+pipx install driftless==0.3.4   # optional smoke test
 ```
 
 Confirm https://pypi.org/project/driftless/ shows the new version.
@@ -104,7 +105,7 @@ Confirm https://pypi.org/project/driftless/ shows the new version.
 The same remote check is available locally:
 
 ```bash
-./scripts/release-check.sh --tag v0.3.2 --remote
+./scripts/release-check.sh --tag v0.3.4 --remote
 ```
 
 ### 4. Post-release
@@ -160,15 +161,21 @@ Run before tagging. Fails if:
 
 ```bash
 ./scripts/release-check.sh
-./scripts/release-check.sh --tag v0.3.2
-./scripts/release-check.sh --tag v0.3.2 --remote
+./scripts/release-check.sh --tag v0.3.4
+./scripts/release-check.sh --tag v0.3.4 --remote
 ```
 
 Before publishing, CI also builds a wheel and runs
 `scripts/battletest-new-repo.sh`. The battletest installs that wheel in a clean
 virtual environment, copies an unrelated LLM application fixture, and exercises
 scan, validation, calibration, enforced comparison, blocked migration,
-reporting, dry-run delivery, and CI generation.
+reporting, dry-run delivery, and CI generation. It then copies the bundled
+support-classifier example from the wheel and runs `--generator fixture` to
+prove the published CLI can reproduce a passing repair without provider keys.
+
+Driftless does not commit a lockfile. Published dependencies are version ranges
+in `pyproject.toml`; Dependabot and the CI matrix are the reproducibility
+story. See [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ---
 
@@ -178,7 +185,7 @@ After a release, users can pin the composite Action by release tag
 (`action.yml` lives at the repo root — no `/action` path segment):
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.2
+- uses: driftless-dev/driftless@v0.3.4
   with:
     command: scan
 ```
@@ -186,14 +193,14 @@ After a release, users can pin the composite Action by release tag
 Or pin the PyPI package in the Action input:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.2
+- uses: driftless-dev/driftless@v0.3.4
   with:
-    version: "==0.3.2"
+    version: "==0.3.4"
     command: migrate
 ```
 
 Do not move the floating **`v1`** tag during the `0.x` public-alpha line.
-Consumers should pin the exact `v0.3.2` tag. Once `1.0.0` is declared stable,
+Consumers should pin the exact `v0.3.4` tag. Once `1.0.0` is declared stable,
 create or move `v1` as part of that release:
 
 ```bash
@@ -239,10 +246,11 @@ In **Settings → Secrets and variables → Actions**, add:
 | `ANTHROPIC_API_KEY` | Live eval matrix job (`provider: anthropic`) |
 | `GEMINI_API_KEY` | Catalog refresh (`refresh-catalog.yml`, Google `/models`) |
 
-If a secret is missing, that provider job exits cleanly with a warning (CI stays
-green). On scheduled or manual runs, the **secrets-preflight** job writes a
-summary table to the workflow run so you can see which keys are configured.
-When both are set, nightly runs append to
+If a secret is missing, that provider job is skipped. On scheduled or manual
+runs of **`driftless-dev/driftless`**, the **secrets-preflight** job fails when
+*both* provider keys are missing so a silent skip cannot look like a green
+nightly. Forks without secrets still skip cleanly. When at least one key is
+set, nightly runs append to
 `.driftless/regression-metrics.jsonl` and check against
 `tests/fixtures/live_eval_baseline.json` with `--require-all`.
 

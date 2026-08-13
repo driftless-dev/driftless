@@ -28,8 +28,10 @@ coordinate disclosure and release timing with the reporter.
 ## Security boundaries
 
 - Driftless executes the `run.command` and optional data-source command declared
-  in `driftless.yml`. Treat contract authors as trusted; review contract changes
-  with the same care as CI workflow changes.
+  in `driftless.yml` via a shell. That is intentional: the product runs *your*
+  harness. Treat contract authors as trusted, and review `driftless.yml` and
+  generated workflows with the same care as other CI that can run arbitrary
+  commands. A malicious contract in CI is remote code execution by design.
 - Prompt repair may call external model providers and sends the repair context
   configured by the user. Do not include secrets or sensitive records unless
   the selected provider and account are approved for them.
@@ -37,4 +39,9 @@ coordinate disclosure and release timing with the reporter.
   auto-merges a migration; passing changes are proposed for review.
 - Agent tools and other side-effecting harnesses must be sandboxed by the user.
   Driftless does not provide a hosted execution sandbox.
+- `--generator fixture` only applies known patches to bundled example prompts.
+  It is not a general repair engine and must not be pointed at untrusted files
+  as if it were.
+
+Operator environment variables are listed in [`.env.example`](./.env.example).
 

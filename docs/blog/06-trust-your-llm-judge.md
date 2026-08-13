@@ -224,7 +224,7 @@ Expect generated CI configuration that reruns when the rubric or calibration
 file changes. Its important step has this shape:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.3
+- uses: driftless-dev/driftless@v0.3.4
   with:
     command: judge-check
     workflow: support_summary

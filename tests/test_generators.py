@@ -10,8 +10,10 @@ from driftless.errors import DriftlessError
 from driftless.evaluation import Metrics
 from driftless.evaluation import RecordRow
 from driftless.generators import (
+    FixturePatchGenerator,
     LLMPatchGenerator,
     _failing_examples,
+    _fixture_recipe,
     _positive_exemplars,
     build_generator,
     build_user_prompt,
@@ -236,3 +238,41 @@ def test_generator_multi_candidate_temperature(tmp_path: Path):
     patches = gen.generate(ctx)
     assert len(patches) == 2
     assert seen[0] != seen[1]  # temperature varied across candidates
+
+
+def test_build_generator_fixture_returns_fixture_generator():
+    gen = build_generator("fixture")
+    assert isinstance(gen, FixturePatchGenerator)
+
+
+def test_fixture_recipe_matches_classifier_and_is_idempotent():
+    original = {
+        "prompts/classifier.md": (
+            "Classify each support ticket by its main customer intent.\n\n"
+            "Return a short category label.\n"
+        )
+    }
+    first = _fixture_recipe(original)
+    assert first is not None and "use exact labels only" in first["prompts/classifier.md"].lower()
+    assert _fixture_recipe(first) == {}
+
+
+def test_fixture_recipe_unknown_workflow_returns_none():
+    assert _fixture_recipe({"prompts/other.md": "hello"}) is None
+
+
+def test_fixture_generator_raises_on_unknown_workflow(tmp_path: Path):
+    wf = _make_workflow(tmp_path)
+    ctx = PatchContext(
+        workflow=wf,
+        workflow_name="demo",
+        target_model="weak",
+        iteration=0,
+        editable_files={"prompt.txt": "not a bundled example"},
+        baseline=Metrics(n=1, schema_error_rate=0.0, refusal_rate=0.0),
+        current=Metrics(n=1, schema_error_rate=0.0, refusal_rate=0.0),
+        clusters=[],
+        rows=[],
+    )
+    with pytest.raises(DriftlessError, match="fixture generator has no patch"):
+        FixturePatchGenerator().generate(ctx)

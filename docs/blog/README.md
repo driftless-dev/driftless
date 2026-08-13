@@ -42,9 +42,10 @@ In short: `compare → migrate or refine → holdout → report → PR or issue`
 
 There are two classifier fixtures in these posts. Keep their evidence separate:
 
-- The **bundled demo** has four rows, installs with Driftless, needs no API key,
-  and intentionally ends at a blocked quality gate. It teaches command flow; it
-  is not evidence about provider-model quality or statistical confidence.
+- The **bundled demo** has four rows, installs with Driftless, and needs no API
+  key. `--generator none` ends at a blocked quality gate; `--generator fixture`
+  reproduces a passing repair. It teaches command flow; it is not evidence
+  about provider-model quality or statistical confidence.
 - The separate
   **[support-classifier-svc](https://github.com/driftless-dev/support-classifier-svc)**
   testbed has 290 labeled tickets, LiteLLM, and simulator plus real-API paths.
@@ -170,7 +171,8 @@ Expect each command to reproduce the fixture-specific behavior described in its
 post. The simulator makes the classifier harness key-free, but `migrate` and
 `refine` still need credentials with the default `--generator llm`. With
 `--generator none`, model migration can end `BLOCKED` because the target still
-misses release gates; refinement instead ends `NO_CHANGE` with exit code 0 when
+misses release gates; `--generator fixture` is only for bundled examples.
+Refinement instead ends `NO_CHANGE` with exit code 0 when
 nothing beats the current prompt.
 
 For post 4, temporarily set `model.current: gpt-4o`, then run `driftless plan`

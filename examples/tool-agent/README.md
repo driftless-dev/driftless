@@ -19,6 +19,13 @@ The evaluator writes one JSON object per case with a final answer, selected
 tools, tool errors, numeric `score`, and `cost`. In a real agent, the same shape
 can carry planner traces, tool arguments, retrieved docs, and retry history.
 
+Continue with a key-free blocked or passing migration:
+
+```bash
+driftless migrate -w support_agent --to gpt-4o-mini --generator none
+driftless migrate -w support_agent --to gpt-4o-mini --generator fixture
+```
+
 The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
 and `tool-agent`.
 

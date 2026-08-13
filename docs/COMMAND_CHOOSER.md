@@ -22,7 +22,7 @@ to run.
 | Check parsing and run the harness. | `driftless validate -w <workflow>` | Omit `-w` for all workflows; `--no-run` checks configuration without executing the harness. |
 | Establish a baseline and starting thresholds. | `driftless calibrate -w <workflow>` | `--margin` adjusts suggested headroom. Suggestions still require human review. |
 | Measure a target before editing files. | `driftless compare -w <workflow> --to <model> [--enforce]` | Default is informational; `--enforce` exits non-zero when gates fail. |
-| Repair exact editable paths for a model switch. | `driftless migrate -w <workflow> --to <model>` | Default `--generator llm` needs provider credentials. `--generator none` makes no repair and is useful for a blocked, key-free orchestration check. |
+| Repair exact editable paths for a model switch. | `driftless migrate -w <workflow> --to <model>` | Default `--generator llm` needs provider credentials. `--generator none` makes no repair. `--generator fixture` reproduces the known-good bundled-example patch without keys. |
 | Re-optimize after eval data changes with the model pinned. | `driftless refine -w <workflow>` | Same repair/cost caveats as `migrate`, but no `--to` model. |
 | Check classification labels before optimization. | `driftless audit-labels -w <workflow>` | `--fail` exits non-zero on conflicts; tune near-duplicate matching with `--near-threshold`. |
 | Check an LLM judge against human calibration. | `driftless judge-check -w <workflow>` | `--enforce` exits non-zero when configured MAE/correlation gates fail. |
@@ -77,6 +77,12 @@ driftless open-pr -w support_classifier
 
 The migration is expected to exit non-zero. The final command is a dry run by
 default.
+
+To reproduce a passing bundled repair without keys:
+
+```bash
+driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+```
 
 For an existing repository, use `driftless scan`, then
 `driftless configure <workflow> --apply`. Review the inferred contract and

@@ -20,5 +20,12 @@ and numeric `score`. In a real app, that score might blend answer correctness,
 faithfulness, citation support, and cost. Here it is deterministic so the example
 runs without provider keys.
 
+Continue with a key-free blocked or passing migration:
+
+```bash
+driftless migrate -w rag_qa --to gpt-4o-mini --generator none
+driftless migrate -w rag_qa --to gpt-4o-mini --generator fixture
+```
+
 The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
 and `tool-agent`.

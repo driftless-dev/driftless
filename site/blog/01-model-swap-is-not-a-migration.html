@@ -60,8 +60,9 @@
         <strong>New to Driftless?</strong>
         Start with the bundled, key-free
         <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only, and it intentionally ends
-        <strong>BLOCKED</strong>. References in this guide to
+        Its four rows prove smoke-demo plumbing only.
+        <code>--generator none</code> ends <strong>BLOCKED</strong>;
+        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
         are an optional external testbed, not the bundled demo.
       </aside>
@@ -121,11 +122,10 @@ near-duplicate examples have contradictory expected answers. Prompt repair<br />
 cannot fix an evaluation set that defines “correct” inconsistently. Follow<br />
 <a href="05-audit-labels-before-you-trust-f1.html">post 5</a> first.</p>
 <h3 id="repair-reproduction-boundary">Repair reproduction boundary</h3>
-<p>The historical passing pull request #4 used testbed-specific deterministic<br />
-repair tooling that is not shipped as a Driftless CLI generator. Exact key-free<br />
-reproduction covers comparison and the blocked <code>--generator none</code> path. A<br />
-successful repair with the published CLI requires provider credentials, is<br />
-nondeterministic, and may produce a different prompt.</p>
+<p>The historical passing pull request #4 is a 290-label testbed artifact. The<br />
+published CLI reproduces a passing four-row repair with <code>--generator fixture</code>.<br />
+Regenerating PR #4's exact patch still needs provider-backed <code>--generator llm</code><br />
+(or the testbed's own simulator) and may differ.</p>
 <p><a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a> keeps that 290-label testbed<br />
 result—<code>0.904</code> tuning and <code>0.901</code> holdout—separate from the bundled four-row<br />
 saved fixture, whose metrics are <code>1.000</code>.</p>
@@ -148,8 +148,10 @@ Current CLI output may also include average-latency rows and a<br />
 that the sample is too small for a reliable production migration decision; they<br />
 do not contradict the deterministic demo result.</p>
 <p>You can continue key-free with <code>migrate ... --generator none</code>, which records an<br />
-intentional <code>BLOCKED</code> result because no repair is attempted. Successful repair<br />
-requires provider credentials and is nondeterministic.</p>
+intentional <code>BLOCKED</code> result because no repair is attempted. On the bundled<br />
+demo, <code>migrate ... --generator fixture</code> records a passing repair without<br />
+provider credentials. On a real workflow, <code>--generator llm</code> needs credentials<br />
+and is nondeterministic.</p>
 <p><img alt="Actual Driftless compare output showing the target model blocked by the quality gate" src="../visuals/compare-terminal.png" /></p>
 <h3 id="2-reproduce-the-regression-in-the-290-row-testbed">2. Reproduce the regression in the 290-row testbed</h3>
 <p>The next commands clone and install the external testbed, restore the hand-written<br />

@@ -1,28 +1,30 @@
 # Launch Check
 
-Last full suite and hosted cold-user UX checks: 2026-08-01.
+Last full suite and hosted cold-user UX checks: 2026-08-12.
 
 This records the local checks used to keep the public-alpha release line ready
 for technical early adopters. Commands should be run from the repository root
-unless noted.
+unless noted. `0.3.4` is the first published wheel that includes
+`--generator fixture`.
 
 ## Suite
 
 | Check | Result |
 |---|---|
 | `python -m mypy` | Pass: no issues in 28 source files. |
-| `python -m pytest` | Pass: 369 passed, 16 skipped, coverage 82.23%. |
-| `./scripts/release-check.sh --tag v0.3.2` | Pass: version `0.3.2`, changelog, Action default, and workflow pins aligned. |
-| `python -m build` | Pass: built sdist and wheel for `0.3.2`. |
-| `python -m twine check dist/driftless-0.3.2*` | Pass: sdist and wheel metadata valid. |
-| Cold install from wheel | Pass: copied the support-classifier example, validated it, reproduced the gated comparison, ran the expected `BLOCKED` no-generator migration, rendered its report, and previewed the issue dry-run. |
+| `python -m pytest` | Pass: 389 passed, 16 skipped, coverage 85.83%. |
+| `./scripts/release-check.sh` | Pass: version `0.3.4`, changelog, Action default, and workflow pins aligned. |
+| `python -m build` | Pass: built sdist and wheel for `0.3.4`. |
+| Example `validate` / `compare` | Pass: classifier, RAG, and agent fixtures match the expected gated-compare shape. |
+| `--generator fixture` | Pass: bundled classifier, RAG, and agent examples migrate to `PASS` without provider keys. |
+| `python scripts/check_site_links.py` | Pass: all local links and fragments are valid. |
 
 The full pytest run needs permission to bind a local HTTP server for the run
 viewer test.
 
 ## Hosted UX Checks
 
-The 2026-08-01 cold-user pass regenerated all eight blog pages and verified:
+The 2026-08-12 pass regenerated all eight blog pages and verified:
 
 - `python scripts/check_site_links.py` — pass; all local links and fragments are
   valid.
@@ -38,10 +40,11 @@ Classification:
 cd examples/support-classifier
 env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli validate -w support_classifier
 env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli compare -w support_classifier --to gpt-4o-mini
+env PYTHONPATH=../../src ../../.venv/bin/python -m driftless.cli migrate -w support_classifier --to gpt-4o-mini --generator fixture
 ```
 
 Expected compare shape: baseline F1 `1.000`, target F1 `0.000`, cheaper target,
-`FAIL min_f1`.
+`FAIL min_f1`. Expected fixture migrate: `PASS`.
 
 RAG:
 
@@ -67,7 +70,7 @@ target, `FAIL min_score`.
 
 ## Packaging
 
-The `0.3.2` sdist and wheel include:
+The `0.3.4` sdist and wheel include:
 
 - `examples/support-classifier`
 - `examples/rag-qa`
@@ -75,4 +78,3 @@ The `0.3.2` sdist and wheel include:
 
 Generated example outputs such as `examples/**/evals/outputs.jsonl` are ignored
 and are not included in the wheel.
-

@@ -186,9 +186,10 @@ blocked result has no shippable prompt change. Driftless therefore previews an
 **issue** describing the blocker rather than a pull request that implies the
 migration is ready.
 
-A passing repair requires an LLM generator credential and nondeterministic
-provider calls. Review the resulting trace evidence before previewing or creating
-a pull request.
+A passing repair on this bundled example is also available key-free with
+`--generator fixture`. Real workflows still need `--generator llm` and
+provider credentials. Review the resulting trace evidence before previewing or
+creating a pull request.
 
 ![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/landing.css?v=v6" />
+  <link rel="stylesheet" href="assets/landing.css?v=v7" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1514'/%3E%3Cpath d='M8 21V10l8 7 8-7v11' fill='none' stroke='%235ce1c3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
 <body class="landing">
@@ -64,14 +64,6 @@
             <a class="button button-primary" href="#quickstart">Run the example <span aria-hidden="true">→</span></a>
             <a class="button button-secondary" href="docs.html">Read the docs</a>
           </div>
-          <a class="hero-evidence-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">
-            Inspect a real migration PR <span aria-hidden="true">↗</span>
-          </a>
-          <div class="hero-proof">
-            <span>Scheduled dependency checks</span>
-            <span>Automatic scoped repairs</span>
-            <span>Holdout-gated pull requests</span>
-          </div>
         </div>
 
         <div class="workbench" aria-label="Reproducible Driftless comparison result">
@@ -110,13 +102,6 @@
       </div>
     </section>
 
-    <section class="signal-strip" aria-label="Driftless workflow summary">
-      <div><span>01</span><strong>Watch dependencies</strong><small>Models and eval data</small></div>
-      <div><span>02</span><strong>Detect drift</strong><small>Deprecation, cost, quality, labels</small></div>
-      <div><span>03</span><strong>Repair automatically</strong><small>Prompt and config in scope</small></div>
-      <div><span>04</span><strong>Propose a PR</strong><small>Only after holdout passes</small></div>
-    </section>
-
     <section class="section problem-section" id="product">
       <div class="section-shell">
         <div class="section-intro">
@@ -131,29 +116,55 @@
 
         <div class="scenario-grid">
           <article class="scenario-card scenario-model">
-            <div class="scenario-top"><span>MODEL CHANGED</span><b>External drift</b></div>
-            <div class="scenario-icon" aria-hidden="true">
-              <svg viewBox="0 0 32 32" fill="none"><path d="M6 10h20M6 16h14M6 22h18" stroke="currentColor" stroke-width="2"/><path d="m22 13 4 3-4 3" stroke="currentColor" stroke-width="2"/></svg>
+            <div class="scenario-head">
+              <div class="scenario-titlemark">
+                <div class="scenario-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" fill="none"><path d="M6 10h20M6 16h14M6 22h18" stroke="currentColor" stroke-width="2"/><path d="m22 13 4 3-4 3" stroke="currentColor" stroke-width="2"/></svg>
+                </div>
+                <div>
+                  <span>Model changed</span>
+                  <small>Provider lifecycle</small>
+                </div>
+              </div>
+              <b>External drift</b>
             </div>
             <h3>Your provider retires a model.</h3>
             <p>
               The replacement is cheaper, but your JSON parser starts rejecting
               fenced output and classification quality drops.
             </p>
-            <a href="blog/01-model-swap-is-not-a-migration.html">See the model migration use case <span>→</span></a>
+            <ul class="scenario-points" aria-label="Model migration summary">
+              <li><span>What changed</span><strong>Old model is deprecated or expensive</strong></li>
+              <li><span>What breaks</span><strong>Parser rejects output; eval quality drops</strong></li>
+              <li><span>Driftless decision</span><strong>Block until repair passes holdout</strong></li>
+            </ul>
+            <a class="scenario-link" href="blog/01-model-swap-is-not-a-migration.html"><span>Model migration use case</span><i aria-hidden="true">→</i></a>
           </article>
 
           <article class="scenario-card scenario-data">
-            <div class="scenario-top"><span>LABELS CHANGED</span><b>Internal drift</b></div>
-            <div class="scenario-icon" aria-hidden="true">
-              <svg viewBox="0 0 32 32" fill="none"><path d="M7 8h18v16H7z" stroke="currentColor" stroke-width="2"/><path d="M11 13h10M11 18h7" stroke="currentColor" stroke-width="2"/></svg>
+            <div class="scenario-head">
+              <div class="scenario-titlemark">
+                <div class="scenario-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" fill="none"><path d="M7 8h18v16H7z" stroke="currentColor" stroke-width="2"/><path d="M11 13h10M11 18h7" stroke="currentColor" stroke-width="2"/></svg>
+                </div>
+                <div>
+                  <span>Labels changed</span>
+                  <small>Policy and gold data</small>
+                </div>
+              </div>
+              <b>Internal drift</b>
             </div>
             <h3>Your team redefines “correct.”</h3>
             <p>
               Support changes its refund policy and updates gold labels. The model
               stays put, but the prompt now targets yesterday’s rules.
             </p>
-            <a href="blog/02-when-labels-move-refine-not-remodel.html">See the label-change use case <span>→</span></a>
+            <ul class="scenario-points" aria-label="Label change summary">
+              <li><span>What changed</span><strong>Gold labels encode a new policy</strong></li>
+              <li><span>What breaks</span><strong>Prompt still optimizes for yesterday’s rules</strong></li>
+              <li><span>Driftless decision</span><strong>Refine prompt with model pinned</strong></li>
+            </ul>
+            <a class="scenario-link" href="blog/02-when-labels-move-refine-not-remodel.html"><span>Label-change use case</span><i aria-hidden="true">→</i></a>
           </article>
         </div>
       </div>
@@ -273,25 +284,25 @@
         </div>
 
         <div class="outcome-grid">
-          <article class="outcome-card outcome-pass">
-            <div class="outcome-status"><span><i></i> Public testbed PR #4</span><strong>HISTORICAL PROOF</strong></div>
-            <h3>Historical passing testbed</h3>
-            <p>The captured testbed run cleared holdout. Reviewers get its scoped prompt diff, score comparison, and attempt history.</p>
-            <div class="outcome-preview">
-              <div><span>Target Macro F1</span><b>0.000 → 0.904</b></div>
-              <div><span>Schema errors</span><b>100% → 0%</b></div>
-              <div><span>Prompt files changed</span><b>1 in scope</b></div>
+          <article class="outcome-card outcome-blocked">
+            <div class="outcome-status"><span><i></i> <code>--generator none</code></span><strong>REPRODUCIBLE BLOCK</strong></div>
+            <h3>Cheaper is not shippable</h3>
+            <p>The bundled four-row demo fails the quality gate. Driftless records the blocker and previews an issue instead of a false-confidence PR.</p>
+            <div class="blocked-log">
+              <span>support_classifier → gpt-4o-mini</span>
+              <code>FAIL min_f1 0.000 &lt; 0.900</code>
+              <small>No prompt files committed</small>
             </div>
           </article>
 
-          <article class="outcome-card outcome-blocked">
-            <div class="outcome-status"><span><i></i> Bundled key-free demo</span><strong>REPRODUCIBLE</strong></div>
-            <h3>Reproduce the safety path</h3>
-            <p>If no candidate passes holdout, Driftless records what failed and opens an issue instead of creating a false-confidence PR.</p>
-            <div class="blocked-log">
-              <span>attempt_04</span>
-              <code>FAIL min_f1 0.872 &lt; 0.900</code>
-              <small>Best candidate retained as evidence</small>
+          <article class="outcome-card outcome-pass">
+            <div class="outcome-status"><span><i></i> <code>--generator fixture</code></span><strong>REPRODUCIBLE PASS</strong></div>
+            <h3>The published CLI can pass</h3>
+            <p>The same example applies a known-good bundled patch, still without provider keys. Reviewers get the prompt diff, scorecard, and holdout checks.</p>
+            <div class="outcome-preview">
+              <div><span>Target Macro F1</span><b>0.000 → 1.000</b></div>
+              <div><span>Holdout min_f1</span><b>PASS</b></div>
+              <div><span>Prompt files changed</span><b>1 in scope</b></div>
             </div>
           </article>
         </div>
@@ -299,11 +310,11 @@
         <div class="evidence-proof">
           <div class="evidence-proof-copy">
             <span>HISTORICAL TESTBED PROOF · PR #4</span>
-            <strong>Inspect the real draft PR</strong>
-            <p>A captured testbed run with generated report, untouched holdout result, one prompt repair, and a separate model configuration update in the PR.</p>
+            <strong>A larger captured run</strong>
+            <p>Public draft PR from a 290-label testbed: generated report, untouched holdout, one prompt repair, and a model configuration update. Separate from the four-row demo above.</p>
             <details class="evidence-details">
               <summary>Reproduction details</summary>
-              <p>PR #4 used testbed-specific deterministic patch tooling that is not shipped in the CLI. The published LLM generator requires provider credentials and may produce a different repair.</p>
+              <p>The published CLI reproduces the four-row pass with <code>--generator fixture</code>. Regenerating PR #4’s exact patch still needs the testbed harness plus <code>--generator llm</code> (or the testbed simulator) and may differ.</p>
             </details>
             <a class="evidence-proof-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">Open PR #4 on GitHub →</a>
           </div>
@@ -326,8 +337,8 @@
         <div class="usecase-list">
           <a href="blog/01-model-swap-is-not-a-migration.html"><span>01</span><strong>Model deprecation</strong><p>Migrate a classifier without breaking strict JSON or quality.</p><b>→</b></a>
           <a href="blog/02-when-labels-move-refine-not-remodel.html"><span>02</span><strong>Label policy change</strong><p>Refine the prompt while keeping the model pinned.</p><b>→</b></a>
-          <a href="blog/04-cheaper-model-same-quality-bar.html"><span>03</span><strong>Cost reduction</strong><p>Adopt a cheaper model only when the same quality bar passes.</p><b>→</b></a>
-          <a href="blog/07-rag-prompts-drift-too.html"><span>04</span><strong>RAG and agents</strong><p>Test the whole application while keeping retrieval and tools fixed.</p><b>→</b></a>
+          <a href="blog/04-cheaper-model-same-quality-bar.html"><span>04</span><strong>Cost reduction</strong><p>Adopt a cheaper model only when the same quality bar passes.</p><b>→</b></a>
+          <a href="blog/07-rag-prompts-drift-too.html"><span>07</span><strong>RAG and agents</strong><p>Test the whole application while keeping retrieval and tools fixed.</p><b>→</b></a>
         </div>
       </div>
     </section>
@@ -337,8 +348,8 @@
         <div class="quickstart-copy">
           <p class="eyebrow">Try it locally</p>
           <h2>See the synchronization loop in under a minute.</h2>
-          <p>The bundled demo deterministically shows a model dependency change, the resulting quality regression, and a blocked key-free analysis. It is separate from public testbed PR #4 and does not ship a deterministic repair generator.</p>
-          <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
+          <p>The bundled demo shows a cheaper target failing the quality gate, a blocked analysis with <code>--generator none</code>, and a passing repair with <code>--generator fixture</code>. No provider key is required. It is separate from public testbed PR #4.</p>
+          <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gating, and a key-free pass/block loop. It does not establish production quality, statistical confidence, or provider behavior. Use representative data and <code>--generator llm</code> before shipping a real workflow.</p>
           <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt; --apply</code> writes a reviewable draft and safely creates or appends root <code>driftless.yml</code>. Review the inferred contract, resolve any remaining placeholders, then run <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
@@ -357,10 +368,12 @@
 
 <span>$</span> driftless migrate -w support_classifier --to gpt-4o-mini --generator none
 <span class="tok-c"># Expected: BLOCKED with a non-zero exit; continue below.</span>
+<span>$</span> driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+<span class="tok-c"># Expected: PASS — bundled known-good patch, still no API key.</span>
 <span>$</span> driftless report -w support_classifier
 <span>$</span> driftless open-pr -w support_classifier
 <span class="tok-c"># Dry run: no PR or issue is created without --create.</span></code>
-          <p class="quickstart-note"><code>migrate</code> exits non-zero by design because the cheaper target fails the quality gate. It still saves evidence for <code>report</code> and the dry-run <code>open-pr</code> preview.</p>
+          <p class="quickstart-note"><code>--generator none</code> exits non-zero because the cheaper target fails the quality gate. <code>--generator fixture</code> applies the bundled known-good patch and can pass. Both save evidence for <code>report</code> and the dry-run <code>open-pr</code> preview.</p>
         </div>
       </div>
     </section>

@@ -9,10 +9,10 @@ The primary proof comes from executed commands and a real public testbed PR;
 SVGs remain only as clearly labeled historical design excerpts.
 
 The public testbed PR and the bundled saved success fixture are separate
-artifacts. PR #4 used the 290-label public testbed and testbed-specific
-deterministic patch tooling that is not shipped as a Driftless generator. The
-saved fixture in `EXAMPLE_SUCCESS_PR.md` uses the bundled four-row demo and
-different metrics.
+artifacts. PR #4 used the 290-label public testbed. The published CLI
+regenerates the four-row passing fixture with `--generator fixture`. The
+saved fixture in `EXAMPLE_SUCCESS_PR.md` uses that bundled demo and different
+metrics.
 
 ## Current Proof
 
@@ -65,9 +65,10 @@ The current capture comes directly from public-testbed [draft PR
 #4](https://github.com/driftless-dev/support-classifier-svc/pull/4). Its body was
 generated from the saved migration result and includes `Result`, `Proposed
 Diffs`, and `Holdout Validation`. It is historical proof of that testbed run,
-not output that the published CLI can regenerate deterministically: rerunning
-with the shipped LLM generator requires credentials and may produce a different
-result.
+not output that the published CLI can regenerate for that 290-row testbed:
+rerunning with `--generator llm` requires credentials and may produce a
+different result. The four-row bundled success path is
+`migrate --generator fixture`.
 
 Use in:
 

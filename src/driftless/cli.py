@@ -1,8 +1,6 @@
 """driftless command-line interface.
 
-The CLI is the engine. The GitHub Action and App invoke these same commands.
-Milestone 1 implements `init` and `validate`; the remaining commands are
-declared so the surface is stable and discoverable.
+The CLI is the engine. The GitHub Action invokes these same commands.
 """
 
 from __future__ import annotations
@@ -24,6 +22,19 @@ from .examples import available_examples, copy_example as copy_bundled_example
 from .harness import check_inputs, run_workflow
 from .progress import log as progress_log
 from .templates import CONTRACT_TEMPLATE, POLICY_TEMPLATE
+
+_GENERATOR_HELP = "Repair engine: 'llm', 'none', or 'fixture' (bundled examples only)."
+
+
+def _generator_desc(gen: object | None) -> str:
+    if gen is None:
+        return "no-op"
+    if getattr(gen, "kind", None) == "fixture":
+        return "fixture"
+    return (
+        f"llm ({getattr(gen, 'provider', 'unknown')}:"
+        f"{getattr(gen, 'model', 'unknown')})"
+    )
 
 _CI_PROGRESS = (
     os.environ.get("GITHUB_ACTIONS") == "true"
@@ -887,7 +898,7 @@ def plan(
         help="With --act, actually run git/gh (default: dry run / preview).",
     ),
     generator: str = typer.Option(
-        "llm", "--generator", "-g", help="Repair engine for --act: 'llm' or 'none'."
+        "llm", "--generator", "-g", help=_GENERATOR_HELP
     ),
 ) -> None:
     """Discover at-risk workflows and apply the migration policy (CI triage).
@@ -1067,7 +1078,7 @@ def migrate(
     contract_path: Path = typer.Option(None, "--contract", help="Path to driftless.yml."),
     seed: int = typer.Option(0, "--seed", help="Split seed for reproducibility."),
     generator: str = typer.Option(
-        "llm", "--generator", "-g", help="Repair engine: 'llm' or 'none'."
+        "llm", "--generator", "-g", help=_GENERATOR_HELP
     ),
     generator_provider: str = typer.Option(
         None, "--generator-provider", help="Override LLM provider (openai|anthropic)."
@@ -1105,11 +1116,7 @@ def migrate(
             model=generator_model,
             num_candidates=candidates,
         )
-        gen_desc = (
-            "no-op"
-            if gen is None
-            else f"llm ({getattr(gen, 'provider', 'unknown')}:{getattr(gen, 'model', 'unknown')})"
-        )
+        gen_desc = _generator_desc(gen)
         progress_log(
             f"migrate: {workflow} {wf.model.current} -> {to} "
             f"(max {wf.migration.max_iterations} iterations, repair={gen_desc})"
@@ -1182,7 +1189,7 @@ def refine(
     contract_path: Path = typer.Option(None, "--contract", help="Path to driftless.yml."),
     seed: int = typer.Option(0, "--seed", help="Split seed for reproducibility."),
     generator: str = typer.Option(
-        "llm", "--generator", "-g", help="Repair engine: 'llm' or 'none'."
+        "llm", "--generator", "-g", help=_GENERATOR_HELP,
     ),
     generator_provider: str = typer.Option(
         None, "--generator-provider", help="Override LLM provider (openai|anthropic)."
@@ -1228,11 +1235,7 @@ def refine(
             model=generator_model,
             num_candidates=candidates,
         )
-        gen_desc = (
-            "no-op"
-            if gen is None
-            else f"llm ({getattr(gen, 'provider', 'unknown')}:{getattr(gen, 'model', 'unknown')})"
-        )
+        gen_desc = _generator_desc(gen)
         progress_log(
             f"refine: {workflow} (model pinned to {wf.model.current}, "
             f"max {wf.migration.max_iterations} iterations, repair={gen_desc})"
@@ -1327,7 +1330,7 @@ def poll(
         False, "--create", help="With --act, actually run git/gh (default: dry run / preview)."
     ),
     generator: str = typer.Option(
-        "llm", "--generator", "-g", help="Repair engine for --act: 'llm' or 'none'."
+        "llm", "--generator", "-g", help=_GENERATOR_HELP,
     ),
     seed: int = typer.Option(0, "--seed", help="Split seed for reproducibility."),
 ) -> None:

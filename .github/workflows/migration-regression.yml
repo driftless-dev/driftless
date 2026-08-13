@@ -34,6 +34,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$openai" = "missing" ] && [ "$anthropic" = "missing" ]; then
             echo "::notice title=Live eval skipped::Add OPENAI_API_KEY and/or ANTHROPIC_API_KEY in repo secrets. See docs/RELEASE.md § Maintainer: live optimizer eval."
+            if [ "${{ github.repository }}" = "driftless-dev/driftless" ]; then
+              echo "::error::Live eval secrets are required on scheduled/manual runs of driftless-dev/driftless"
+              exit 1
+            fi
           fi
 
   deterministic:
