@@ -54,12 +54,13 @@
     <!-- SIDEBAR -->
     <aside class="docs-sidebar" id="sidebar">
       <h5>Getting started</h5>
-      <a href="#public-alpha">Public alpha</a>
-      <a href="#intro">Introduction</a>
+      <a href="#intro">What Driftless does</a>
+      <a href="#words">Words you'll see</a>
       <a href="#install">Installation</a>
       <a href="#quickstart">Quickstart</a>
       <a href="#adoption">Adopt in your repository</a>
       <a href="#contract">The workflow contract</a>
+      <a href="#public-alpha">Public alpha</a>
 
       <h5>Concepts</h5>
       <a href="#command-chooser">Command chooser</a>
@@ -86,88 +87,113 @@
     <!-- CONTENT -->
     <main class="docs-content" id="main-content">
       <header class="doc-hero">
-        <p class="doc-kicker">Public alpha documentation</p>
+        <p class="doc-kicker">Public alpha · CLI + GitHub Action</p>
         <h1>Keep every LLM workflow <em>in sync.</em></h1>
-        <p class="doc-lede">Install Driftless, define the contract around your real eval, and automate model or dataset changes without lowering the quality bar.</p>
+        <p class="doc-lede">When a model or eval dataset changes, Driftless runs <em>your</em> test command, repairs only the files you allow, and opens a pull request with evidence — or blocks the change if quality drops.</p>
         <div class="doc-hero-actions">
           <a class="button button-primary" href="#quickstart">Run the quickstart <span aria-hidden="true">→</span></a>
-          <a class="doc-text-link" href="https://github.com/driftless-dev/support-classifier-svc/pull/4" target="_blank" rel="noopener">Inspect a real migration PR ↗</a>
+          <a class="doc-text-link" href="#words">Words you'll see</a>
         </div>
       </header>
 
-      <section id="public-alpha">
-        <h2>Public alpha</h2>
-        <p>Driftless is published for technical early adopters who already have an executable LLM eval. The bundled examples are key-free (blocked with <code class="inline">--generator none</code>, passing with <code class="inline">--generator fixture</code>), and the CLI plus composite Action support real local and CI adoption. Integrating your own workflow requires a contract, a reliable eval harness, and deliberate provider-cost and secret handling. Hosted bot/SaaS features are out of scope; see <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GA.md">GA criteria</a>.</p>
-        <div class="callout warn">
-          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          <p>Before wiring Driftless into CI, review the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">known limits</a> and <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost and budget guidance</a>. Existing 0.2.x users should follow the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">0.3 upgrade guide</a>.</p>
+      <!-- INTRO -->
+      <section id="intro">
+        <h2>What Driftless does</h2>
+        <p>Providers retire models. Teams change gold labels. A cheaper model looks tempting. In each case, swapping an ID is rarely enough: the prompt that worked yesterday often fails today, and you need <strong>numbers</strong> before you ship.</p>
+        <p>Driftless is a command-line tool (the GitHub Action just runs the same commands). You describe the task once in a <code class="inline">driftless.yml</code> file. Driftless then:</p>
+        <ol>
+          <li>Runs your existing eval command under the old model and the new one.</li>
+          <li>Repairs only the files you list as editable (usually prompts).</li>
+          <li>Checks the winner on holdout rows it did not tune on.</li>
+          <li>Prints a report and can open a PR — or an issue if the bar is not met.</li>
+        </ol>
+        <p>You own the eval, the quality bar, and the credentials. Driftless orchestrates the loop. It does not reimplement your parser, retrieval, or tools.</p>
+        <div class="callout good">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg></span>
+          <p><strong>If you know Poetry and Dependabot:</strong> <code class="inline">driftless.yml</code> is the manifest (model + eval dataset), the prompt is the lockfile, and delivery is a gated PR. LLM behavior is empirical, so Driftless scores candidates on your eval instead of resolving versions.</p>
         </div>
       </section>
 
-      <!-- INTRO -->
-      <section id="intro">
-        <h2>Introduction</h2>
-        <p>LLM providers deprecate and retire models on aggressive timelines. When a model is retired, every workflow that depends on it breaks or silently degrades. Swapping a model ID is rarely enough — the new model behaves differently, so prompts, format instructions, and few-shot examples often need to change too, and you need <strong>evidence</strong> that the new model still meets your quality bar before you ship.</p>
-        <p>driftless is <strong>CLI-first</strong>: the CLI <em>is</em> the engine, and the GitHub Action just invokes the same commands. You describe your model-dependent workflow once in a <code class="inline">driftless.yml</code> contract, and the tool orchestrates everything else.</p>
-        <div class="callout good">
-          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg></span>
-          <p><strong>Two analogies:</strong> <code class="inline">driftless.yml</code> declares deps (model + dataset); editable prompts are the lockfile. When deps drift, regenerate the lock — except LLM behavior is empirical, so driftless scores candidates on your eval instead of running a resolver. Delivery is Dependabot-style: watch → test → PR with metrics.</p>
-        </div>
-        <div class="callout good">
-          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" stroke-linejoin="round"/></svg></span>
-          <p><strong>Core idea:</strong> the customer owns the workflow; driftless orchestrates it. We shell out to <em>your</em> eval command with the model overridden — never reimplementing your pre/post-processing.</p>
-        </div>
+      <section id="words">
+        <h2>Words you'll see</h2>
+        <table class="doc-table">
+          <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Workflow</strong></td><td>One LLM task in the repo (a classifier, a RAG answerer, an agent).</td></tr>
+            <tr><td><strong>Contract</strong></td><td>The <code class="inline">driftless.yml</code> file: how to run the task, what may be edited, what “good” means.</td></tr>
+            <tr><td><strong>Harness</strong></td><td>Your command (<code class="inline">run.command</code>) that writes one JSON object per line.</td></tr>
+            <tr><td><strong>Compare</strong></td><td>Score current vs target model. No file edits.</td></tr>
+            <tr><td><strong>Migrate</strong></td><td>Try to repair allowed files so the target still meets the bar.</td></tr>
+            <tr><td><code class="inline">-w</code></td><td>Short for <code class="inline">--workflow</code>, the name of the workflow in <code class="inline">driftless.yml</code>.</td></tr>
+            <tr><td><strong>Generator</strong></td><td>Who writes the repair: <code class="inline">none</code> (no edits), <code class="inline">fixture</code> (bundled demo patch), <code class="inline">llm</code> (calls a provider).</td></tr>
+            <tr><td><strong>Holdout</strong></td><td>Eval rows saved for a final check. The repair loop never trains on them.</td></tr>
+            <tr><td><strong>Thresholds</strong></td><td>Numbers such as <code class="inline">min_f1: 0.9</code> that a candidate must beat.</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- INSTALL -->
       <section id="install">
         <h2>Installation</h2>
-        <p>Install the published CLI from PyPI:</p>
+        <p>Python 3.10 or newer. For the quickstart you only need the CLI — no API key:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>pip install driftless</code></pre>
-        <p>For local development from source:</p>
+        <p>Skip this unless you are developing Driftless itself:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>python -m venv .venv
 source .venv/bin/activate
 pip install -e <span class="tok-s">".[dev]"</span></code></pre>
-        <p>The bundled examples, <code class="inline">--generator none</code>, and <code class="inline">--generator fixture</code> paths need no provider key. For LLM-backed repair, install the optional extra and export a key:</p>
+        <p>Automatic prompt repair on <em>your</em> app needs a provider key. Install the extra and export one key:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>pip install <span class="tok-s">"driftless[llm]"</span>      <span class="tok-c"># openai + anthropic SDKs</span>
 export OPENAI_API_KEY=<span class="tok-s">sk-...</span>   <span class="tok-c"># or ANTHROPIC_API_KEY</span></code></pre>
         <div class="callout">
           <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01" stroke-linecap="round"/></svg></span>
-          <p>Requires Python 3.10+. The provider is chosen automatically by which API key is present, so the same contract works across OpenAI and Anthropic.</p>
+          <p>Whichever key is present chooses the provider. The same contract works with OpenAI or Anthropic.</p>
         </div>
       </section>
 
       <!-- QUICKSTART -->
       <section id="quickstart">
         <h2>Quickstart</h2>
-        <p>Start with the bundled support classifier. It is deterministic and runs without provider keys:</p>
+        <p>Copy the bundled ticket classifier. It runs without an API key. <code class="inline">-w support_classifier</code> is the workflow name inside <code class="inline">driftless.yml</code>.</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>pip install driftless
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
 driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini</code></pre>
-        <p>The comparison intentionally shows F1 <code class="inline">1.000 → 0.000</code> and total cost <code class="inline">0.024 → 0.004</code>. The cheaper target is unsafe, so <code class="inline">FAIL min_f1: 0.000 &gt;= 0.9</code> is the expected result.</p>
+        <p><code class="inline">validate</code> checks the wiring. <code class="inline">compare</code> runs the current model and a cheaper target on the same four rows and does not edit files. You should see F1 <code class="inline">1.000 → 0.000</code> and cost <code class="inline">0.024 → 0.004</code>.</p>
+        <p>Read <code class="inline">FAIL min_f1: 0.000 &gt;= 0.9</code> as: the cheap model scored <strong>0.000</strong>, you required <strong>at least 0.9</strong>, so a bare swap is not safe to ship. That failure is the demo working.</p>
         <div class="callout warn">
           <span class="ci" aria-hidden="true">!</span>
-          <p><strong>Four-row smoke demo:</strong> this proves installation, contract execution, quality-gate failure, and evidence plumbing only. It does not establish production quality, statistical confidence, provider behavior, or a successful repair. Use representative data and provider-backed evaluation before shipping.</p>
+          <p><strong>Four rows only.</strong> This proves install and gating. It is not production evidence. Use a real eval and <code class="inline">--generator llm</code> before shipping your own workflow.</p>
         </div>
-        <p>Continue through the key-free blocked path, or reproduce a passing bundled repair:</p>
+        <p>Blocked path — no prompt edits, still no API key. <code class="inline">migrate</code> is expected to exit non-zero. Run the later commands anyway:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator none
-driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 driftless report -w support_classifier
 driftless open-pr -w support_classifier</code></pre>
-        <p><code class="inline">--generator none</code> exits non-zero with <code class="inline">BLOCKED</code>. <code class="inline">--generator fixture</code> applies the known-good bundled patch and can <code class="inline">PASS</code>. Neither calls a provider. <code class="inline">open-pr</code> previews the issue or PR without creating it unless you pass <code class="inline">--create</code>.</p>
-        <p>All bundled projects can be copied with <code class="inline">copy-example</code>: <code class="inline">support-classifier</code>, <code class="inline">rag-qa</code>, and <code class="inline">tool-agent</code>.</p>
+        <p>Passing path — applies the known-good patch shipped with this example:</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+driftless report -w support_classifier
+driftless open-pr -w support_classifier</code></pre>
+        <p>Expect <code class="inline">PASS</code>. <code class="inline">open-pr</code> only prints what it would open unless you add <code class="inline">--create</code>. Do not use <code class="inline">fixture</code> on your own app.</p>
+        <p>Other demos: <code class="inline">copy-example rag-qa</code> and <code class="inline">copy-example tool-agent</code>.</p>
+      </section>
+
+      <section id="public-alpha">
+        <h2>Public alpha</h2>
+        <p>Driftless is for teams that already have an eval they can run from the command line. The bundled examples need no API key. Putting it on your own app needs a filled-in contract, a reliable harness, and a plan for provider cost and secrets. There is no hosted bot; see <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GA.md">what 1.0 will include</a>.</p>
+        <div class="callout warn">
+          <span class="ci"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9l-8 13.8A2 2 0 004 21h16a2 2 0 001.7-3.3l-8-13.8a2 2 0 00-3.4 0z M12 9v4M12 17h.01" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <p>Before CI, read the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">known limits</a> and <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md">cost guidance</a>. Coming from 0.2.x? Use the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md">0.3 upgrade guide</a>.</p>
+        </div>
       </section>
 
       <!-- ADOPTION -->
       <section id="adoption">
         <h2>Adopt Driftless in an existing repository</h2>
-        <p>Prove the local path before adding automation. If you are unsure which path fits your goal, start with the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md">command chooser</a>.</p>
+        <p>The bundled example is a tour. For your own app, you still bring the eval — Driftless will not invent one. If you are unsure which command to run, use the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md">command chooser</a>.</p>
         <ol>
-          <li><strong>Discover and configure:</strong> scan for model usage, then turn a detected workflow into a contract.</li>
-          <li><strong>Validate locally:</strong> make sure the harness runs and compare one target model.</li>
-          <li><strong>Set boundaries:</strong> review edit scope, thresholds, known limits, and provider budget.</li>
+          <li><strong>Discover and configure:</strong> find model usage, then turn it into a <code class="inline">driftless.yml</code> draft.</li>
+          <li><strong>Validate locally:</strong> make sure your eval command runs, then compare one target model.</li>
+          <li><strong>Set boundaries:</strong> review which files may be edited, the quality bar, and the provider budget.</li>
           <li><strong>Add CI last:</strong> generate workflows with <code class="inline">init-ci</code>, review the files, then commit only the jobs you want.</li>
         </ol>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>cd your-existing-repo
@@ -187,7 +213,7 @@ driftless init-ci</code></pre>
       <!-- CONTRACT -->
       <section id="contract">
         <h2>The workflow contract</h2>
-        <p>A <code class="inline">driftless.yml</code> declares one or more model-dependent <strong>workflows</strong>. Each is a strict, typed schema — unknown keys are rejected, so typos surface as errors rather than silent misbehavior.</p>
+        <p><code class="inline">driftless.yml</code> is the one file you fill in. Each named block under <code class="inline">workflows:</code> is one LLM task. Unknown keys are errors, so typos fail fast instead of being ignored.</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-k">workflows</span>:
   <span class="tok-k">support_classifier</span>:
     <span class="tok-k">run</span>:
@@ -219,8 +245,8 @@ driftless init-ci</code></pre>
       <span class="tok-k">split_seed_count</span>: <span class="tok-p">1</span></code></pre>
         <p>There are two override mechanisms, and a workflow may use both:</p>
         <ul>
-          <li><strong><code class="inline">env_var</code></strong> — the harness sets this environment variable to run the workflow under a different model. This is the runtime override used during evaluation.</li>
-          <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a dotted path into a JSON/YAML config file. Used when opening a PR, to write the new model ID into the repo.</li>
+          <li><strong><code class="inline">env_var</code></strong> — Driftless sets this environment variable when it runs your command, so the same script can use a different model during eval.</li>
+          <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a path into a JSON/YAML file. Used when opening a PR, to write the new model ID into the repo.</li>
         </ul>
         <div class="callout warn">
           <span class="ci" aria-hidden="true">!</span>
@@ -231,11 +257,12 @@ driftless init-ci</code></pre>
 
       <section id="command-chooser">
         <h2>Command chooser</h2>
+        <p>Start here if you know the goal but not the command:</p>
         <ul>
-          <li><strong>Try it without keys:</strong> <code class="inline">copy-example support-classifier</code>, then follow the <a href="#quickstart">blocked quickstart</a>.</li>
-          <li><strong>Check setup:</strong> <code class="inline">validate</code>. <strong>Measure a model swap:</strong> <code class="inline">compare</code>.</li>
-          <li><strong>Repair for a model change:</strong> <code class="inline">migrate</code>. <strong>Re-optimize after data changes:</strong> <code class="inline">refine</code>.</li>
-          <li><strong>Triage in CI:</strong> <code class="inline">plan</code>. <strong>Preview the resulting PR/issue:</strong> <code class="inline">open-pr</code> without <code class="inline">--create</code>.</li>
+          <li><strong>Try it without keys:</strong> <code class="inline">copy-example support-classifier</code>, then the <a href="#quickstart">quickstart</a>.</li>
+          <li><strong>Is my setup wired?</strong> <code class="inline">validate</code>. <strong>Is a cheaper model safe?</strong> <code class="inline">compare</code>.</li>
+          <li><strong>Repair for a new model:</strong> <code class="inline">migrate</code>. <strong>Repair after labels changed:</strong> <code class="inline">refine</code>.</li>
+          <li><strong>Let CI decide what work exists:</strong> <code class="inline">plan</code>. <strong>Preview a PR:</strong> <code class="inline">open-pr</code> (add <code class="inline">--create</code> only to actually open it).</li>
         </ul>
         <p>See the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md">complete command chooser</a> for label audits, judge checks, and automation variants.</p>
       </section>
@@ -243,12 +270,13 @@ driftless init-ci</code></pre>
       <!-- LOOP -->
       <section id="loop">
         <h2>The migration loop</h2>
-        <p>This is the core of the product. The same loop powers <code class="inline">migrate</code> and <code class="inline">refine</code>; they differ only in the <strong>objective</strong>:</p>
+        <p>In everyday terms: split the eval into a tuning set and a holdout set. Try the new model with the old prompt. If that already passes, stop. If not, generate small prompt edits, score them on tuning data, keep the smallest edit that helps, and only accept a winner that also passes on holdout — rows the loop never trained on.</p>
+        <p>The same loop powers <code class="inline">migrate</code> and <code class="inline">refine</code>:</p>
         <ul>
-          <li><strong><code class="inline">MEET_THRESHOLDS</code></strong> (<code class="inline">migrate</code>) — a <em>new model</em> regressed; repair until the contract's <code class="inline">thresholds:</code> pass. Candidates are ranked by how close they are to passing.</li>
-          <li><strong><code class="inline">MAXIMIZE</code></strong> (<code class="inline">refine</code>) — the <em>dataset</em> changed, so the old thresholds are stale; the model is pinned, the loop chases the best primary metric, then proposes fresh thresholds.</li>
+          <li><strong>Migrate</strong> — the <em>model</em> changed. Repair until your thresholds pass.</li>
+          <li><strong>Refine</strong> — the <em>eval data</em> changed. Keep the model pinned, chase a better score, then suggest new thresholds.</li>
         </ul>
-        <p>Full algorithm, from <code class="inline">run_migration</code> in <code class="inline">engine.py</code> (<code class="inline">primary</code> = F1 or score/pass-rate; <code class="inline">diff_size</code> = changed lines vs. the original editable files; <code class="inline">evaluate</code> = apply files in a backup/restore sandbox, run your real workflow, score the split):</p>
+        <p>The sketch below is for readers who want the exact algorithm. You can skip it and still use the CLI. (<code class="inline">evaluate</code> means: apply files in a backup/restore sandbox, run your real command, score the split.)</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>run_migration(W, M_target, generator G, objective O, seed):
 
   <span class="tok-c"># ── Setup ──────────────────────────────────────────────</span>
@@ -323,7 +351,7 @@ driftless init-ci</code></pre>
         <table class="doc-table">
           <thead><tr><th>Status</th><th>Meaning</th><th>Files committed?</th></tr></thead>
           <tbody>
-            <tr><td><span class="status-tag change">model_change_only</span></td><td>Naive swap already passes thresholds.</td><td>No — just a model-ID change.</td></tr>
+            <tr><td><span class="status-tag change">model_change_only</span></td><td>The new model already passes with the old prompt.</td><td>No — just a model-ID change.</td></tr>
             <tr><td><span class="status-tag pass">pass</span></td><td>Repair succeeded and holdout validated.</td><td>Yes.</td></tr>
             <tr><td><span class="status-tag partial">partial</span></td><td>Improved over the naive swap but below thresholds.</td><td>No.</td></tr>
             <tr><td><span class="status-tag blocked">blocked</span></td><td>Could not recover quality within budget.</td><td>No.</td></tr>
@@ -348,7 +376,7 @@ driftless init-ci</code></pre>
       <section id="limits">
         <h2>Known limits</h2>
         <ul>
-          <li>The supported surface is the CLI plus composite Action in CI you control. There is no hosted bot; that is out of scope, not an unfinished 1.0 feature.</li>
+          <li>The supported product is the command-line tool plus a GitHub Action you run in CI you control. There is no hosted bot.</li>
           <li>Embedding migrations and vector-index rebuilds are out of scope; RAG migrations keep retrieval fixed.</li>
           <li>Agent tools should be fake or sandboxed, and provider lifecycle data is bundled/CI-refreshed rather than a live hosted catalog.</li>
           <li>Small evals can produce noisy passes. Use representative data, meaningful holdout, and multiple seeds for high-risk changes. See <a href="https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md">eval confidence</a>.</li>
@@ -371,7 +399,7 @@ driftless init-ci</code></pre>
       <!-- POLICY -->
       <section id="policy">
         <h2>Triggers &amp; policy</h2>
-        <p>The rest of the tool answers <em>can</em> we migrate; the policy layer answers <em>when should</em> we — the "Dependabot config" of the project. A trigger is only a <strong>candidate</strong>; whether it's worth it is decided by running your eval.</p>
+        <p>Most commands answer <em>can</em> we change the model. Policy answers <em>when should we even look</em> — optional, like a Dependabot config. A trigger is only a candidate; your eval still decides whether it is worth it.</p>
         <table class="doc-table">
           <thead><tr><th>Trigger</th><th>Tier</th><th>Behavior</th></tr></thead>
           <tbody>
@@ -401,7 +429,7 @@ driftless init-ci</code></pre>
             <tr><td><code>scan</code></td><td>Find probable LLM usage and at-risk models.</td></tr>
             <tr><td><code>plan</code></td><td>Discover at-risk workflows and apply the migration policy (CI triage).</td></tr>
             <tr><td><code>configure &lt;workflow&gt; --apply</code></td><td>Write a reviewable draft and safely create or append root <code>driftless.yml</code>.</td></tr>
-            <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check the contract parses and the harness runs.</td></tr>
+            <tr><td><code>validate -w &lt;w&gt;</code></td><td>Check <code>driftless.yml</code> and run your eval command once.</td></tr>
             <tr><td><code>audit-labels -w &lt;w&gt;</code></td><td>Find duplicate inputs with disagreeing gold labels (<code>--fail</code> for CI).</td></tr>
             <tr><td><code>judge-check -w &lt;w&gt;</code></td><td>Measure judge↔human agreement on a calibration set (<code>--enforce</code> to gate).</td></tr>
             <tr><td><code>calibrate -w &lt;w&gt;</code></td><td>Measure the baseline and suggest starting thresholds.</td></tr>

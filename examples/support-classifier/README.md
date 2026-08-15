@@ -1,8 +1,7 @@
 # Support Classifier Example
 
-This is the golden-path bundled example: a tiny deterministic classification
-workflow with gold labels, macro-F1 scoring, and cost tracking. It requires no
-provider keys.
+This is the smallest bundled example: a tiny ticket classifier with gold
+labels. It needs no API key.
 
 ```bash
 pip install driftless
@@ -12,29 +11,19 @@ driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
-The classifier output deliberately drifts: F1 falls from `1.000` to `0.000`
-while cost falls from `0.024` to `0.004`. The resulting
-`FAIL min_f1: 0.000 >= 0.9` demonstrates that a cheaper model is not necessarily
-safe to ship.
-
-Continue through the blocked path without provider credentials:
+`compare` should fail: F1 goes from `1.000` to `0.000` while cost goes from
+`0.024` to `0.004`. Read `FAIL min_f1: 0.000 >= 0.9` as “scored 0.000, needed
+0.9.” The cheaper model is not safe to ship.
 
 ```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator none
-driftless report -w support_classifier
-driftless open-pr -w support_classifier
-```
-
-`migrate` is expected to exit non-zero with `BLOCKED`. Run the remaining
-commands afterward. `open-pr` is a dry run unless `--create` is supplied.
-
-To reproduce a passing repair on this example without provider keys:
-
-```bash
+# Expected: BLOCKED. Then:
 driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+# Expected: PASS — bundled patch, still no API key.
 ```
 
-`--generator fixture` is a bundled-example aid. Real workflows use `--generator llm`.
+`--generator fixture` is only for this example. Real workflows use
+`--generator llm`.
 
 The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
 and `tool-agent`.

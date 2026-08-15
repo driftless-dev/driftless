@@ -56,15 +56,19 @@
         <span>Use-case guide 02</span>
         <span>Driftless field notes</span>
       </div>
+
       <aside class="guide-start" aria-label="First-time reader guidance">
         <strong>New to Driftless?</strong>
-        Start with the bundled, key-free
-        <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only.
-        <code>--generator none</code> ends <strong>BLOCKED</strong>;
-        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
+        Start with the
+        <a href="../index.html#quickstart">four-row demo</a>
+        (no API key). A failing <code>compare</code> is expected: the cheap model
+        scored 0.000, you needed at least 0.9.
+        <code>--generator none</code> makes no prompt edits (<strong>blocked</strong>).
+        <code>--generator fixture</code> applies the bundled patch and can
+        <strong>pass</strong>.
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are an optional external testbed, not the bundled demo.
+        in some posts is an optional 290-row testbed, not that demo.
+        <a href="../docs.html#words">Words used here →</a>
       </aside>
 <h1 id="support-changed-the-labeling-policy-model-stays-put">Support changed the labeling policy — model stays put</h1>
 <h2 id="what-problem-are-we-solving">What problem are we solving?</h2>

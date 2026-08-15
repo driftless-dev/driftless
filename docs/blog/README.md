@@ -87,10 +87,10 @@ driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
-Expect validation to exercise the contract and harness, then expect comparison
-to block the candidate on quality. That blocked result is intentional: it shows
-that the release gate catches a behavioral regression instead of treating a
-model-ID edit as safe.
+Expect `compare` to fail on purpose: F1 goes from `1.000` to `0.000` while cost
+goes down. Read `FAIL min_f1: 0.000 >= 0.9` as scored **0.000**, needed **0.9**.
+That blocked result shows the release gate catching a behavioral regression
+instead of treating a model-ID edit as safe.
 
 ## Small glossary
 

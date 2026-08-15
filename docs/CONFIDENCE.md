@@ -4,6 +4,9 @@ Driftless reports whether a candidate passed *your* thresholds on *this* split.
 That is a quality gate, not a statistical significance test. Use this page
 before treating a `pass` as production evidence.
 
+**Holdout** means eval rows the repair loop never trains on. A pass on four
+demo rows is not the same as a pass on a real eval.
+
 ## What the engine already warns about
 
 `migrate` and `refine` attach confidence caveats when:

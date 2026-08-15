@@ -19,7 +19,8 @@ The evaluator writes one JSON object per case with a final answer, selected
 tools, tool errors, numeric `score`, and `cost`. In a real agent, the same shape
 can carry planner traces, tool arguments, retrieved docs, and retry history.
 
-Continue with a key-free blocked or passing migration:
+Same key-free loop as the classifier: `--generator none` should `BLOCKED`,
+`--generator fixture` should `PASS`.
 
 ```bash
 driftless migrate -w support_agent --to gpt-4o-mini --generator none
