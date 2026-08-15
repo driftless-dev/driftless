@@ -159,7 +159,13 @@ def is_meaningful_change(delta, policy: "DataChangePolicy") -> bool:
     n = delta.total
     if n <= 0:
         return False
-    if n >= policy.min_changed_rows:
+    # A 4-row demo can never reach a default gate of 5. Cap at dataset size so
+    # rewriting every labeled row is always meaningful.
+    dataset_size = max(getattr(delta, "old_count", 0) or 0, getattr(delta, "new_count", 0) or 0)
+    effective_min = policy.min_changed_rows
+    if dataset_size > 0:
+        effective_min = min(effective_min, dataset_size)
+    if n >= effective_min:
         return True
     if policy.min_changed_fraction > 0 and delta.fraction >= policy.min_changed_fraction:
         return True

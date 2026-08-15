@@ -238,3 +238,6 @@ Statistical significance reporting is also out of scope; use
 
 Keep generated blog HTML fresh in CI, run the static site link check, and label
 future captures with their fixture, dataset size, and reproduction requirements.
+
+Cold-user CLI friction from walking the published docs is tracked in
+[`COLD_USER_ISSUES.md`](./COLD_USER_ISSUES.md).

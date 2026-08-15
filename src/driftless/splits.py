@@ -63,10 +63,10 @@ def make_splits(
 
     input_lines = _read_nonempty_lines(input_path)
     n = len(input_lines)
-    if n < 2:
+    if n < 1:
         raise DriftlessError(
-            "need at least 2 examples to form a tuning/holdout split",
-            hint="add more rows to run.input_path",
+            "need at least 1 example in the input dataset",
+            hint="add rows to run.input_path",
         )
 
     gold: list[Any] | None = None
@@ -92,6 +92,27 @@ def make_splits(
     random.Random(seed).shuffle(indices)
 
     tuning_frac = workflow.eval.split.tuning
+    holdout_frac = workflow.eval.split.holdout
+    # Honor an explicit empty holdout. Do not silently steal a row from 100% tuning.
+    wants_holdout = holdout_frac > 0 and tuning_frac < 1
+    if not wants_holdout:
+        if workflow.migration.holdout_required:
+            raise DriftlessError(
+                "eval.split has no holdout, but migration.holdout_required is true",
+                hint=(
+                    "set eval.split.holdout to a positive fraction (for example 30%), "
+                    "or set migration.holdout_required: false if you intend to tune "
+                    "on every labeled row"
+                ),
+            )
+        return Split(input_lines, gold, sorted(indices), [], gold_ids=gold_ids)
+
+    if n < 2:
+        raise DriftlessError(
+            "need at least 2 examples to form a tuning/holdout split",
+            hint="add more rows to run.input_path",
+        )
+
     tuning_count = max(1, min(n - 1, round(n * tuning_frac)))
     tuning_idx = sorted(indices[:tuning_count])
     holdout_idx = sorted(indices[tuning_count:])

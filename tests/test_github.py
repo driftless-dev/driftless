@@ -9,10 +9,13 @@ from driftless import github
 from driftless.contract import Workflow
 from driftless.errors import DriftlessError
 from driftless.github import (
+    apply_contract_current,
     apply_model_change,
     build_pr_plan,
     execute_plan,
     existing_open_item,
+    planned_model_files,
+    runtime_model_note,
 )
 
 
@@ -42,6 +45,9 @@ def test_pass_with_files_builds_pr():
     assert "migrate support_classifier from gpt-4o-mini to gpt-5-mini" in plan.title
     assert plan.body == "REPORT"
     assert plan.files == ["config/llm.yml", "prompts/p.md"]
+    assert plan.draft is True
+    assert plan.workflow == "support_classifier"
+    assert plan.target_model == "gpt-5-mini"
 
 
 def test_branch_components_are_sanitized_deterministically():
@@ -100,6 +106,20 @@ def test_success_without_files_builds_operational_issue():
     assert plan.kind == "issue"
     assert "no code change" in plan.title
     assert "environment variable" in plan.body
+
+
+def test_success_with_contract_file_builds_pr_and_runtime_note():
+    note = "This update sets `model.current` in the Driftless contract to `gpt-5-mini`."
+    plan = build_pr_plan(
+        _result(status="model_change_only"),
+        "REPORT",
+        committed_files=["driftless.yml"],
+        runtime_note=note,
+    )
+    assert plan.kind == "pr"
+    assert "driftless.yml" in plan.files
+    assert note in plan.body
+    assert "REPORT" in plan.body
 
 
 def test_blocked_builds_issue():
@@ -247,10 +267,14 @@ def test_execute_plan_create_pr_runs_git_and_gh(
 
     def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
         events.append(args)
-        return subprocess.CompletedProcess(args, 0, "", "")
+        stdout = ""
+        if args[:3] == ["gh", "pr", "create"]:
+            stdout = "https://github.com/acme/app/pull/9\n"
+        return subprocess.CompletedProcess(args, 0, stdout, "")
 
     monkeypatch.setattr(github, "_run", fake_run)
     monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+    monkeypatch.setattr(github, "find_open_blocked_issue", lambda *a, **k: None)
 
     actions = execute_plan(
         plan,
@@ -261,7 +285,7 @@ def test_execute_plan_create_pr_runs_git_and_gh(
         prepare_files=lambda: events.append("prepare files"),
     )
 
-    assert actions[-1] == "PR created"
+    assert actions[-1] == "PR created: https://github.com/acme/app/pull/9"
     calls = [event for event in events if isinstance(event, list)]
     assert calls[0] == ["git", "checkout", "-b", plan.branch, "main"]
     assert events[1] == "prepare files"
@@ -272,6 +296,7 @@ def test_execute_plan_create_pr_runs_git_and_gh(
     assert calls[4][:3] == ["gh", "pr", "create"]
     assert plan.title in calls[4]
     assert "--body-file" in calls[4]
+    assert "--draft" in calls[4]
 
 
 @pytest.mark.parametrize("failing_command", [("git", "add"), ("git", "commit")])
@@ -474,11 +499,48 @@ def test_execute_plan_create_pr_no_push_skips_push(
 
     monkeypatch.setattr(github, "_run", fake_run)
     monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+    monkeypatch.setattr(github, "find_open_blocked_issue", lambda *a, **k: None)
 
     execute_plan(plan, cwd=tmp_path, create=True, push=False, dedupe=False)
 
     assert not any(a[:2] == ["git", "push"] for a in calls)
     assert calls[-1][:3] == ["gh", "pr", "create"]
+
+
+def test_execute_plan_closes_matching_blocked_issue(
+    tmp_path, monkeypatch, mocked_git_context
+):
+    (tmp_path / "p.md").write_text("hello\n")
+    plan = build_pr_plan(_result(), "REPORT", committed_files=["p.md"])
+    calls: list[list[str]] = []
+    bodies: list[str] = []
+
+    def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
+        calls.append(args)
+        stdout = ""
+        if args[:3] == ["gh", "pr", "create"]:
+            body_file = Path(args[args.index("--body-file") + 1])
+            bodies.append(body_file.read_text(encoding="utf-8"))
+            stdout = "https://github.com/acme/app/pull/2\n"
+        return subprocess.CompletedProcess(args, 0, stdout, "")
+
+    monkeypatch.setattr(github, "_run", fake_run)
+    monkeypatch.setattr(github, "existing_open_item", lambda plan, *, cwd: None)
+    monkeypatch.setattr(
+        github,
+        "find_open_blocked_issue",
+        lambda *a, **k: {
+            "number": 1,
+            "title": "driftless: migration blocked: support_classifier -> gpt-5-mini",
+        },
+    )
+
+    actions = execute_plan(plan, cwd=tmp_path, create=True, dedupe=True)
+
+    assert "closed blocked issue #1" in actions
+    assert any(c[:4] == ["gh", "issue", "comment", "1"] for c in calls)
+    assert any(c[:4] == ["gh", "issue", "close", "1"] for c in calls)
+    assert bodies and "Supersedes #1" in bodies[0]
 
 
 def test_execute_plan_create_issue_runs_gh(tmp_path, monkeypatch):
@@ -489,14 +551,17 @@ def test_execute_plan_create_issue_runs_gh(tmp_path, monkeypatch):
 
     def fake_run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
         calls.append(args)
-        return subprocess.CompletedProcess(args, 0, "", "")
+        stdout = ""
+        if args[:3] == ["gh", "issue", "create"]:
+            stdout = "https://github.com/acme/app/issues/3\n"
+        return subprocess.CompletedProcess(args, 0, stdout, "")
 
     monkeypatch.setattr(github, "_run", fake_run)
     monkeypatch.setattr(github, "_gh_json", lambda args, *, cwd: [])
 
     actions = execute_plan(plan, cwd=tmp_path, create=True)
 
-    assert actions[-1] == "issue created"
+    assert actions[-1] == "issue created: https://github.com/acme/app/issues/3"
     assert calls[0][:3] == ["gh", "issue", "create"]
     assert plan.title in calls[0]
     assert "--body-file" in calls[0]
@@ -510,6 +575,46 @@ def test_apply_model_change_env_var_returns_none(tmp_path: Path):
         }
     )
     assert apply_model_change(wf, "gpt-5-mini", cwd=tmp_path) is None
+
+
+def test_apply_contract_current_updates_model_current(tmp_path: Path):
+    (tmp_path / "driftless.yml").write_text(
+        "version: 1\n"
+        "workflows:\n"
+        "  support_classifier:\n"
+        "    description: keep me\n"
+        "    model:\n"
+        "      current: gpt-4\n"
+        "      env_var: MODEL\n"
+    )
+    changed = apply_contract_current(
+        "support_classifier", "gpt-4o-mini", cwd=tmp_path
+    )
+    assert changed == "driftless.yml"
+    text = (tmp_path / "driftless.yml").read_text()
+    assert "current: gpt-4o-mini" in text
+    assert "description: keep me" in text
+    assert apply_contract_current(
+        "support_classifier", "gpt-4o-mini", cwd=tmp_path
+    ) is None
+
+
+def test_planned_model_files_include_contract_for_env_var_workflow(tmp_path: Path):
+    (tmp_path / "driftless.yml").write_text(
+        "version: 1\nworkflows:\n  demo:\n    model:\n      current: gpt-4\n"
+    )
+    wf = Workflow.model_validate(
+        {
+            "run": {"command": "true", "input_path": "i", "output_path": "o"},
+            "model": {"current": "gpt-4", "env_var": "MODEL"},
+        }
+    )
+    assert planned_model_files(
+        wf, "gpt-4o-mini", cwd=tmp_path, workflow_name="demo"
+    ) == ["driftless.yml"]
+    note = runtime_model_note(wf, "gpt-4", "gpt-4o-mini")
+    assert "model.current" in note
+    assert "$MODEL" in note
 
 
 def _git(cwd: Path, *args: str) -> str:

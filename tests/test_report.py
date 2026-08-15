@@ -81,6 +81,21 @@ def test_model_change_only_message():
     assert "Model ID change only" in md
 
 
+def test_blocked_report_shows_holdout_failure_message():
+    result = _result(
+        MigrationStatus.BLOCKED,
+        message="tuning passed, holdout failed; could not recover acceptable quality on the target model",
+        holdout=_metrics(f1=0.0, precision=0.0),
+        holdout_checks=[ThresholdCheck("min_f1", False, "0.000 >= 0.9")],
+        gated_on="holdout",
+    )
+    md = render_markdown(result)
+    assert "tuning passed, holdout failed" in md
+    assert "Holdout Validation" in md
+    assert "FAIL `min_f1`" in md
+    assert result_to_dict(result)["gated_on"] == "holdout"
+
+
 def test_result_to_dict_is_json_serializable():
     result = _result(MigrationStatus.PASS, edited_files=["a.md"])
     payload = result_to_dict(result)

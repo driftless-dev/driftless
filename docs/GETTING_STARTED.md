@@ -77,7 +77,8 @@ driftless open-pr -w support_classifier
 `--generator fixture` applies the known-good patch shipped with this example.
 Expect `PASS`. This proves the published CLI can produce a passing evidence
 artifact. It is not a general optimizer — real apps use `--generator llm` and
-need a provider key.
+need a provider key. On this example, a prompt that lists the four labels and
+says to return only those labels is enough; `llm` can learn that phrasing.
 
 The four-row set is still too small to trust as production evidence. See
 [eval confidence](./CONFIDENCE.md).

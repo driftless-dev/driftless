@@ -74,6 +74,9 @@ def test_meaningful_gate_thresholds():
 
     assert not is_meaningful_change(SignatureDelta(3, 0, 0, 100, 103), pol)
     assert is_meaningful_change(SignatureDelta(5, 0, 0, 100, 105), pol)
+    # Gate is capped at dataset size so a 4-row demo can fire on a full rewrite.
+    assert is_meaningful_change(SignatureDelta(0, 0, 4, 4, 4), pol)
+    assert not is_meaningful_change(SignatureDelta(0, 0, 1, 4, 4), pol)
     # fraction path
     frac = DataChangePolicy(min_changed_rows=1000, min_changed_fraction=0.1)
     assert is_meaningful_change(SignatureDelta(10, 0, 0, 90, 100), frac)

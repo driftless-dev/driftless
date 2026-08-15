@@ -34,6 +34,8 @@ _SYSTEM_PROMPT = (
     "- Treat paths not provided as fixed. Preserve the output schema, label "
     "taxonomy, and business rules unless their defining file is explicitly "
     "editable and a focused change is needed.\n"
+    "- If label_taxonomy is provided, use exactly those labels. Do not invent, "
+    "rename, or drop classes.\n"
     "- Make focused, minimal changes that address the observed failure clusters.\n"
     "- Do not bloat the prompt; prefer precise instructions and targeted few-shot examples.\n"
     "- Respond with STRICT JSON only, no prose outside the JSON."
@@ -48,20 +50,32 @@ _DEFAULT_MODELS = {
 # --------------------------------------------------------------------------- #
 # Provider dispatch (lazy imports so SDKs are optional)
 # --------------------------------------------------------------------------- #
-def _resolve_provider(provider: str | None) -> str:
+def _resolve_provider(provider: str | None, *, purpose: str = "generator") -> str:
+    if purpose == "judge":
+        missing_msg = "no LLM provider API key found for judge-check"
+        missing_hint = (
+            "set OPENAI_API_KEY or ANTHROPIC_API_KEY; "
+            "judge-check needs a live LLM key and cannot use a fixture generator"
+        )
+    else:
+        missing_msg = "no LLM provider API key found for patch generation"
+        missing_hint = (
+            "set OPENAI_API_KEY or ANTHROPIC_API_KEY, pass --generator none, "
+            "or use --generator fixture with a bundled example"
+        )
+
     if provider:
+        resolved = provider.strip().lower()
+        if resolved == "openai" and not os.environ.get("OPENAI_API_KEY"):
+            raise DriftlessError("OPENAI_API_KEY is not set", hint=missing_hint)
+        if resolved == "anthropic" and not os.environ.get("ANTHROPIC_API_KEY"):
+            raise DriftlessError("ANTHROPIC_API_KEY is not set", hint=missing_hint)
         return provider
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
-    raise DriftlessError(
-        "no LLM provider API key found for patch generation",
-        hint=(
-            "set OPENAI_API_KEY or ANTHROPIC_API_KEY, pass --generator none, "
-            "or use --generator fixture with a bundled example"
-        ),
-    )
+    raise DriftlessError(missing_msg, hint=missing_hint)
 
 
 def _make_complete_fn(provider: str, model: str) -> CompleteFn:
@@ -211,6 +225,37 @@ def _positive_exemplars(
     return out[:total_limit]
 
 
+def _label_taxonomy(context: PatchContext) -> list[Any]:
+    """Closed gold-label set for the repairer (tuning rows plus the labels file)."""
+    labels: list[Any] = []
+    seen: set[str] = set()
+
+    def add(value: Any) -> None:
+        if value is None:
+            return
+        key = str(value)
+        if key in seen:
+            return
+        seen.add(key)
+        labels.append(value)
+
+    for row in context.rows:
+        add(row.gold)
+
+    spec = context.workflow.eval
+    if spec.labels_path:
+        path = (context.cwd / spec.labels_path).resolve()
+        if path.is_file():
+            from .evaluation import load_labels
+
+            try:
+                for value in load_labels(path, spec.label_field):
+                    add(value)
+            except Exception:
+                pass
+    return labels
+
+
 def _attempt_history(context: PatchContext, limit: int = 12) -> list[dict]:
     """Compact log of prior edits and how they scored, to avoid repetition."""
     log = context.experiment_log[-limit:]
@@ -261,6 +306,7 @@ def _context_vars(context: PatchContext) -> dict[str, str]:
         ),
         "readonly_context_files": json.dumps(context.context_files, default=str),
         "editable_files": json.dumps(context.editable_files, default=str),
+        "label_taxonomy": json.dumps(_label_taxonomy(context), default=str),
     }
 
 
@@ -273,7 +319,8 @@ _DEFAULT_USER_INSTRUCTIONS = (
     '"files": {"<editable path>": "<full new file content>"}}\n'
     "Only include files you actually changed. Return the FULL new content for each.\n"
     "`readonly_context_files` (e.g. the output parser / pre/post-processing) are "
-    "shown for REFERENCE ONLY -- never edit or return them.\n\n"
+    "shown for REFERENCE ONLY -- never edit or return them.\n"
+    "If label_taxonomy is present, the workflow must emit exactly those labels.\n\n"
     "MIGRATION STATE:\n"
 )
 
@@ -310,6 +357,7 @@ def _evidence_payload(
             path: _truncate(content, value_chars * 2)
             for path, content in context.context_files.items()
         },
+        "label_taxonomy": _label_taxonomy(context),
     }
 
 

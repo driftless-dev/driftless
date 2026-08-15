@@ -464,7 +464,7 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
     headline = (
         _REFINE_HEADLINE.get(result.status) if refine else _STATUS_HEADLINE.get(result.status)
     )
-    parts.append((headline or result.message) + "\n")
+    parts.append((result.message or headline or "") + "\n")
     parts.append(_metrics_table(result) + "\n")
 
     parts.extend(_per_field_section(result))
@@ -499,7 +499,12 @@ def render_markdown(result: MigrationResult, workflow: Workflow | None = None) -
     parts.append("")
 
     if result.holdout_checks:
-        parts.append("## Holdout Validation\n")
+        confirm_heading = (
+            "Full-dataset Validation"
+            if result.gated_on == "full_dataset"
+            else "Holdout Validation"
+        )
+        parts.append(f"## {confirm_heading}\n")
         for c in result.holdout_checks:
             mark = "PASS" if c.passed else "FAIL"
             parts.append(f"- {mark} `{c.name}`: {c.detail}")
@@ -574,6 +579,7 @@ def result_to_dict(result: MigrationResult) -> dict:
         "suggested_thresholds": result.suggested_thresholds,
         "original_editable_files": result.original_editable_files,
         "message": result.message,
+        "gated_on": result.gated_on,
     }
 
 

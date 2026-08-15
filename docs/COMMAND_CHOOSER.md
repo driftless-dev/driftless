@@ -41,7 +41,7 @@ unless you pass `--create`.
 |---|---|---|
 | Preview policy-triggered work. | `driftless plan` | Reads `.driftless/policy.yml`; `--no-opportunistic` limits optional cost/quality/new-model proposals. |
 | Execute policy decisions. | `driftless plan --act` | Migration/refine runs may require provider credentials. GitHub operations remain previews unless `--create` is added. |
-| Detect external eval-dataset changes. | `driftless poll` | Fetches configured external data by default; use `--no-fetch` to compare local state only. |
+| Detect external eval-dataset changes. | `driftless poll` | Fetches configured external data by default; use `--no-fetch` to compare local state only. The default gate is 5 changed rows, or the full dataset if it is smaller. |
 | Refine after meaningful external data changes. | `driftless poll --act` | May incur repair cost; add `--create` only when PR/issue side effects are intended. |
 
 ## Evidence and Delivery

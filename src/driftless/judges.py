@@ -78,7 +78,7 @@ class LLMJudge:
                 _resolve_provider,
             )
 
-            self.provider = _resolve_provider(spec.provider)
+            self.provider = _resolve_provider(spec.provider, purpose="judge")
             self.model = spec.model or _DEFAULT_MODELS[self.provider]
             self.complete_fn = _make_complete_fn(self.provider, self.model)
 

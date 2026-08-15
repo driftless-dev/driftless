@@ -425,12 +425,17 @@ def test_rendered_workflows_use_action_ref():
     migrate = render_migrate_workflow(ref)
     assert "command: audit-labels" not in migrate
     assert STRICT_LABEL_AUDIT_ARGS in migrate
+    assert "generator:" in migrate
+    assert "--generator" in migrate
+    assert "hashFiles" in migrate
+    assert "OPENAI_API_KEY or ANTHROPIC_API_KEY" in migrate
     refine = render_refine_workflow(
         ref, "support_classifier", ["data/labels.jsonl"]
     )
     assert "support_classifier" in refine
     assert "command: audit-labels" not in refine
     assert STRICT_LABEL_AUDIT_ARGS in refine
+    assert "hashFiles" in refine
     audit = render_audit_labels_workflow(ref, ["support_classifier"], ["data/labels.jsonl"])
     assert ref in audit
     assert "audit-labels" in audit

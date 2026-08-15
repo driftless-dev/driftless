@@ -175,7 +175,7 @@ A composite GitHub Action wraps the same CLI so scans and migrations can run in
 CI. After you have a working local contract:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.4
+- uses: driftless-dev/driftless@v0.3.5
   with:
     command: scan
 ```

@@ -23,7 +23,16 @@ driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 ```
 
 `--generator fixture` is only for this example. Real workflows use
-`--generator llm`.
+`--generator llm`. A prompt that lists the four labels and says to return
+only those labels is enough for `gpt-4o-mini`; the live generator can
+learn that, and `refine` follows the same label list if gold names change.
+
+`poll` treats a rewrite of every row in this 4-row set as a meaningful
+dataset change (the default 5-row gate is capped at dataset size).
+
+A passing `open-pr` updates `model.current` in `driftless.yml` and
+`config/llm.yml`. The harness reads `MODEL` when Driftless sets it, and
+the config file otherwise.
 
 The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
 and `tool-agent`.

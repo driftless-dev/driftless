@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from shutil import copytree
 
+import yaml
+
 from .errors import DriftlessError
 
 
@@ -22,6 +24,26 @@ def available_examples() -> list[str]:
     if not root.is_dir():
         return []
     return sorted(p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith("."))
+
+
+def example_help_names() -> str:
+    names = available_examples()
+    return ", ".join(names) if names else "support-classifier, rag-qa, tool-agent"
+
+
+def workflow_names_in(project: Path) -> list[str]:
+    """Workflow keys from a copied example's contract, if readable."""
+    for name in ("driftless.yml", "driftless.yaml"):
+        path = project / name
+        if not path.is_file():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            return []
+        if isinstance(data, dict) and isinstance(data.get("workflows"), dict):
+            return [str(key) for key in data["workflows"]]
+    return []
 
 
 def copy_example(name: str, out_dir: Path, *, force: bool = False) -> Path:

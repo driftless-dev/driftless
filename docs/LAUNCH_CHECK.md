@@ -2,6 +2,9 @@
 
 Last full suite and hosted cold-user UX checks: 2026-08-12.
 
+Open CLI friction from the 2026-08-15 PyPI `0.3.4` cold-user walkthrough is
+tracked in [`COLD_USER_ISSUES.md`](./COLD_USER_ISSUES.md).
+
 This records the local checks used to keep the public-alpha release line ready
 for technical early adopters. Commands should be run from the repository root
 unless noted. `0.3.4` is the first published wheel that includes

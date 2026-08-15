@@ -376,6 +376,8 @@ class MigrationResult:
     original_editable_files: dict[str, str] = field(default_factory=dict)
     # Shuffle seeds used for tuning (primary ``seed`` only when split_seed_count==1).
     split_seeds_used: list[int] = field(default_factory=list)
+    # Which confirmation split the holdout_* fields describe, if any.
+    gated_on: str | None = None  # "holdout" | "full_dataset"
 
     @property
     def succeeded(self) -> bool:
@@ -564,6 +566,11 @@ def run_migration(
         len(split.holdout_idx),
         holdout_required=mig.holdout_required,
     )
+    size_warnings.append(
+        f"Split: {len(split.tuning_idx)} tuning / {len(split.holdout_idx)} holdout "
+        f"(requested {workflow.eval.split.tuning:.0%}/"
+        f"{workflow.eval.split.holdout:.0%})."
+    )
     if mig.split_seed_count > 1:
         size_warnings.append(
             f"Multi-seed tuning: candidate selection averages metrics across "
@@ -640,27 +647,71 @@ def run_migration(
     naive_tuning = naive_analysis.metrics
     progress_log(f"migration: phase 1/3 — current F1={_fmt_f1(naive_tuning.f1)}")
 
-    def holdout_ok(files: dict[str, str] | None) -> tuple[bool, Metrics | None, list[ThresholdCheck]]:
-        if not mig.holdout_required:
-            return True, None, []
-        baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
-        holdout_metrics = evaluate_on(target_model, split.holdout_idx, files=files).metrics
-        checks = check_thresholds(thresholds, baseline_holdout, holdout_metrics)
-        append_holdout_class_warnings(holdout_metrics)
-        return all(c.passed for c in checks), holdout_metrics, checks
+    def confirm_ok(
+        files: dict[str, str] | None,
+    ) -> tuple[bool, Metrics | None, list[ThresholdCheck], str | None]:
+        """Gate a tuning-passing candidate so PASS matches what ``compare`` scores.
 
-    def append_holdout_class_warnings(holdout_metrics: Metrics | None) -> None:
-        if holdout_metrics is not None:
-            size_warnings.extend(
-                assess_class_support(holdout_metrics, context="holdout split")
+        When a holdout is required, score that unseen split. When holdout is
+        skipped but some rows were still held out of tuning, score the full
+        dataset instead of silently ignoring those rows.
+        """
+        if mig.holdout_required:
+            if not split.holdout_idx:
+                raise DriftlessError(
+                    "holdout validation was required but the holdout split is empty",
+                    hint=(
+                        "set eval.split.holdout to a positive fraction, or set "
+                        "migration.holdout_required: false"
+                    ),
+                )
+            progress_log(
+                f"migration: holdout validation "
+                f"({len(split.holdout_idx)} examples, model={target_model})..."
             )
+            baseline_holdout = evaluate_on(current, split.holdout_idx).metrics
+            holdout_metrics = evaluate_on(
+                target_model, split.holdout_idx, files=files
+            ).metrics
+            checks = check_thresholds(thresholds, baseline_holdout, holdout_metrics)
+            append_holdout_class_warnings(holdout_metrics, context="holdout split")
+            return all(c.passed for c in checks), holdout_metrics, checks, "holdout"
+
+        if not split.holdout_idx:
+            return True, None, [], None
+
+        all_idx = list(range(len(split.input_lines)))
+        progress_log(
+            f"migration: full-dataset confirmation "
+            f"({len(all_idx)} examples, model={target_model})..."
+        )
+        baseline_all = evaluate_on(current, all_idx).metrics
+        full_metrics = evaluate_on(target_model, all_idx, files=files).metrics
+        checks = check_thresholds(thresholds, baseline_all, full_metrics)
+        append_holdout_class_warnings(full_metrics, context="full dataset")
+        return all(c.passed for c in checks), full_metrics, checks, "full_dataset"
+
+    def append_holdout_class_warnings(
+        holdout_metrics: Metrics | None, *, context: str = "holdout split"
+    ) -> None:
+        if holdout_metrics is not None:
+            size_warnings.extend(assess_class_support(holdout_metrics, context=context))
+
+    last_confirm: Metrics | None = None
+    last_confirm_checks: list[ThresholdCheck] = []
+    last_gated_on: str | None = None
 
     # Step: naive target already good? (migrate only -- in refine the model is
     # pinned, so the "naive target" is just the current prompt and there's no
     # model-only change to short-circuit on.)
     naive_checks = check_thresholds(thresholds, baseline_tuning, naive_tuning)
     if objective is Objective.MEET_THRESHOLDS and all(c.passed for c in naive_checks):
-        ok, holdout_metrics, holdout_checks = holdout_ok(None)
+        ok, confirm_metrics, confirm_checks, gated_on = confirm_ok(None)
+        last_confirm, last_confirm_checks, last_gated_on = (
+            confirm_metrics,
+            confirm_checks,
+            gated_on,
+        )
         if ok:
             return MigrationResult(
                 workflow=workflow_name,
@@ -671,13 +722,14 @@ def run_migration(
                 baseline=baseline_tuning,
                 naive_target=naive_tuning,
                 final=naive_tuning,
-                holdout=holdout_metrics,
-                holdout_checks=holdout_checks,
+                holdout=confirm_metrics,
+                holdout_checks=confirm_checks,
                 tuning_checks=naive_checks,
                 warnings=size_warnings,
                 split_seeds_used=split_seeds_used,
                 judge_agreement=judge_agreement_info,
                 judge_evidence=_judge_evidence(naive_analysis.rows),
+                gated_on=gated_on,
                 message="naive model swap passes thresholds; only the model ID changes",
             )
 
@@ -843,13 +895,26 @@ def run_migration(
         if objective is Objective.MEET_THRESHOLDS and all(
             c.passed for c in check_thresholds(thresholds, baseline_tuning, best_metrics)
         ):
-            ok, holdout_metrics, holdout_checks = holdout_ok(best_files or None)
+            ok, confirm_metrics, confirm_checks, gated_on = confirm_ok(
+                best_files or None
+            )
+            last_confirm, last_confirm_checks, last_gated_on = (
+                confirm_metrics,
+                confirm_checks,
+                gated_on,
+            )
             if ok:
                 edited = (
                     commit_files(best_files, cwd=cwd)
                     if best_files and write_files
                     else list(best_files)
                 )
+                if gated_on == "holdout":
+                    pass_message = "migration passed tuning and holdout thresholds"
+                elif gated_on == "full_dataset":
+                    pass_message = "migration passed thresholds on the full dataset"
+                else:
+                    pass_message = "migration passed tuning thresholds"
                 return MigrationResult(
                     workflow=workflow_name,
                     current_model=current,
@@ -859,19 +924,20 @@ def run_migration(
                     baseline=baseline_tuning,
                     naive_target=naive_tuning,
                     final=best_metrics,
-                    holdout=holdout_metrics,
-                    holdout_checks=holdout_checks,
+                    holdout=confirm_metrics,
+                    holdout_checks=confirm_checks,
                     tuning_checks=check_thresholds(thresholds, baseline_tuning, best_metrics),
                     remaining_clusters=cluster_failures(best_analysis.rows),
                     edited_files=edited,
                     experiment_log=experiment_log,
                     cluster_history=cluster_history,
                     warnings=size_warnings,
-                split_seeds_used=split_seeds_used,
+                    split_seeds_used=split_seeds_used,
                     judge_agreement=judge_agreement_info,
                     judge_evidence=_judge_evidence(best_analysis.rows),
                     original_editable_files=original_editable,
-                    message="migration passed tuning and holdout thresholds",
+                    gated_on=gated_on,
+                    message=pass_message,
                 )
         if improved:
             widened = False  # made progress; next round can go back to cheap width
@@ -908,8 +974,15 @@ def run_migration(
             refine_holdout_checks = check_thresholds(
                 ThresholdsSpec(), baseline_holdout, refine_holdout_metrics
             )
-            append_holdout_class_warnings(refine_holdout_metrics)
-        basis = refine_holdout_metrics if refine_holdout_metrics is not None else best_metrics
+            append_holdout_class_warnings(refine_holdout_metrics, context="holdout split")
+        basis = best_metrics
+        if refine_holdout_metrics is not None:
+            holdout_f1 = refine_holdout_metrics.f1
+            tuning_f1 = best_metrics.f1
+            if holdout_f1 is not None and tuning_f1 is not None and holdout_f1 < tuning_f1:
+                basis = refine_holdout_metrics
+            elif holdout_f1 is not None and tuning_f1 is None:
+                basis = refine_holdout_metrics
         suggested = suggest_thresholds(basis)
 
         improved = bool(best_files) and _maximize_key(best_metrics) > _maximize_key(naive_tuning)
@@ -955,12 +1028,28 @@ def run_migration(
         (best_metrics.schema_error_rate or 0) < (naive_tuning.schema_error_rate or 0)
     )
     status = MigrationStatus.PARTIAL if (best_files and improved_overall) else MigrationStatus.BLOCKED
-    message = (
-        "improved over naive swap but did not pass thresholds within max_iterations; "
-        "changes were NOT committed"
-        if status == MigrationStatus.PARTIAL
-        else "could not recover acceptable quality on the target model"
+    tuning_passed = all(
+        c.passed for c in check_thresholds(thresholds, baseline_tuning, best_metrics)
     )
+    confirm_failed = bool(last_confirm_checks) and not all(
+        c.passed for c in last_confirm_checks
+    )
+    if status == MigrationStatus.PARTIAL:
+        message = (
+            "improved over naive swap but did not pass thresholds within max_iterations; "
+            "changes were NOT committed"
+        )
+    elif tuning_passed and confirm_failed and last_gated_on == "holdout":
+        message = (
+            "tuning passed, holdout failed; could not recover acceptable quality "
+            "on the target model"
+        )
+    elif tuning_passed and confirm_failed and last_gated_on == "full_dataset":
+        message = (
+            "tuning passed, but the full dataset did not meet thresholds"
+        )
+    else:
+        message = "could not recover acceptable quality on the target model"
     return MigrationResult(
         workflow=workflow_name,
         current_model=current,
@@ -970,6 +1059,8 @@ def run_migration(
         baseline=baseline_tuning,
         naive_target=naive_tuning,
         final=best_metrics,
+        holdout=last_confirm,
+        holdout_checks=last_confirm_checks,
         tuning_checks=check_thresholds(thresholds, baseline_tuning, best_metrics),
         remaining_clusters=cluster_failures(best_analysis.rows),
         experiment_log=experiment_log,
@@ -979,5 +1070,6 @@ def run_migration(
         judge_agreement=judge_agreement_info,
         judge_evidence=_judge_evidence(best_analysis.rows),
         original_editable_files=original_editable,
+        gated_on=last_gated_on,
         message=message,
     )

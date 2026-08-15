@@ -23,7 +23,7 @@ from typing import Callable
 
 import yaml
 
-from .contract import Workflow
+from .contract import Workflow, find_contract
 from .errors import DriftlessError
 
 
@@ -37,6 +37,8 @@ class PullRequestPlan:
     commit_message: str = ""
     files: list[str] = field(default_factory=list)
     draft: bool = False
+    workflow: str = ""
+    target_model: str = ""
 
 
 def _set_by_path(data: dict, dotted: str, value) -> None:
@@ -100,6 +102,152 @@ def apply_model_change(workflow: Workflow, target_model: str, *, cwd: Path | Non
     return config_file
 
 
+def contract_relpath(
+    *, cwd: Path, contract_path: Path | str | None = None
+) -> str | None:
+    """Repository-relative contract path, or ``None`` if it is outside the repo."""
+    cwd = cwd.resolve()
+    path = Path(contract_path).resolve() if contract_path else find_contract(cwd)
+    if path is None or not path.is_file():
+        return None
+    try:
+        return str(path.relative_to(cwd))
+    except ValueError:
+        return None
+
+
+def _patch_workflow_current(text: str, workflow_name: str, target_model: str) -> str | None:
+    """Set ``workflows.<name>.model.current`` while keeping surrounding text.
+
+    Returns the new file text, or ``None`` when the value is already ``target_model``
+    or the field cannot be found.
+    """
+    lines = text.splitlines(keepends=True)
+    in_workflow = False
+    in_model = False
+    workflow_indent: int | None = None
+    model_indent: int | None = None
+    header = re.compile(rf"^(\s*){re.escape(workflow_name)}\s*:")
+    current_re = re.compile(r"^(\s*)current\s*:\s*(.+?)\s*$")
+
+    for i, line in enumerate(lines):
+        stripped = line.lstrip(" \t")
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(stripped)
+        match = header.match(line)
+        if match:
+            in_workflow = True
+            workflow_indent = len(match.group(1))
+            in_model = False
+            continue
+        if in_workflow and workflow_indent is not None and indent <= workflow_indent:
+            in_workflow = False
+            in_model = False
+        if in_workflow and re.match(r"model\s*:", stripped):
+            in_model = True
+            model_indent = indent
+            continue
+        if in_model and model_indent is not None and indent <= model_indent:
+            in_model = False
+        if not in_model:
+            continue
+        cur = current_re.match(line)
+        if not cur:
+            continue
+        raw = cur.group(2).strip().strip("'\"")
+        if raw == target_model:
+            return None
+        newline = "\n" if line.endswith("\n") else ""
+        lines[i] = f"{cur.group(1)}current: {target_model}{newline}"
+        return "".join(lines)
+    return None
+
+
+def apply_contract_current(
+    workflow_name: str,
+    target_model: str,
+    *,
+    cwd: Path | None = None,
+    contract_path: Path | str | None = None,
+) -> str | None:
+    """Set ``model.current`` in the contract. Returns the relative path if edited."""
+    cwd = (cwd or Path.cwd()).resolve()
+    rel = contract_relpath(cwd=cwd, contract_path=contract_path)
+    if rel is None:
+        return None
+    path = _repo_path(cwd, rel, setting="contract")
+    text = path.read_text(encoding="utf-8")
+    patched = _patch_workflow_current(text, workflow_name, target_model)
+    if patched is None:
+        return None
+    path.write_text(patched, encoding="utf-8")
+    return rel
+
+
+def planned_model_files(
+    workflow: Workflow,
+    target_model: str,
+    *,
+    cwd: Path | None = None,
+    contract_path: Path | str | None = None,
+    workflow_name: str | None = None,
+) -> list[str]:
+    """Files a passing migration PR should include to actually bump the model ID."""
+    cwd = (cwd or Path.cwd()).resolve()
+    files: list[str] = []
+    rel = contract_relpath(cwd=cwd, contract_path=contract_path)
+    if rel and workflow_name and workflow.model.current != target_model:
+        files.append(rel)
+    config_file = model_change_file(workflow, cwd=cwd)
+    if config_file and config_file not in files:
+        files.append(config_file)
+    return files
+
+
+def apply_runtime_model_updates(
+    workflow: Workflow,
+    target_model: str,
+    *,
+    cwd: Path | None = None,
+    contract_path: Path | str | None = None,
+    workflow_name: str | None = None,
+) -> list[str]:
+    """Write contract + config-file model IDs. Returns relative paths that changed."""
+    cwd = (cwd or Path.cwd()).resolve()
+    changed: list[str] = []
+    if workflow_name:
+        rel = apply_contract_current(
+            workflow_name, target_model, cwd=cwd, contract_path=contract_path
+        )
+        if rel:
+            changed.append(rel)
+    config_file = apply_model_change(workflow, target_model, cwd=cwd)
+    if config_file and config_file not in changed:
+        changed.append(config_file)
+    return changed
+
+
+def runtime_model_note(workflow: Workflow, current_model: str, target_model: str) -> str:
+    """PR/issue note describing which knobs actually change the runtime model."""
+    lines = [
+        f"This update sets `model.current` in the Driftless contract to `{target_model}` "
+        f"(was `{current_model}`)."
+    ]
+    if workflow.model.config_file:
+        lines.append(
+            f"It also updates `{workflow.model.config_file}` "
+            f"(`{workflow.model.config_path}`)."
+        )
+    if workflow.model.env_var:
+        lines.append(
+            f"The harness still reads `${workflow.model.env_var}` when that variable "
+            f"is set (Driftless sets it during compare/migrate). Update the env var "
+            f"in deployment if production does not read the contract or config file."
+        )
+    return "\n\n".join(lines)
+
+
 def _branch_component(value: str) -> str:
     """Make an identifier safe for use as one Git branch path component."""
     sanitized = re.sub(r"[^A-Za-z0-9_-]+", "-", value)
@@ -116,18 +264,24 @@ def build_pr_plan(
     report_md: str,
     *,
     committed_files: list[str],
+    runtime_note: str | None = None,
 ) -> PullRequestPlan:
     """Build a PR/issue plan from a migration result dict + its report."""
     workflow = result["workflow"]
     current = result["current_model"]
     target = result["target_model"]
     branch = f"driftless/{_branch_component(workflow)}-to-{_branch_component(target)}"
+    body = report_md
+    if runtime_note and result.get("succeeded"):
+        body = f"{runtime_note}\n\n---\n\n{report_md}"
 
     if result.get("status") == "no_change":
         return PullRequestPlan(
             kind="skip",
             title=f"No refinement changes: {workflow}",
             body=report_md,
+            workflow=workflow,
+            target_model=target,
         )
 
     if result["succeeded"] and committed_files:
@@ -135,24 +289,39 @@ def build_pr_plan(
         return PullRequestPlan(
             kind="pr",
             title=title,
-            body=report_md,
+            body=body,
             branch=branch,
             commit_message=title,
             files=sorted(set(committed_files)),
+            draft=True,
+            workflow=workflow,
+            target_model=target,
         )
 
     if result["succeeded"] and not committed_files:
-        # Naive swap passes but the model is env-var selected: operational change.
+        # Nothing in-repo to edit (no contract / config file). Operational note.
         title = f"Model migration ready: {workflow} -> {target} (no code change)"
-        body = (
+        note = runtime_note or (
             f"`{workflow}` can move from `{current}` to `{target}` with no prompt/config "
             f"changes.\n\nThe model is selected via an environment variable, so update it "
-            f"in your deployment configuration.\n\n---\n\n{report_md}"
+            f"in your deployment configuration."
         )
-        return PullRequestPlan(kind="issue", title=title, body=body)
+        return PullRequestPlan(
+            kind="issue",
+            title=title,
+            body=f"{note}\n\n---\n\n{report_md}",
+            workflow=workflow,
+            target_model=target,
+        )
 
     title = f"driftless: migration blocked: {workflow} -> {target}"
-    return PullRequestPlan(kind="issue", title=title, body=report_md)
+    return PullRequestPlan(
+        kind="issue",
+        title=title,
+        body=report_md,
+        workflow=workflow,
+        target_model=target,
+    )
 
 
 def planned_pr_identity(
@@ -170,6 +339,9 @@ def planned_pr_identity(
         title=f"chore: migrate {workflow} from {current_model} to {target_model}",
         body="",
         branch=branch,
+        draft=True,
+        workflow=workflow,
+        target_model=target_model,
     )
 
 
@@ -184,6 +356,21 @@ def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
             hint=(proc.stderr or proc.stdout or "").strip()[:500],
         )
     return proc
+
+
+def _created_url(stdout: str) -> str:
+    """Best-effort GitHub URL from ``gh issue/pr create`` stdout."""
+    for line in reversed((stdout or "").splitlines()):
+        text = line.strip()
+        if text.startswith("https://"):
+            return text
+    return ""
+
+
+def _created_action(kind: str, stdout: str) -> str:
+    url = _created_url(stdout)
+    label = "PR created" if kind == "pr" else "issue created"
+    return f"{label}: {url}" if url else label
 
 
 def _gh_json(args: list[str], *, cwd: Path) -> list | None:
@@ -326,6 +513,45 @@ def existing_open_item(plan: PullRequestPlan, *, cwd: Path) -> str | None:
     return None
 
 
+def blocked_issue_title(workflow: str, target_model: str) -> str:
+    return f"driftless: migration blocked: {workflow} -> {target_model}"
+
+
+def find_open_blocked_issue(
+    workflow: str, target_model: str, *, cwd: Path
+) -> dict | None:
+    """Return the open blocked-migration issue for this workflow/target, if any."""
+    title = blocked_issue_title(workflow, target_model)
+    rows = _gh_json(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--state",
+            "open",
+            "--search",
+            f"{title} in:title",
+            "--json",
+            "number,title,url",
+        ],
+        cwd=cwd,
+    )
+    if not rows:
+        return None
+    for row in rows:
+        if isinstance(row, dict) and row.get("title") == title:
+            return row
+    return None
+
+
+def close_blocked_issue(number: int, *, cwd: Path, pr_url: str = "") -> None:
+    comment = "Superseded by the passing migration PR."
+    if pr_url:
+        comment = f"Superseded by the passing migration PR: {pr_url}"
+    _run(["gh", "issue", "comment", str(number), "--body", comment], cwd=cwd)
+    _run(["gh", "issue", "close", str(number)], cwd=cwd)
+
+
 def execute_plan(
     plan: PullRequestPlan,
     *,
@@ -360,13 +586,13 @@ def execute_plan(
                 fh.write(plan.body)
                 body_file = fh.name
             try:
-                _run(
+                proc = _run(
                     ["gh", "issue", "create", "--title", plan.title, "--body-file", body_file],
                     cwd=cwd,
                 )
             finally:
                 Path(body_file).unlink(missing_ok=True)
-            actions.append("issue created")
+            actions.append(_created_action("issue", proc.stdout))
         return actions
 
     actions.append(f"create branch: {plan.branch}")
@@ -399,8 +625,17 @@ def execute_plan(
             _run(["git", "push", "-u", "origin", plan.branch], cwd=cwd)
             pushed = True
 
+        blocked = None
+        if plan.workflow and plan.target_model:
+            blocked = find_open_blocked_issue(
+                plan.workflow, plan.target_model, cwd=cwd
+            )
+        body = plan.body
+        if blocked and blocked.get("number"):
+            body = f"{body.rstrip()}\n\nSupersedes #{blocked['number']}."
+
         with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
-            fh.write(plan.body)
+            fh.write(body)
             body_file = fh.name
         gh_args = ["gh", "pr", "create", "--title", plan.title, "--body-file", body_file]
         if plan.base:
@@ -408,9 +643,23 @@ def execute_plan(
         if plan.draft:
             gh_args += ["--draft"]
         try:
-            _run(gh_args, cwd=cwd)
+            proc = _run(gh_args, cwd=cwd)
         finally:
             Path(body_file).unlink(missing_ok=True)
+        actions.append(_created_action("pr", proc.stdout))
+        if blocked and blocked.get("number"):
+            try:
+                close_blocked_issue(
+                    int(blocked["number"]),
+                    cwd=cwd,
+                    pr_url=_created_url(proc.stdout),
+                )
+                actions.append(f"closed blocked issue #{blocked['number']}")
+            except (DriftlessError, OSError, TypeError, ValueError):
+                actions.append(
+                    f"could not close blocked issue #{blocked.get('number')}"
+                )
+        return actions
     except (DriftlessError, OSError):
         artifact_confirmed = False
         cleanup_local_branch = branch_created

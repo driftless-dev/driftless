@@ -6,7 +6,12 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from driftless import engine, generators, github, report
-from driftless.cli import _act_on_trigger, _model_change_preparer, app
+from driftless.cli import (
+    _act_on_trigger,
+    _format_retires,
+    _model_change_preparer,
+    app,
+)
 from driftless.contract import Workflow
 from driftless.templates import CONTRACT_TEMPLATE
 
@@ -18,6 +23,20 @@ def _plain(text: str) -> str:
 
 
 runner = CliRunner()
+
+
+def test_cli_help_matches_product_lede():
+    result = runner.invoke(app, ["--help"])
+
+    assert result.exit_code == 0
+    assert "Keep models, prompts, and eval data in sync" in result.output
+
+
+def test_format_retires_past_and_future():
+    assert _format_retires(None) == "-"
+    assert _format_retires(12) == "12d"
+    assert _format_retires(0) == "retired today"
+    assert _format_retires(-319) == "retired 319d ago"
 
 
 def test_cli_version(monkeypatch):
@@ -109,7 +128,35 @@ def test_copy_example_scaffolds_bundled_example(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert Path("rag-qa/driftless.yml").is_file()
     assert Path("rag-qa/app/eval_rag.py").is_file()
-    assert "driftless validate" in result.output
+    assert "driftless validate -w rag_qa" in _plain(result.output)
+
+
+def test_copy_example_prints_support_classifier_workflow(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["copy-example", "support-classifier"])
+
+    assert result.exit_code == 0
+    assert "driftless validate -w support_classifier" in _plain(result.output)
+
+
+def test_copy_example_help_lists_support_classifier():
+    result = runner.invoke(app, ["copy-example", "--help"])
+
+    assert result.exit_code == 0
+    assert "support-classifier" in result.output
+    assert "rag-qa" in result.output
+    assert "tool-agent" in result.output
+
+
+def test_copy_example_requires_name_and_lists_examples(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["copy-example"])
+
+    assert result.exit_code == 1
+    out = _plain(result.output)
+    assert "missing example name" in out
+    assert "support-classifier" in out
+    assert "Traceback" not in out
 
 
 def test_copy_example_rejects_unknown_name(tmp_path, monkeypatch):
@@ -119,6 +166,7 @@ def test_copy_example_rejects_unknown_name(tmp_path, monkeypatch):
     assert result.exit_code == 1
     assert "unknown example" in _plain(result.output)
     assert "rag-qa" in _plain(result.output)
+    assert "support-classifier" in _plain(result.output)
 
 
 def test_validate_no_run_accepts_minimal_contract(tmp_path, monkeypatch):
@@ -184,6 +232,22 @@ def test_scan_reports_detected_model(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Probable LLM workflows" in result.output
     assert "gpt-4o-mini" in result.output
+    assert "configure workflow --apply" in _plain(result.output)
+
+
+def test_scan_suggests_configure_for_active_package(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("pyproject.toml").write_text('[project]\nname = "incident-brief"\n')
+    Path("brief.py").write_text(
+        'from openai import OpenAI\nMODEL = os.getenv("BRIEF_MODEL", "gpt-4o")\n'
+    )
+
+    result = runner.invoke(app, ["scan", "."])
+
+    assert result.exit_code == 0
+    out = _plain(result.output)
+    assert "No deprecated or retired models detected" in out
+    assert "configure incident_brief --apply" in out
 
 
 def test_open_pr_dry_run_reads_migration_artifacts(tmp_path, monkeypatch):
@@ -392,7 +456,8 @@ workflows:
 
     def fake_execute(plan, *, cwd, create, push, dedupe, prepare_files):
         seen.update(create=create, push=push, dedupe=dedupe, kind=plan.kind, title=plan.title)
-        assert prepare_files is None
+        assert prepare_files is not None
+        assert "driftless.yml" in plan.files
         return ["create branch: x", "PR created"]
 
     monkeypatch.setattr(github, "execute_plan", fake_execute)
@@ -494,3 +559,148 @@ workflows:
 
     assert result.exit_code == 1
     assert "mean absolute error" in result.output.lower()
+
+
+def _judge_check_contract(tmp_path: Path, *, calibration: str = "calib.jsonl") -> None:
+    Path("driftless.yml").write_text(
+        f"""
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: "python -c pass"
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: old
+      env_var: MODEL
+    eval:
+      judge:
+        rubric: "Award full marks if the summary says 'good'."
+        calibration_path: {calibration}
+        max_mae: 0.5
+""".lstrip()
+    )
+
+
+def test_judge_check_missing_key_is_clean_error(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    (tmp_path / "calib.jsonl").write_text(
+        json.dumps({"input": "q", "output": "good", "score": 1.0}) + "\n"
+    )
+    _judge_check_contract(tmp_path)
+
+    result = runner.invoke(app, ["judge-check", "-w", "summarizer"])
+
+    assert result.exit_code == 1
+    out = _plain(result.output)
+    assert "Traceback" not in out
+    assert "error:" in out
+    assert "API key" in out
+    assert "--generator" not in out
+
+
+def test_judge_check_missing_calibration_before_key(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _judge_check_contract(tmp_path, calibration="missing.jsonl")
+
+    result = runner.invoke(app, ["judge-check", "-w", "summarizer"])
+
+    assert result.exit_code == 1
+    out = _plain(result.output)
+    assert "calibration file not found" in out
+    assert "API key" not in out
+    assert "Traceback" not in out
+
+
+def test_refine_exits_nonzero_when_no_change_below_bar(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("in.jsonl").write_text('{"id": "1"}\n')
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  summarizer:
+    run:
+      command: "python -c pass"
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: old
+      env_var: MODEL
+    eval:
+      score_field: score
+    thresholds:
+      min_score: 0.9
+""".lstrip()
+    )
+
+    from driftless.engine import MigrationResult, MigrationStatus
+    from driftless.evaluation import Metrics
+
+    low = Metrics(n=4, schema_error_rate=0.0, refusal_rate=0.0, score=0.5)
+    stub = MigrationResult(
+        workflow="summarizer",
+        current_model="old",
+        target_model="old",
+        status=MigrationStatus.NO_CHANGE,
+        iterations=0,
+        baseline=low,
+        naive_target=low,
+        final=low,
+        suggested_thresholds={"min_score": 0.47},
+        message="no candidate beat the current prompt on the updated dataset",
+    )
+    monkeypatch.setattr("driftless.engine.run_migration", lambda *a, **k: stub)
+    monkeypatch.setattr("driftless.generators.build_generator", lambda *a, **k: None)
+
+    result = runner.invoke(app, ["refine", "-w", "summarizer", "-g", "none"])
+
+    assert result.exit_code == 1
+    out = _plain(result.output)
+    assert "below the contract bar" in out
+    assert "min_score" in out
+
+
+def test_poll_fetch_lines_do_not_leak_markup(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("in.jsonl").write_text('{"id": "1"}\n')
+    Path("gold.jsonl").write_text('{"id": "1", "label": "a"}\n')
+    Path("driftless.yml").write_text(
+        """
+version: 1
+workflows:
+  support_classifier:
+    run:
+      command: "python -c pass"
+      input_path: in.jsonl
+      output_path: out.jsonl
+    model:
+      current: gpt-4
+      env_var: MODEL
+    eval:
+      labels_path: gold.jsonl
+      data_source:
+        command: "cp gold.jsonl gold.jsonl"
+""".lstrip()
+    )
+
+    from driftless.datasource import FetchResult
+
+    monkeypatch.setattr(
+        "driftless.datasource.fetch_dataset",
+        lambda *a, **k: FetchResult(
+            fetched=True,
+            actions=["ran data_source.command: cp gold.jsonl gold.jsonl"],
+        ),
+    )
+
+    result = runner.invoke(app, ["poll"])
+
+    assert result.exit_code == 0
+    assert "[dim]" not in result.output
+    assert "fetch support_classifier:" in _plain(result.output)

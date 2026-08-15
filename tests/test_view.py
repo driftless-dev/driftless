@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from driftless.view import RunViewerHandler, _list_runs, site_root
+import pytest
+
+from driftless.errors import DriftlessError
+from driftless.view import RunViewerHandler, _list_runs, serve_runs, site_root
 
 
 def test_site_root_exists() -> None:
@@ -58,3 +61,17 @@ def test_api_runs_endpoint(tmp_path: Path) -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_serve_runs_busy_port_is_clean_error(tmp_path: Path) -> None:
+    import socket
+
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.listen(1)
+    try:
+        with pytest.raises(DriftlessError, match=f"port {port} is in use"):
+            serve_runs(cwd=tmp_path, port=port, open_browser=False)
+    finally:
+        sock.close()
