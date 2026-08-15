@@ -1,18 +1,20 @@
 # driftless
 
-**Poetry-style lock regeneration for prompts — delivered Dependabot-style.**
+When you change the model behind an LLM app, the prompt that used to work often
+stops working. Driftless runs **your** eval on the old model and the new one,
+repairs only the files you allow, and opens a pull request with the evidence —
+or **blocks** the change if quality drops.
 
-A prompt is pinned to a **model** and an **eval dataset** (like `pyproject.toml`
-declares deps and `poetry.lock` pins what works). When either moves, the prompt
-goes stale. driftless repairs it through your real eval, validates on holdout,
-and opens a PR with evidence.
+You need an eval you can run from the command line. The bundled demo needs no
+API key. Automatic prompt repair on a real workflow does.
 
-> Also described as *Dependabot for LLM models* — same automation shape, different
-> core insight: prompts are lockfiles, not just config files.
+> If you know Poetry and Dependabot: `driftless.yml` is the manifest (model +
+> eval dataset), the prompt is the lockfile, and delivery is a gated PR. LLM
+> behavior is empirical, so Driftless scores candidates on your eval instead of
+> resolving versions.
 
-> Status: **public alpha** — `0.3.x` release line on [PyPI](https://pypi.org/project/driftless/).
-> Upgrading from 0.2.x? Version 0.3.0 rejects legacy `migration.allow_*`
-> fields; follow the [upgrade guide](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) before updating.
+> Status: **public alpha** — `0.3.x` on [PyPI](https://pypi.org/project/driftless/).
+> Upgrading from 0.2.x? Follow the [upgrade guide](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) first.
 
 ## Install
 
@@ -20,10 +22,12 @@ and opens a PR with evidence.
 pip install driftless
 ```
 
+Python 3.10 or newer. No API key for the steps below.
+
 ## Quickstart
 
-Try Driftless without provider keys by copying the bundled support-classifier
-example:
+Copy the bundled support-classifier example and run it. `-w` is the workflow
+name from `driftless.yml`.
 
 ```bash
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
@@ -32,7 +36,9 @@ driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
-The comparison intentionally fails:
+`validate` checks that the project is wired correctly. `compare` runs the
+**current** model and the **cheaper target** on the same tiny eval. You should
+see something like:
 
 ```text
 F1          current 1.000   target 0.000
@@ -40,40 +46,40 @@ Total cost  current 0.024   target 0.004
 FAIL min_f1: 0.000 >= 0.9
 ```
 
-> **Smoke-demo warning:** this fixture has only **4 rows**. It proves packaging,
-> contract execution, metric gating, evidence rendering, and dry-run PR/issue
-> behavior; it does **not** establish production quality, statistical
-> confidence, provider behavior, or a successful repair. Use a representative
-> eval and real provider credentials before making a shipping decision.
+Read that last line as: the new model scored **0.000**, you required **at least
+0.9**, so the cheaper swap is **not safe to ship**. That failure is the point of
+the demo.
 
-The target is cheaper, but it is not safe to ship because it fails the
-classifier's quality gate. Continue through the blocked migration path without
-provider keys:
+Continue without API keys. `--generator none` makes **no** prompt edits, so
+migration stays blocked. `--generator fixture` applies the known-good patch
+shipped with this example and can pass.
 
 ```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator none
-driftless report -w support_classifier
-driftless open-pr -w support_classifier
-```
+# Expected: BLOCKED, non-zero exit. Run the next commands anyway.
 
-`migrate` exits non-zero with `BLOCKED`, as intended. `--generator none` makes
-no repair edits, `report` renders the saved evidence, and `open-pr` is a dry run
-unless you explicitly pass `--create`.
-
-To reproduce a **passing** repair on the same bundled example, still without
-provider keys:
-
-```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+# Expected: PASS — bundled patch, still no API key.
+
 driftless report -w support_classifier
 driftless open-pr -w support_classifier
+# Dry run: prints what it would open. Add --create only when you mean it.
 ```
 
-`--generator fixture` applies the known-good prompt patch shipped for this
-example. It proves the published CLI can open a passing evidence artifact; it
-does not replace `--generator llm` on a real workflow. The four-row set is still
-too small for production confidence — see
-[eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md).
+> **This demo has only 4 eval rows.** It proves install, gating, and a
+> key-free pass/block loop. It is not production evidence. For a real
+> workflow use a representative eval and `--generator llm` (needs a provider
+> key). See [eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md).
+
+### Words you'll see
+
+| Term | Meaning |
+|---|---|
+| **Workflow** | One LLM task in the repo (classifier, RAG answerer, agent). |
+| **Contract** | `driftless.yml` — how to run the task, what may be edited, what “good” means. |
+| **Harness** | Your command that runs the task and writes one JSON object per line. |
+| **Generator** | Who writes the repair: `none` (no edits), `fixture` (bundled demo patch), `llm` (calls a provider). |
+| **Holdout** | Eval rows saved for a final check; the repair loop never trains on them. |
 
 ## Product proof
 
@@ -93,85 +99,80 @@ reproduces a passing four-row repair with `--generator fixture`; regenerating
 PR #4's exact patch still needs provider-backed `--generator llm` (or the
 testbed's own simulator) and may differ.
 
-Other bundled examples are available for retrieval QA and tool-using agents:
+Other bundled examples:
 
 ```bash
 driftless copy-example rag-qa
 driftless copy-example tool-agent
 ```
 
-To adopt Driftless in an existing repository, follow the
-[guided existing-repository walkthrough](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository).
-It starts with `scan` and `configure --apply`, then gives a concrete
-draft-to-contract example, exact editable-path rules, provider-cost guidance,
-and safety checks before repair or CI. `configure` always saves a reviewable
-draft; `--apply` also creates or safely appends the workflow to root
-`driftless.yml` without rewriting existing comments.
+To put Driftless on an existing app, follow the
+[existing-repository walkthrough](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository).
+Start with `scan` and `configure --apply`, then review the draft contract
+before repair or CI.
 
 ## How it works
 
-You describe your model-dependent workflow once in `driftless.yml`: how to
-run it, how to override the model, which files may be edited, and what quality
-thresholds must hold. `driftless` orchestrates *your* workflow under
-different models, compares results, repairs allowed files, validates on
-holdout, and opens a PR with the evidence.
+You describe the workflow once in `driftless.yml`: the command that runs it,
+how to switch models, which files may be edited, and the quality bar. Driftless
+runs **your** command under different models, compares results, repairs only
+allowed files, checks the winner on holdout data, and opens a PR with the
+evidence.
 
-The customer owns the workflow. The tool orchestrates it.
+You own the workflow. Driftless orchestrates it.
 
-Not a classifier? Choose a grading mode that fits the task — the same loop then
-optimizes against it, with your team owning the definition of "good":
+Not a classifier? Pick a grading mode that matches the task:
 
 - **`eval.score_field` / `eval.pass_field`** — your command emits a numeric score
-  or a pass/fail per record (works for any task: summarization, codegen, agents).
-- **`eval.fields`** — structured extraction, scored per field with
-  precision/recall/F1 against the gold record.
-- **`eval.judge`** — an LLM judge grades each free-form output against a rubric
-  (with an optional human-scored calibration set for a judge-agreement check).
-  Run `driftless judge-check -w <workflow>` before optimizing; set
-  `max_mae` / `min_correlation` in the contract to gate `migrate` / `compare`.
+  or a pass/fail per record (summarization, codegen, agents).
+- **`eval.fields`** — structured extraction, scored per field against gold labels.
+- **`eval.judge`** — an LLM grades free-form output against a rubric. Run
+  `driftless judge-check -w <workflow>` before optimizing.
 
-## CLI
+<details>
+<summary>CLI reference</summary>
 
 | Command | Purpose |
 |---|---|
-| `copy-example` | Copy a bundled example project (`support-classifier`, `rag-qa`, `tool-agent`). |
+| `copy-example` | Copy a bundled example (`support-classifier`, `rag-qa`, `tool-agent`). |
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
 | `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, plan, label audit, and judge check. |
 | `scan` | Find probable LLM usage and at-risk models. |
 | `plan` | Discover at-risk workflows and apply the migration policy (CI triage). |
-| `plan --act` | Migrate + open a PR/issue for every actionable trigger (close the loop). |
-| `configure <workflow>` | Write `.driftless/configure/<workflow>.yml`; add `--apply` to create or safely merge root `driftless.yml`. |
+| `plan --act` | Migrate + open a PR/issue for every actionable trigger. |
+| `configure <workflow>` | Write `.driftless/configure/<workflow>.yml`; add `--apply` to create or append root `driftless.yml`. |
 | `calibrate -w <w>` | Measure the baseline and suggest starting thresholds. |
-| `compare -w <w> --to <model>` | Baseline vs target scorecard; add `--enforce` for a failing CI exit code. |
+| `compare -w <w> --to <model>` | Baseline vs target scorecard; add `--enforce` to fail CI when gates fail. |
 | `migrate -w <w> --to <model>` | Repair + validate + produce migrated files. |
-| | `--strict-label-audit` warns/blocks on duplicate-label conflicts. |
 | `refine -w <w>` | Re-optimize the prompt for a changed eval dataset (model pinned). |
 | `poll [--act]` | Detect external eval-dataset changes and refine on a meaningful change. |
 | `validate -w <w>` | Check the contract parses and the harness runs. |
-| `judge-check -w <w>` | Measure judge↔human agreement on a calibration set (`--enforce` to gate). |
+| `judge-check -w <w>` | Measure judge↔human agreement (`--enforce` to gate). |
 | `audit-labels -w <w>` | Find duplicate inputs with disagreeing gold labels (`--fail` for CI). |
 | `report` | Render the latest migration report. |
 | `view` | Open the optimization run viewer (charts + attempt log). |
 | `open-pr -w <w>` | Open a PR (or issue) from the latest migration result. |
 
-## Configuring *when* to migrate
+</details>
 
-`plan` reads an optional `.driftless/policy.yml` — the "dependabot.yml" layer.
-Scaffold it with `driftless init-policy`; every field matches a default, so an
-empty file behaves like no file. It controls which triggers are enabled
-(`deprecation` is on and forced; `cost`/`quality`/`new_model` are opportunistic),
-the thresholds a candidate must clear (`min_savings_pct`, `min_gain`), a
-`cooldown_days` to skip freshly-released models, candidate `allow`/`deny` globs,
-and an `ignore` list to snooze specific models or moves. The engine still decides
-whether a candidate actually passes *your* eval — policy only decides whether to
-propose it.
+<details>
+<summary>Configuring <em>when</em> to migrate</summary>
 
-## GitHub-native usage
+`plan` reads an optional `.driftless/policy.yml` — the “when to propose a
+change” layer. Scaffold it with `driftless init-policy`. An empty file behaves
+like no file. It controls which triggers are enabled (`deprecation` is on and
+forced; `cost`/`quality`/`new_model` are optional), thresholds a candidate must
+clear, a `cooldown_days` for freshly released models, allow/deny globs, and an
+`ignore` list. The engine still decides whether a candidate passes *your* eval —
+policy only decides whether to propose it.
 
-A composite GitHub Action (`action.yml`) wraps the CLI so scans and migrations
-can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
-`plan --act` triage, and manually-triggered migration workflows.
+</details>
+
+## GitHub Action
+
+A composite GitHub Action wraps the same CLI so scans and migrations can run in
+CI. After you have a working local contract:
 
 ```yaml
 - uses: driftless-dev/driftless@v0.3.4
@@ -179,27 +180,28 @@ can run in CI. See `.github/workflows/` for a scheduled deprecation scan, weekly
     command: scan
 ```
 
+See `.github/workflows/` in this repo for scheduled scan, weekly `plan --act`,
+and manually triggered migration examples.
+
 ## Documentation
 
-- [Landing page](https://driftless-dev.github.io/driftless/) — product overview and public-alpha proof.
-- [Hosted documentation](https://driftless-dev.github.io/driftless/docs.html) — installation, adoption path, concepts, and reference.
-- [Run viewer](https://driftless-dev.github.io/driftless/runs.html) — inspect optimization attempts, metrics, and diffs.
-- [Use-case guides](https://driftless-dev.github.io/driftless/blog/) — model migration, dataset refine, CI automation, cost, label audit, judges, RAG, and agents.
-- [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — run the bundled classifier, RAG, and agent examples.
-- [Upgrading to 0.3](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) — replace legacy `migration.allow_*` fields with exact `files.editable` paths.
-- [Command chooser](https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md) — map common user situations to CLI commands.
-- [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — supported CLI/Action surface and ownership boundaries.
+**Start here**
+
+- [Landing page](https://driftless-dev.github.io/driftless/) — product overview.
+- [Hosted docs](https://driftless-dev.github.io/driftless/docs.html) — install, quickstart, contract, CLI.
+- [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — golden-path example, then adopt in your repo.
+- [Command chooser](https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md) — “I want to do X, which command?”
+- [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — what Driftless will and will not do.
 - [Eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md) — when a pass is trustworthy.
-- [GA criteria](https://github.com/driftless-dev/driftless/blob/main/docs/GA.md) — what 1.0 will and will not include.
-- [Cost and budget guidance](https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md) — practical defaults for expensive eval loops.
-- [Launch check](https://github.com/driftless-dev/driftless/blob/main/docs/LAUNCH_CHECK.md) — latest local suite, packaging, and example command results.
-- [Visual proof inventory](https://github.com/driftless-dev/driftless/blob/main/docs/VISUAL_PROOF_PLAN.md) — genuine captures, provenance, and reproduction notes.
-- [Example review artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_REVIEW_ARTIFACT.md) — dry-run issue/report from a blocked migration.
-- [Example successful PR artifact](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md) — public testbed PR and separate saved fixture.
-- [RAG and agent workflows](https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md) — contract patterns for retrieval QA, judge grading, and tool-using agents.
-- [User readiness plan](https://github.com/driftless-dev/driftless/blob/main/docs/USER_READINESS_PLAN.md) — current adoption boundaries and wider-launch follow-up.
-- [Release process](https://github.com/driftless-dev/driftless/blob/main/docs/RELEASE.md) — changelog, tagging, GitHub Releases, PyPI.
-- [Changelog](https://github.com/driftless-dev/driftless/blob/main/CHANGELOG.md) — version history.
-- [Contributing](https://github.com/driftless-dev/driftless/blob/main/CONTRIBUTING.md) — local setup, checks, and dependency policy.
-- [Repair prompts & custom generators](https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md) — customize
-  the LLM repair prompt or plug in your own patch generator.
+- [Cost and budgets](https://github.com/driftless-dev/driftless/blob/main/docs/COST_AND_BUDGETS.md) — how eval loops spend money.
+
+**When you need them**
+
+- [Upgrading to 0.3](https://github.com/driftless-dev/driftless/blob/main/docs/UPGRADING.md) — replace legacy `migration.allow_*` with `files.editable`.
+- [Use-case guides](https://driftless-dev.github.io/driftless/blog/) — model migration, dataset refine, CI, cost, labels, judges, RAG, agents.
+- [RAG and agents](https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md) — contract patterns.
+- [Repair prompts and custom generators](https://github.com/driftless-dev/driftless/blob/main/docs/repair-and-generators.md)
+- [Example blocked issue](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_REVIEW_ARTIFACT.md) and [example success PR](https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md)
+- [Run viewer](https://driftless-dev.github.io/driftless/runs.html)
+- [Changelog](https://github.com/driftless-dev/driftless/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/driftless-dev/driftless/blob/main/CONTRIBUTING.md)

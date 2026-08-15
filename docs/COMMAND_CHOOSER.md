@@ -1,7 +1,15 @@
 # Command Chooser
 
-Use this when you know what you want to learn, but not which Driftless command
+Use this when you know what you want to do, but not which Driftless command
 to run.
+
+If you just installed Driftless, start with
+`copy-example support-classifier` and the
+[getting started](./GETTING_STARTED.md) walkthrough. You do not need an API key
+for that path.
+
+`-w` is `--workflow` (the name in `driftless.yml`). `open-pr` is a dry run
+unless you pass `--create`.
 
 ## Setup and Discovery
 

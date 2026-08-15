@@ -11,9 +11,10 @@ Someone changes the model ID under deadline pressure. Annotators update labels,
 but continuous integration (CI) never checks whether the prompt still matches
 them. Cheaper models go unnoticed because no one owns weekly review.
 
-The desired outcome looks like Dependabot for prompts: automation watches model
-lifecycle and evaluation data, runs your real tests, and opens a pull request
-(PR) or issue with evidence. A human still decides what ships.
+The outcome you want is a weekly job that watches for retired models and
+eval-data changes, runs your real tests, and opens a pull request (PR) or
+issue with the evidence. A human still decides what ships. If you know
+Dependabot, it is that shape — for prompts.
 
 Audit the labels first. Gold labels are the expected answers in your evaluation
 set, and automation is unsafe when those answers contradict each other. Follow

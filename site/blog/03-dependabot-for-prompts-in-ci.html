@@ -56,15 +56,19 @@
         <span>Use-case guide 03</span>
         <span>Driftless field notes</span>
       </div>
+
       <aside class="guide-start" aria-label="First-time reader guidance">
         <strong>New to Driftless?</strong>
-        Start with the bundled, key-free
-        <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only.
-        <code>--generator none</code> ends <strong>BLOCKED</strong>;
-        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
+        Start with the
+        <a href="../index.html#quickstart">four-row demo</a>
+        (no API key). A failing <code>compare</code> is expected: the cheap model
+        scored 0.000, you needed at least 0.9.
+        <code>--generator none</code> makes no prompt edits (<strong>blocked</strong>).
+        <code>--generator fixture</code> applies the bundled patch and can
+        <strong>pass</strong>.
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are an optional external testbed, not the bundled demo.
+        in some posts is an optional 290-row testbed, not that demo.
+        <a href="../docs.html#words">Words used here →</a>
       </aside>
 <h1 id="prompt-repair-that-doesnt-wait-for-someone-to-remember">Prompt repair that doesn’t wait for someone to remember</h1>
 <h2 id="the-problem-and-the-outcome">The problem and the outcome</h2>
@@ -75,9 +79,10 @@ someone remembers to run the commands.</p>
 Someone changes the model ID under deadline pressure. Annotators update labels,<br />
 but continuous integration (CI) never checks whether the prompt still matches<br />
 them. Cheaper models go unnoticed because no one owns weekly review.</p>
-<p>The desired outcome looks like Dependabot for prompts: automation watches model<br />
-lifecycle and evaluation data, runs your real tests, and opens a pull request<br />
-(PR) or issue with evidence. A human still decides what ships.</p>
+<p>The outcome you want is a weekly job that watches for retired models and<br />
+eval-data changes, runs your real tests, and opens a pull request (PR) or<br />
+issue with the evidence. A human still decides what ships. If you know<br />
+Dependabot, it is that shape — for prompts.</p>
 <p>Audit the labels first. Gold labels are the expected answers in your evaluation<br />
 set, and automation is unsafe when those answers contradict each other. Follow<br />
 <a href="05-audit-labels-before-you-trust-f1.html">post 5</a> before automating repair.</p>

@@ -1,8 +1,12 @@
 # Known Limits
 
-Driftless is a CLI and composite GitHub Action that you run in a repository you
-control. These are the supported-surface boundaries, not a list of unfinished
-hosted products. See [`GA.md`](./GA.md) for what 1.0 will and will not include.
+Driftless is a command-line tool plus a GitHub Action that you run in a
+repository you control. These are the supported-surface boundaries, not a list
+of unfinished hosted products. See [`GA.md`](./GA.md) for what 1.0 will and will
+not include.
+
+**Holdout** means eval rows kept back for a final check. The repair loop does
+not tune on them.
 
 ## Supported surface: CLI + customer CI
 

@@ -52,13 +52,13 @@
           <div class="release-pill"><span></span> Public alpha · Dependabot-style automation for LLM workflows</div>
           <h1 id="hero-title">Keep models, prompts, and eval data <em>in sync.</em></h1>
           <p class="hero-lede">
-            Driftless watches your workflow’s dependencies in CI, repairs prompts
-            when a model or dataset changes, validates through your real eval, and
-            can open an evidence-backed PR when holdout passes.
+            When a model or dataset changes, Driftless runs your eval, repairs
+            only the files you allow, and can open a pull request with the
+            evidence — or block the change if quality drops.
           </p>
           <p class="hero-audience">
-            For teams with an existing eval harness. Comparison and safety gating
-            work key-free; automated LLM repair requires provider credentials.
+            You need an eval you can run from the command line. The bundled demo
+            needs no API key. Automatic prompt repair on a real workflow does.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#quickstart">Run the example <span aria-hidden="true">→</span></a>
@@ -347,10 +347,10 @@
       <div class="quickstart-shell">
         <div class="quickstart-copy">
           <p class="eyebrow">Try it locally</p>
-          <h2>See the synchronization loop in under a minute.</h2>
-          <p>The bundled demo shows a cheaper target failing the quality gate, a blocked analysis with <code>--generator none</code>, and a passing repair with <code>--generator fixture</code>. No provider key is required. It is separate from public testbed PR #4.</p>
+          <h2>See a cheaper model get blocked — then a passing repair.</h2>
+          <p>The bundled demo needs no API key. First <code>compare</code> shows a cheaper target failing the quality gate. <code>--generator none</code> keeps it blocked. <code>--generator fixture</code> applies the known-good patch and can pass. This is separate from public testbed PR #4.</p>
           <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gating, and a key-free pass/block loop. It does not establish production quality, statistical confidence, or provider behavior. Use representative data and <code>--generator llm</code> before shipping a real workflow.</p>
-          <p class="quickstart-adoption">Adopting an existing repository? <code>driftless configure &lt;workflow&gt; --apply</code> writes a reviewable draft and safely creates or appends root <code>driftless.yml</code>. Review the inferred contract, resolve any remaining placeholders, then run <code>validate</code> or <code>init-ci</code>. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
+          <p class="quickstart-adoption">Adopting an existing app? <code>driftless configure &lt;workflow&gt; --apply</code> writes a draft <code>driftless.yml</code> you can review, then creates or appends the real file without rewriting comments. Fill in any leftover placeholders, then run <code>validate</code>. Add CI with <code>init-ci</code> last. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
             <span>✓ Reproducible fixture</span>

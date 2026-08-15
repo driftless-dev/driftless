@@ -26,6 +26,40 @@ POSTS = [
     ("08-agent-tool-selection-drift.md", "Tool-calling agent: new planner, same tools"),
 ]
 
+CARD_LEDES = {
+    "01-model-swap-is-not-a-migration.md":
+        "The provider retires your model. Changing the ID is not enough — compare first, then repair only if quality recovers.",
+    "02-when-labels-move-refine-not-remodel.md":
+        "Support changed what “correct” means. Keep the model, update the prompt, and prove it on rows the repair loop did not see.",
+    "03-dependabot-for-prompts-in-ci.md":
+        "Stop relying on someone to remember. Schedule a weekly check that opens a PR or issue with evidence.",
+    "04-cheaper-model-same-quality-bar.md":
+        "Finance wants a cheaper model. Keep the same quality bar so cheaper is never an automatic yes.",
+    "05-audit-labels-before-you-trust-f1.md":
+        "If two similar tickets have different expected labels, no prompt or model can get both right. Audit first.",
+    "06-trust-your-llm-judge.md":
+        "Free-form answers need a grader. Check that the LLM judge agrees with people before you trust its scores.",
+    "07-rag-prompts-drift-too.md":
+        "A new answer model can drop citations or invent policy even when retrieval stays the same.",
+    "08-agent-tool-selection-drift.md":
+        "A polite final sentence can hide a skipped refund check. Score the tool calls, not just the prose.",
+}
+
+GUIDE_START = """
+      <aside class="guide-start" aria-label="First-time reader guidance">
+        <strong>New to Driftless?</strong>
+        Start with the
+        <a href="../index.html#quickstart">four-row demo</a>
+        (no API key). A failing <code>compare</code> is expected: the cheap model
+        scored 0.000, you needed at least 0.9.
+        <code>--generator none</code> makes no prompt edits (<strong>blocked</strong>).
+        <code>--generator fixture</code> applies the bundled patch and can
+        <strong>pass</strong>.
+        <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
+        in some posts is an optional 290-row testbed, not that demo.
+        <a href="../docs.html#words">Words used here →</a>
+      </aside>"""
+
 MD = markdown.Markdown(
     extensions=["fenced_code", "tables", "toc", "nl2br", "sane_lists"],
     extension_configs={"toc": {"permalink": False}},
@@ -91,16 +125,7 @@ def _page(title: str, body: str, *, active: str | None = None) -> str:
         <span>Use-case guide {active_index:02d}</span>
         <span>Driftless field notes</span>
       </div>
-      <aside class="guide-start" aria-label="First-time reader guidance">
-        <strong>New to Driftless?</strong>
-        Start with the bundled, key-free
-        <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only.
-        <code>--generator none</code> ends <strong>BLOCKED</strong>;
-        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
-        <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are an optional external testbed, not the bundled demo.
-      </aside>"""
+{GUIDE_START}"""
         previous = POSTS[active_index - 2] if active_index > 1 else None
         following = POSTS[active_index] if active_index < len(POSTS) else None
         links = []
@@ -201,29 +226,7 @@ def build() -> None:
         (OUT / f"{slug}.html").write_text(
             _page(label, html_body, active=slug), encoding="utf-8"
         )
-        # Card blurb: first paragraph under "## The use case"
-        lede = ""
-        lines = raw.splitlines()
-        try:
-            start = next(i for i, line in enumerate(lines) if line.strip() == "## The use case")
-            chunk: list[str] = []
-            for line in lines[start + 1 :]:
-                if line.startswith("## "):
-                    break
-                if line.startswith("**What driftless"):
-                    break
-                if not line.strip():
-                    if chunk:
-                        break
-                    continue
-                chunk.append(line.strip())
-            lede = " ".join(chunk)
-            lede = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", lede)
-            lede = lede.replace("**", "").replace("*", "")
-            if len(lede) > 220:
-                lede = lede[:217].rsplit(" ", 1)[0] + "…"
-        except StopIteration:
-            lede = ""
+        lede = CARD_LEDES.get(fname, "")
         lede_html = markdown.markdown(lede).removeprefix("<p>").removesuffix("</p>")
         lede_html = _rewrite_links(lede_html)
         read_minutes = max(4, round(len(raw.split()) / 220))
@@ -240,21 +243,13 @@ def build() -> None:
     index_body = f"""
       <header class="index-hero">
         <p class="eyebrow">Driftless field notes</p>
-        <h1>Practical guides for LLM workflows that move.</h1>
+        <h1>Guides for when the model, the labels, or the eval change.</h1>
         <p>
-          Model deprecations, changing labels, cheaper inference, RAG, and agents.
-          Each guide shows how to keep the model, prompt, and eval data in sync
-          with a reproducible example.
+          Each post is one situation: a retired model, cheaper inference, new gold
+          labels, RAG, or an agent. If you have not used Driftless yet, run the
+          four-row demo first — no API key.
         </p>
-        <aside class="guide-start" aria-label="First-time reader guidance">
-          <strong>Start key-free:</strong>
-          run <a href="../index.html#quickstart"><code>driftless copy-example support-classifier</code></a>.
-          The four-row bundled demo proves smoke-demo plumbing only.
-          <code>--generator none</code> ends <strong>BLOCKED</strong>;
-          <code>--generator fixture</code> can <strong>PASS</strong>. The larger
-          <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-          used in some guides is an optional external testbed.
-        </aside>
+{GUIDE_START}
       </header>
       <div class="blog-grid">
 {"".join(cards)}

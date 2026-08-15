@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **New-user docs** — README, getting started, hosted docs, and the blog index
+  lead with a plain-language first run, a short glossary, and an explanation of
+  the demo `FAIL min_f1` line. Specialist CLI/policy pages stay, but are no
+  longer the front door.
+
 ### Fixed
 
 ---

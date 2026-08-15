@@ -14,9 +14,9 @@ tests still pass, and a few staging examples look reasonable.
 
 The risk is behavioral. A new model may wrap JSON in markdown, causing the parser
 to record `null`, or interpret an unstated refund rule differently. The model ID
-changed while the prompt did not. A **workflow contract** is the required
-combination of harness command, output format, labels, allowed edits, cost
-accounting, and release thresholds. A one-line model edit can break that contract.
+changed while the prompt did not. That one-line edit can break the whole setup:
+the eval command, the required JSON shape, the labels, and the quality bar.
+Driftless calls that setup the **workflow contract** (`driftless.yml`).
 
 This is **model-induced drift**, a change in workflow behavior caused by changing
 the model. It can also expose **prompt drift**, where a prompt tuned for the old
@@ -93,19 +93,20 @@ driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
 Expect **macro-F1** to fall from `1.000` to `0.000` while cost falls from `0.024`
-to `0.004`. Macro-F1 averages each category's F1 score without weighting by
-category size; F1 balances precision and recall. This result proves that compare
-and the quality gate work. It does not estimate either provider model's quality.
+to `0.004`. Read a line like `FAIL min_f1: 0.000 >= 0.9` as: the cheap model
+scored **0.000**, you required **at least 0.9**. Macro-F1 averages each
+category's F1 score without weighting by category size; F1 balances precision
+and recall. This result proves that compare and the quality gate work. It does
+not estimate either provider model's quality.
 Current CLI output may also include average-latency rows and a
 **Confidence caveats** section. On a four-row fixture, those warnings emphasize
 that the sample is too small for a reliable production migration decision; they
 do not contradict the deterministic demo result.
 
-You can continue key-free with `migrate ... --generator none`, which records an
-intentional `BLOCKED` result because no repair is attempted. On the bundled
-demo, `migrate ... --generator fixture` records a passing repair without
-provider credentials. On a real workflow, `--generator llm` needs credentials
-and is nondeterministic.
+`--generator none` makes no prompt edits, so `migrate` stays `BLOCKED`.
+`--generator fixture` applies the known-good patch shipped with this example
+and can pass, still without an API key. On a real workflow, `--generator llm`
+needs credentials and is nondeterministic.
 
 ![Actual Driftless compare output showing the target model blocked by the quality gate](../visuals/compare-terminal.png)
 
@@ -155,8 +156,10 @@ Thresholds (target vs contract):
 Naive target does not pass - run driftless migrate ...
 ```
 
-**Schema error rate** is the fraction of outputs that fail the configured output
-format or parser contract. Here every simulated candidate output is fenced JSON,
+**Schema error rate** is the fraction of outputs that fail the required JSON
+shape. Read `FAIL min_f1: 0.000 >= 0.9` as scored **0.000**, needed **0.9**, and
+`FAIL max_schema_error_rate: 1.000 <= 0.02` as every row failed the parser (you
+allowed at most 2%). Here every simulated candidate output is fenced JSON,
 so the strict parser rejects all of them and F1 falls to zero. The current model
 passes; the unmodified candidate fails both release thresholds.
 

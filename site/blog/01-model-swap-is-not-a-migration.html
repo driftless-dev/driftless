@@ -56,15 +56,19 @@
         <span>Use-case guide 01</span>
         <span>Driftless field notes</span>
       </div>
+
       <aside class="guide-start" aria-label="First-time reader guidance">
         <strong>New to Driftless?</strong>
-        Start with the bundled, key-free
-        <a href="../index.html#quickstart"><code>copy-example support-classifier</code> demo</a>.
-        Its four rows prove smoke-demo plumbing only.
-        <code>--generator none</code> ends <strong>BLOCKED</strong>;
-        <code>--generator fixture</code> can <strong>PASS</strong>. References in this guide to
+        Start with the
+        <a href="../index.html#quickstart">four-row demo</a>
+        (no API key). A failing <code>compare</code> is expected: the cheap model
+        scored 0.000, you needed at least 0.9.
+        <code>--generator none</code> makes no prompt edits (<strong>blocked</strong>).
+        <code>--generator fixture</code> applies the bundled patch and can
+        <strong>pass</strong>.
         <a href="https://github.com/driftless-dev/support-classifier-svc"><code>support-classifier-svc</code></a>
-        are an optional external testbed, not the bundled demo.
+        in some posts is an optional 290-row testbed, not that demo.
+        <a href="../docs.html#words">Words used here →</a>
       </aside>
 <h1 id="your-ticket-classifiers-model-got-deprecated">Your ticket classifier’s model got deprecated</h1>
 <h2 id="what-problem-are-we-solving">What problem are we solving?</h2>
@@ -78,9 +82,9 @@ tuned for that model. When the provider deprecates it, changing one line in<br /
 tests still pass, and a few staging examples look reasonable.</p>
 <p>The risk is behavioral. A new model may wrap JSON in markdown, causing the parser<br />
 to record <code>null</code>, or interpret an unstated refund rule differently. The model ID<br />
-changed while the prompt did not. A <strong>workflow contract</strong> is the required<br />
-combination of harness command, output format, labels, allowed edits, cost<br />
-accounting, and release thresholds. A one-line model edit can break that contract.</p>
+changed while the prompt did not. That one-line edit can break the whole setup:<br />
+the eval command, the required JSON shape, the labels, and the quality bar.<br />
+Driftless calls that setup the <strong>workflow contract</strong> (<code>driftless.yml</code>).</p>
 <p>This is <strong>model-induced drift</strong>, a change in workflow behavior caused by changing<br />
 the model. It can also expose <strong>prompt drift</strong>, where a prompt tuned for the old<br />
 model no longer produces the required behavior.</p>
@@ -140,18 +144,19 @@ driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 </code></pre>
 <p>Expect <strong>macro-F1</strong> to fall from <code>1.000</code> to <code>0.000</code> while cost falls from <code>0.024</code><br />
-to <code>0.004</code>. Macro-F1 averages each category's F1 score without weighting by<br />
-category size; F1 balances precision and recall. This result proves that compare<br />
-and the quality gate work. It does not estimate either provider model's quality.<br />
+to <code>0.004</code>. Read a line like <code>FAIL min_f1: 0.000 &gt;= 0.9</code> as: the cheap model<br />
+scored <strong>0.000</strong>, you required <strong>at least 0.9</strong>. Macro-F1 averages each<br />
+category's F1 score without weighting by category size; F1 balances precision<br />
+and recall. This result proves that compare and the quality gate work. It does<br />
+not estimate either provider model's quality.<br />
 Current CLI output may also include average-latency rows and a<br />
 <strong>Confidence caveats</strong> section. On a four-row fixture, those warnings emphasize<br />
 that the sample is too small for a reliable production migration decision; they<br />
 do not contradict the deterministic demo result.</p>
-<p>You can continue key-free with <code>migrate ... --generator none</code>, which records an<br />
-intentional <code>BLOCKED</code> result because no repair is attempted. On the bundled<br />
-demo, <code>migrate ... --generator fixture</code> records a passing repair without<br />
-provider credentials. On a real workflow, <code>--generator llm</code> needs credentials<br />
-and is nondeterministic.</p>
+<p><code>--generator none</code> makes no prompt edits, so <code>migrate</code> stays <code>BLOCKED</code>.<br />
+<code>--generator fixture</code> applies the known-good patch shipped with this example<br />
+and can pass, still without an API key. On a real workflow, <code>--generator llm</code><br />
+needs credentials and is nondeterministic.</p>
 <p><img alt="Actual Driftless compare output showing the target model blocked by the quality gate" src="../visuals/compare-terminal.png" /></p>
 <h3 id="2-reproduce-the-regression-in-the-290-row-testbed">2. Reproduce the regression in the 290-row testbed</h3>
 <p>The next commands clone and install the external testbed, restore the hand-written<br />
@@ -189,8 +194,10 @@ Thresholds (target vs contract):
 
 Naive target does not pass - run driftless migrate ...
 </code></pre>
-<p><strong>Schema error rate</strong> is the fraction of outputs that fail the configured output<br />
-format or parser contract. Here every simulated candidate output is fenced JSON,<br />
+<p><strong>Schema error rate</strong> is the fraction of outputs that fail the required JSON<br />
+shape. Read <code>FAIL min_f1: 0.000 &gt;= 0.9</code> as scored <strong>0.000</strong>, needed <strong>0.9</strong>, and<br />
+<code>FAIL max_schema_error_rate: 1.000 &lt;= 0.02</code> as every row failed the parser (you<br />
+allowed at most 2%). Here every simulated candidate output is fenced JSON,<br />
 so the strict parser rejects all of them and F1 falls to zero. The current model<br />
 passes; the unmodified candidate fails both release thresholds.</p>
 <p>Do not treat these simulator numbers as a provider benchmark. They are an<br />

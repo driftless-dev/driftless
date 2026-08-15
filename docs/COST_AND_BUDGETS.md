@@ -1,11 +1,12 @@
 # Cost and Budget Guidance
 
+Skip this until you have run the four-row [getting started](./GETTING_STARTED.md)
+demo. Come back before `migrate`, `refine`, or judge-graded workflows on a
+real eval.
+
 Driftless runs your real workflow. That is the point, but it also means cost is
 driven by the same things that make LLM evals expensive: records, models, repair
 attempts, judge calls, retrieval/tool calls, and retries.
-
-Use this guide before running `migrate`, `refine`, or judge-graded workflows on a
-large eval set.
 
 ## What Drives Cost
 

@@ -1,26 +1,42 @@
 # Getting Started
 
-The fastest way to understand Driftless is to run a bundled example. No provider
-keys are required.
+The fastest way to understand Driftless is to run a bundled example. You do not
+need an API key.
 
-> **Upgrading from 0.2.x?** Version 0.3.0 rejects legacy
-> `migration.allow_*` fields. Update each contract to use exact paths in
-> `files.editable` before installing it; see [Upgrading Driftless](./UPGRADING.md)
-> for before/after YAML and the complete edit-policy rules.
+If a word is new, jump to [Words used here](#words-used-here). For “which
+command do I want?”, use the [command chooser](./COMMAND_CHOOSER.md).
 
-## Golden Path: Support Classifier
+## Golden path: support classifier
+
+This example is a tiny ticket classifier. The cheaper target model is
+**supposed** to fail the quality gate until a known-good prompt patch is
+applied.
+
+### 1. Install and copy the example
 
 ```bash
 pip install driftless
 
 driftless copy-example support-classifier --out-dir driftless-classifier-demo
 cd driftless-classifier-demo
+```
+
+Python 3.10 or newer. `copy-example` writes a small project you can throw away.
+
+### 2. Check the wiring, then compare models
+
+`-w support_classifier` is the workflow name inside `driftless.yml`.
+
+```bash
 driftless validate -w support_classifier
 driftless compare -w support_classifier --to gpt-4o-mini
 ```
 
-This is the smallest gold-label path: a deterministic ticket classifier with
-macro-F1 thresholds and cost tracking. The comparison intentionally produces:
+`validate` runs your eval command once to prove the contract works. `compare`
+runs the **current** model and **gpt-4o-mini** on the same four rows, and does
+not edit any files.
+
+You should see:
 
 ```text
 Running gpt-4 (baseline) and gpt-4o-mini (target)...
@@ -33,11 +49,11 @@ Thresholds (target vs contract):
   FAIL min_f1: 0.000 >= 0.9
 ```
 
-The output is deliberate: the target costs less, but its classifier output
-drifts and fails the quality bar. Driftless therefore prevents a cheap but
-unsafe model swap.
+In plain language: the cheap model scored **0.000** F1, you required **at least
+0.9**, so Driftless will not treat a bare model swap as shippable. Cost went
+down; quality did not. That is the demo working.
 
-Continue through the key-free blocked path:
+### 3. Blocked path (no prompt edits)
 
 ```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator none
@@ -45,12 +61,12 @@ driftless report -w support_classifier
 driftless open-pr -w support_classifier
 ```
 
-`migrate` is expected to exit non-zero with `BLOCKED`; run the next commands
-afterward. `--generator none` makes no edits and needs no provider credentials.
-`report` renders the evidence saved by the migration, and `open-pr` previews the
-issue it would create. It is a dry run unless you add `--create`.
+`--generator none` means “do not change the prompt.” `migrate` is expected to
+exit **non-zero** with `BLOCKED`. That is success for this step — run `report`
+and `open-pr` afterward anyway. `open-pr` only prints what it would open unless
+you add `--create`.
 
-Reproduce a passing repair on the same example, still without keys:
+### 4. Passing path (bundled patch, still no API key)
 
 ```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
@@ -58,13 +74,28 @@ driftless report -w support_classifier
 driftless open-pr -w support_classifier
 ```
 
-`--generator fixture` applies the known-good bundled patch. It is a
-reproduction aid, not a general optimizer. The four-row set still needs the
-[confidence caveats](./CONFIDENCE.md).
+`--generator fixture` applies the known-good patch shipped with this example.
+Expect `PASS`. This proves the published CLI can produce a passing evidence
+artifact. It is not a general optimizer — real apps use `--generator llm` and
+need a provider key.
 
-## Other Bundled Examples
+The four-row set is still too small to trust as production evidence. See
+[eval confidence](./CONFIDENCE.md).
 
-`copy-example` includes all three examples:
+## Words used here
+
+| Term | Meaning |
+|---|---|
+| **Workflow** | One LLM task (`support_classifier` in the example). |
+| **Contract** | `driftless.yml` — command, model override, editable files, thresholds. |
+| **Harness** | The command in `run.command` that writes JSONL (one JSON object per line). |
+| **Compare** | Score current vs target model. No file edits. |
+| **Migrate** | Try to repair allowed files so the target still meets the bar. |
+| **Generator** | Who writes the repair: `none` (no edits), `fixture` (this demo’s patch), `llm` (calls OpenAI or Anthropic). |
+| **Holdout** | Eval rows kept back for a final check. The repair loop does not tune on them. |
+| **Thresholds** | Numbers in the contract such as `min_f1: 0.9` that a candidate must beat. |
+
+## Other bundled examples
 
 ```bash
 driftless copy-example support-classifier
@@ -72,21 +103,23 @@ driftless copy-example rag-qa
 driftless copy-example tool-agent
 ```
 
-The RAG example uses numeric score/pass-rate grading. The tool-agent example
-emits trace fields (`tools`, `tool_errors`, `final`) so its eval catches bad tool
-selection even when the final text sounds plausible.
+- **rag-qa** — retrieval QA. Retrieval stays fixed; Driftless may edit prompts.
+- **tool-agent** — a fake local agent. The eval records which tools were chosen,
+  so a fluent wrong tool call still fails.
 
-## Adopt Driftless in an Existing Repository
+Same compare → `--generator none` (blocked) → `--generator fixture` (pass)
+pattern as above, with a different `-w` name (`rag_qa` or `support_agent`).
 
-The bundled example is the fastest product tour. For a repository that already
-contains an LLM workflow, use this guided path. Driftless will not invent your
-eval; you supply the harness, override, editable files, and thresholds.
+## Adopt Driftless in an existing repository
+
+The bundled example is a product tour. For a repo that already has an LLM
+workflow, you still have to bring the eval. Driftless will not invent one.
 
 ### Checklist (you own these)
 
 1. **Eval command** — a repeatable harness that writes JSONL to `run.output_path`.
 2. **Model override** — `model.env_var` or `model.config_file` + `model.config_path`.
-3. **Editable scope** — exact paths in `files.editable`; everything else is read-only.
+3. **Editable scope** — exact file paths in `files.editable`; everything else is read-only.
 4. **Labels or scorer** — `eval.labels_path` / `score_field` / `pass_field` / `judge`.
 5. **Thresholds** — start from `calibrate`, then review; do not auto-accept.
 6. **Credentials and budget** — provider keys only for `--generator llm` / judges;
@@ -96,9 +129,6 @@ eval; you supply the harness, override, editable files, and thresholds.
 
 A complete application built before Driftless was added is available at
 [`alexminnaar/incident-brief-driftless-battletest`](https://github.com/alexminnaar/incident-brief-driftless-battletest).
-The in-repository `tests/fixtures/adoption-app` fixture and
-`scripts/battletest-new-repo.sh` continuously exercise the same adoption shape
-against built wheels.
 
 ```bash
 cd your-existing-repo
@@ -106,7 +136,7 @@ driftless scan
 driftless configure <workflow> --apply
 ```
 
-`configure` writes a reviewable draft at
+`scan` looks for model usage. `configure` writes a reviewable draft at
 `.driftless/configure/<workflow>.yml`. With `--apply`, it also creates
 `driftless.yml` or appends a new workflow without rewriting existing comments.
 It prefills description, harness paths, model/env, a cheaper same-provider
@@ -176,12 +206,11 @@ workflows:
       max_iterations: 3
 ```
 
-The write contract is exact: **only paths listed in `files.editable` may be
-changed**. A directory in `files.readonly` documents a non-editable boundary,
-but it does not grant or subtract write access; everything not named by an exact
-editable file path is already outside repair scope. Use `files.context` for
-parser, schema, or product-policy files the generator should read while
-reasoning but must never edit. Avoid broad editable directories and globs.
+**Only paths listed in `files.editable` may be changed.** A directory in
+`files.readonly` is a documented “do not touch” zone; everything not named as
+an exact editable path is already off-limits. Use `files.context` for parser or
+schema files the generator should *read* but never edit. Avoid broad editable
+directories and globs.
 
 ### 2. Validate before spending provider tokens
 
@@ -193,22 +222,21 @@ driftless compare -w support_summary --to gpt-4o-mini --enforce  # CI gate
 ```
 
 `validate` runs the harness unless you pass `--no-run`. `calibrate` measures the
-current baseline and suggests thresholds; review those suggestions rather than
-treating them as an automatic safety policy. `compare` runs the current and
-target models, so it can incur provider cost when your harness calls live APIs.
-Start with a small representative eval, inspect estimated/measured cost, and see
+current model and *suggests* thresholds — review them, do not treat them as
+automatic policy. `compare` runs current and target models, so it can cost
+money if your harness calls live APIs. Start small; see
 [`COST_AND_BUDGETS.md`](./COST_AND_BUDGETS.md) before scaling.
 
 ### 3. Repair only after the boundary and budget are approved
 
 ```bash
-# Key-free orchestration check: records BLOCKED evidence and makes no repair.
+# No edits, no API key: records BLOCKED evidence.
 driftless migrate -w support_summary --to gpt-4o-mini --generator none
 
-# Bundled examples only: known-good passing repair, still key-free.
+# Bundled examples only (not this workflow):
 # driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 
-# Paid, nondeterministic repair:
+# Paid repair — needs a key:
 export OPENAI_API_KEY=...  # or ANTHROPIC_API_KEY
 driftless migrate -w support_summary --to gpt-4o-mini --generator llm
 driftless report -w support_summary
@@ -216,43 +244,42 @@ driftless view -w support_summary
 driftless open-pr -w support_summary       # dry run
 ```
 
-Provider-backed repair requires credentials and multiplies harness cost across
-tuning rows, candidates, and iterations. A passing tuning candidate is not
-enough: keep `holdout_required: true`, inspect every editable-file diff, and
-never add application code, schemas, eval labels, secrets, or side-effecting
-tool configuration to `files.editable`.
+A passing tuning candidate is not enough: keep `holdout_required: true`, inspect
+every editable-file diff, and never put application code, schemas, eval labels,
+secrets, or side-effecting tool config in `files.editable`.
 
-`open-pr` has no GitHub side effect unless `--create` is supplied. Add generated
-CI only after local validation, cost review, and a dry-run artifact are
-acceptable:
+`open-pr` does nothing on GitHub unless you pass `--create`. Add generated CI
+only after local validation looks right:
 
 ```bash
 driftless init-ci --setup-command 'pip install -e ".[dev]"'
 ```
 
-Generated refinement is manual by default. Add `--refine-on-push` only when
-automatic provider spend on eval-file changes is intentional. The setup command
-must install your application and eval-harness dependencies. `init-ci` infers
-common Python and npm commands from repository manifests; review the generated
-step and override it when needed. The Driftless Action installs Driftless and
-its repair-provider SDKs, not your project.
+The setup command must install *your* app and eval dependencies. The Driftless
+Action installs Driftless, not your project. Review the generated workflow
+before committing. Refinement stays manual unless you pass `--refine-on-push`.
 
-See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for an example
-issue body and dry-run GitHub action produced by the same blocked path.
+See [`EXAMPLE_REVIEW_ARTIFACT.md`](./EXAMPLE_REVIEW_ARTIFACT.md) for a sample
+blocked-path issue body.
 
-## If A Command Fails
+## If a command fails
 
-- `workflow did not write expected output`: check `run.output_path` in
-  `driftless.yml`. Driftless reads the file your harness writes; update the
-  contract if your eval already writes somewhere else.
-- `no model override mechanism is configured`: set `model.env_var`, or use
-  `model.config_file` plus `model.config_path`, so Driftless can run the same
-  workflow under the baseline and target models.
-- `input is not valid JSONL`: each non-empty line in `run.input_path` must be one
-  JSON object.
-- Endpoint `401` or `403`: set `DRIFTLESS_ENDPOINT_TOKEN` if your endpoint
-  expects a bearer token. For custom auth headers, wrap the endpoint call in
-  `run.command`.
+- `workflow did not write expected output`: the harness must write the file
+  named in `run.output_path`. Point the contract at wherever your eval already
+  writes.
+- `no model override mechanism is configured`: set `model.env_var`, or
+  `model.config_file` plus `model.config_path`, so Driftless can rerun the same
+  command under a different model.
+- `input is not valid JSONL`: each non-empty line in `run.input_path` must be
+  one JSON object.
+- Endpoint `401` or `403`: set `DRIFTLESS_ENDPOINT_TOKEN` if the endpoint wants
+  a bearer token. For custom headers, wrap the call in `run.command`.
 - Provider-backed repair needs provider credentials. Bundled examples work
   without keys using `--generator none` (blocked) or `--generator fixture`
-  (passing). Customer workflows should not use `fixture`.
+  (passing). Do not use `fixture` on your own workflow.
+
+## Upgrading from 0.2.x
+
+Version 0.3.0 rejects legacy `migration.allow_*` fields. Update each contract
+to exact paths in `files.editable` before installing 0.3. See
+[Upgrading Driftless](./UPGRADING.md).
