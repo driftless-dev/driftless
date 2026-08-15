@@ -62,6 +62,38 @@ def _first_relative(path: Path, patterns: tuple[str, ...]) -> str | None:
     return None
 
 
+def _slug_workflow_name(name: str) -> str:
+    text = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_").lower()
+    return text or "workflow"
+
+
+def suggest_workflow_name(path: Path) -> str:
+    """Suggest a ``configure`` workflow slug from package, env var, or file."""
+    pyproject = path / "pyproject.toml"
+    if pyproject.is_file():
+        match = re.search(
+            r'(?m)^name\s*=\s*[\'"]([^\'"]+)[\'"]',
+            pyproject.read_text(encoding="utf-8", errors="ignore"),
+        )
+        if match and match.group(1).strip():
+            return _slug_workflow_name(match.group(1))
+
+    _model, _provider, env_var, _replacement, _other = _detect_primary(path)
+    if env_var:
+        slug = env_var.lower()
+        if slug.endswith("_model"):
+            slug = slug[: -len("_model")]
+        if slug and slug != "model":
+            return _slug_workflow_name(slug)
+
+    result = scan_repo(path)
+    for finding in result.findings:
+        stem = Path(finding.path).stem if finding.path else ""
+        if stem and stem not in {"app", "main", "__init__", "index"}:
+            return _slug_workflow_name(stem)
+    return "workflow"
+
+
 def _humanize_workflow_name(name: str) -> str:
     words = name.replace("-", "_").split("_")
     label = " ".join(word for word in words if word)

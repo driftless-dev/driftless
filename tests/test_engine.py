@@ -7,6 +7,7 @@ import pytest
 from driftless.contract import Workflow
 from driftless.engine import (
     MigrationStatus,
+    NoOpPatchGenerator,
     Patch,
     apply_files,
     assess_split_sizes,
@@ -14,6 +15,7 @@ from driftless.engine import (
     run_migration,
     validate_patch_scope,
 )
+from driftless.splits import make_splits
 from driftless.errors import DriftlessError
 from driftless.evaluation import RecordRow
 
@@ -281,3 +283,122 @@ def test_multi_seed_tuning_still_passes(tmp_path: Path):
     assert result.status == MigrationStatus.PASS
     assert result.split_seeds_used == [1, 2]
     assert any("Multi-seed tuning" in w for w in result.warnings)
+
+
+# A dataset where only "shipping" is hard for the weak model. Used to prove
+# that a held-out class cannot be ignored when declaring PASS.
+SHIP_RUN_PY = """\
+import os, json, pathlib
+model = os.environ["DEMO_MODEL"]
+prompt = pathlib.Path("prompt.txt").read_text() if pathlib.Path("prompt.txt").exists() else ""
+out = pathlib.Path(".driftless/results/out.jsonl")
+out.parent.mkdir(parents=True, exist_ok=True)
+lines = [l for l in pathlib.Path("inputs.jsonl").read_text().splitlines() if l.strip()]
+with out.open("w") as f:
+    for l in lines:
+        gold = json.loads(l)["label"]
+        if model == "good" or "STRICT" in prompt:
+            pred = gold
+        elif gold == "shipping":
+            pred = "wrong"
+        else:
+            pred = gold
+        f.write(json.dumps({"label": pred}) + "\\n")
+"""
+
+SHIP_INPUTS = [
+    {"label": "billing"},
+    {"label": "technical"},
+    {"label": "account"},
+    {"label": "shipping"},
+]
+
+
+def _shipping_workflow(tmp_path: Path, *, holdout_required: bool, tuning=0.5, holdout=0.5) -> Workflow:
+    (tmp_path / "run.py").write_text(SHIP_RUN_PY)
+    (tmp_path / "inputs.jsonl").write_text(
+        "\n".join(json.dumps(x) for x in SHIP_INPUTS) + "\n"
+    )
+    (tmp_path / "labels.jsonl").write_text(
+        "\n".join(json.dumps(x["label"]) for x in SHIP_INPUTS) + "\n"
+    )
+    return Workflow.model_validate(
+        {
+            "run": {
+                "command": f"{sys.executable} run.py",
+                "input_path": "inputs.jsonl",
+                "output_path": ".driftless/results/out.jsonl",
+            },
+            "model": {
+                "current": "good",
+                "env_var": "DEMO_MODEL",
+                "target_candidates": ["weak"],
+            },
+            "files": {"editable": ["prompt.txt"]},
+            "eval": {
+                "labels_path": "labels.jsonl",
+                "split": {"tuning": tuning, "holdout": holdout},
+            },
+            "thresholds": {"min_f1": 0.9},
+            "migration": {
+                "max_iterations": 1,
+                "holdout_required": holdout_required,
+            },
+        }
+    )
+
+
+def _seed_with_shipping_only_in_holdout(wf: Workflow, tmp_path: Path) -> int:
+    for seed in range(40):
+        split = make_splits(wf, cwd=tmp_path, seed=seed)
+        holdout = {split.gold[i] for i in split.holdout_idx}
+        tuning = {split.gold[i] for i in split.tuning_idx}
+        if "shipping" in holdout and "shipping" not in tuning:
+            return seed
+    raise AssertionError("could not find a seed that holds out only shipping")
+
+
+def test_full_tuning_pass_scores_every_row(tmp_path: Path):
+    wf = _shipping_workflow(tmp_path, holdout_required=False, tuning=1.0, holdout=0.0)
+    result = run_migration("demo", wf, "weak", generator=StrictGen(), cwd=tmp_path, seed=0)
+
+    assert result.status == MigrationStatus.PASS
+    assert result.final.n == 4
+    assert result.holdout is None
+    assert result.gated_on is None
+    assert "passed tuning thresholds" in result.message
+    assert "holdout" not in result.message
+    assert any("4 tuning / 0 holdout" in w for w in result.warnings)
+
+
+def test_skipped_holdout_does_not_pass_when_unseen_class_fails(tmp_path: Path):
+    wf = _shipping_workflow(tmp_path, holdout_required=False)
+    seed = _seed_with_shipping_only_in_holdout(wf, tmp_path)
+    result = run_migration(
+        "demo", wf, "weak", generator=NoOpPatchGenerator(), cwd=tmp_path, seed=seed
+    )
+
+    assert result.status == MigrationStatus.BLOCKED
+    assert result.gated_on == "full_dataset"
+    assert result.holdout is not None
+    assert result.holdout.n == 4
+    assert result.final.f1 == pytest.approx(1.0)
+    assert result.holdout.f1 < 0.9
+    assert "full dataset" in result.message
+    assert not (tmp_path / "prompt.txt").exists()
+
+
+def test_blocked_scorecard_keeps_failed_holdout(tmp_path: Path):
+    wf = _shipping_workflow(tmp_path, holdout_required=True)
+    seed = _seed_with_shipping_only_in_holdout(wf, tmp_path)
+    result = run_migration(
+        "demo", wf, "weak", generator=NoOpPatchGenerator(), cwd=tmp_path, seed=seed
+    )
+
+    assert result.status == MigrationStatus.BLOCKED
+    assert result.gated_on == "holdout"
+    assert result.holdout is not None
+    assert result.final.f1 == pytest.approx(1.0)
+    assert result.holdout.f1 < 0.9
+    assert any(not c.passed for c in result.holdout_checks)
+    assert result.message.startswith("tuning passed, holdout failed")

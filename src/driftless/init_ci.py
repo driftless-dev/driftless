@@ -107,7 +107,9 @@ def render_migrate_workflow(
 name: driftless model migrate
 
 # Manually triggered migration: compare + repair + validate, then open a PR
-# (or an issue when blocked).
+# (or an issue when blocked). Default generator is llm and needs
+# OPENAI_API_KEY or ANTHROPIC_API_KEY. Use generator=fixture on bundled
+# examples, or generator=none to score without repair.
 on:
   workflow_dispatch:
     inputs:
@@ -117,6 +119,10 @@ on:
       to:
         description: "Target model"
         required: true
+      generator:
+        description: "Repair generator (llm, fixture, or none)"
+        required: false
+        default: "llm"
 
 permissions:
   contents: write
@@ -138,10 +144,11 @@ jobs:
           command: migrate
           workflow: ${{{{ github.event.inputs.workflow }}}}
           to: ${{{{ github.event.inputs.to }}}}
-          args: "{STRICT_LABEL_AUDIT_ARGS}"
+          args: "{STRICT_LABEL_AUDIT_ARGS} --generator ${{{{ github.event.inputs.generator }}}}"
         env:
 {_provider_env_block()}\
       - name: Open migration PR (or issue)
+        if: hashFiles(format('.driftless/migrations/{{0}}.json', github.event.inputs.workflow)) != ''
         uses: {action_ref}
         with:
           command: open-pr
@@ -209,6 +216,7 @@ jobs:
         env:
 {_provider_env_block()}\
       - name: Open refine PR
+        if: hashFiles(format('.driftless/migrations/{{0}}.json', env.WORKFLOW)) != ''
         uses: {action_ref}
         with:
           command: open-pr

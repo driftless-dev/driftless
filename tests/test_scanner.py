@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from driftless.configure import build_workflow_scaffold
+from driftless.configure import build_workflow_scaffold, suggest_workflow_name
 from driftless.lifecycle import load_lifecycle
 from driftless.scanner import detect_portability, scan_repo, scan_text
 
@@ -74,6 +74,18 @@ def test_scan_repo_and_model_risks(tmp_path: Path):
     risks = {info.model: (info, c) for info, c in result.model_risks(lc) if hasattr(info, "model")}
     assert risks["claude-2"][0].status == "retired"
     assert risks["gpt-4o"][0].status == "active"
+
+
+def test_suggest_workflow_name_from_package_and_env(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "incident-brief"\n')
+    assert suggest_workflow_name(tmp_path) == "incident_brief"
+
+    empty = tmp_path / "env-only"
+    empty.mkdir()
+    (empty / "router.py").write_text(
+        'm = os.getenv("TICKET_MODEL", "gpt-4o")\nclient.chat(model="gpt-4o")\n'
+    )
+    assert suggest_workflow_name(empty) == "ticket"
 
 
 def test_configure_prefills_from_at_risk_model(tmp_path: Path):

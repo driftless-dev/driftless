@@ -8,6 +8,8 @@ workflows:
         - gpt-4o-mini
         - gpt-4o
       env_var: MODEL
+      config_file: config/llm.yml
+      config_path: model
       portable: true
 
     files:
@@ -15,6 +17,7 @@ workflows:
         - prompts/classifier.md
       readonly:
         - app/
+        - config/llm.yml
         - evals/tickets.jsonl
         - evals/gold.jsonl
 

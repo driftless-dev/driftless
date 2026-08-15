@@ -12,6 +12,7 @@ from driftless.evaluation import RecordRow
 from driftless.generators import (
     FixturePatchGenerator,
     LLMPatchGenerator,
+    _SYSTEM_PROMPT,
     _failing_examples,
     _fixture_recipe,
     _positive_exemplars,
@@ -136,6 +137,7 @@ def _ctx_with_rows(tmp_path: Path, rows, context_files=None) -> PatchContext:
         current=m,
         clusters=[],
         rows=rows,
+        cwd=tmp_path,
         context_files=context_files or {},
     )
 
@@ -169,6 +171,9 @@ def test_failing_examples_carry_real_input_and_output(tmp_path: Path):
     prompt = build_user_prompt(ctx)
     assert "money back" in prompt
     assert "correct_examples" in prompt
+    assert "label_taxonomy" in prompt
+    assert "refund" in prompt
+    assert "Do not invent" in _SYSTEM_PROMPT
 
 
 def test_positive_exemplars_are_balanced_per_class(tmp_path: Path):

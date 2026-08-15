@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import mimetypes
 import os
@@ -117,7 +118,16 @@ def serve_runs(
 
     runs = _list_runs(cwd)
     handler = partial(RunViewerHandler, site_dir=site, project_dir=cwd)
-    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    except OSError as exc:
+        busy = getattr(exc, "errno", None) == errno.EADDRINUSE or "already in use" in str(exc).lower()
+        if busy:
+            raise DriftlessError(
+                f"port {port} is in use",
+                hint=f"try --port {port + 1} or another free port",
+            ) from exc
+        raise DriftlessError(f"could not start the run viewer: {exc}") from exc
 
     url = f"http://127.0.0.1:{port}/runs.html"
     if workflow:

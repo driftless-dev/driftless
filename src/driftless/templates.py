@@ -158,7 +158,7 @@ new_model:
 # debounce continuous feedback ingestion.
 data_change:
   enabled: true
-  min_changed_rows: 5        # fire at >= this many added/removed/changed rows (1 = any)
+  min_changed_rows: 5        # fire at >= this many rows (capped at dataset size)
   min_changed_fraction: 0.0  # ...or this fraction of the dataset (0 = off)
   min_days_between: null      # debounce: don't re-fire within N days (null = off)
   action: pr

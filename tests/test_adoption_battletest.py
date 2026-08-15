@@ -73,7 +73,7 @@ def test_configure_apply_ready_on_adoption_fixture(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(work)
     runner = CliRunner()
 
-    configure = runner.invoke(app, ["configure", "incident_brief", "--apply"])
+    configure = runner.invoke(app, ["configure", "--apply"])
     validate = runner.invoke(app, ["validate", "-w", "incident_brief"])
 
     assert configure.exit_code == 0, configure.output

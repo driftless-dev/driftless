@@ -11,12 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+---
+
+## [0.3.5] - 2026-08-15
+
+### Changed
+
 - **New-user docs** — README, getting started, hosted docs, and the blog index
   lead with a plain-language first run, a short glossary, and an explanation of
   the demo `FAIL min_f1` line. Specialist CLI/policy pages stay, but are no
   longer the front door.
+- **First-hour CLI** — `copy-example` prints the real workflow name and lists
+  `support-classifier`; `scan` always hands off to `configure` with a suggested
+  slug; `configure` can omit the name; `--help` matches the product lede.
+- **GitHub delivery** — passing migration PRs open as drafts, include the
+  contract model bump (and `config_file` when set), print the `gh` URL, and
+  close the matching blocked issue.
 
 ### Fixed
+
+- **PASS / BLOCKED honesty** — `tuning: 100%` no longer steals a holdout row;
+  migrate gates on holdout or the full dataset instead of claiming a holdout
+  pass it did not score.
+- **Demo repair loop** — the bundled classifier scores prompt quality an LLM
+  can learn; repair prompts keep the gold label taxonomy; `poll` fires on a
+  full rewrite of the 4-row demo.
+- **`judge-check`** — missing keys and missing calibration files are clean
+  errors, and the calibration path is checked first.
+- **`refine`** — exits non-zero when `NO_CHANGE` is below the contract bar;
+  suggested thresholds use the weaker of tuning and holdout.
+- **Generated CI** — migrate accepts a `generator` input; `open-pr` is skipped
+  when migrate did not write a result.
+- **`view` / `plan` / `poll`** — busy-port bind is a clean error; Retires
+  shows `retired Nd ago`; fetch lines no longer leak Rich markup.
 
 ---
 
@@ -453,7 +482,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/driftless-dev/driftless/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/driftless-dev/driftless/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/driftless-dev/driftless/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/driftless-dev/driftless/compare/v0.3.1...v0.3.2

@@ -18,7 +18,12 @@ from . import __version__
 from .compare import Comparison, compare_models, save_comparison
 from .contract import CONTRACT_FILENAMES, Workflow, find_contract, load_contract
 from .errors import HarnessError, DriftlessError
-from .examples import available_examples, copy_example as copy_bundled_example
+from .examples import (
+    available_examples,
+    copy_example as copy_bundled_example,
+    example_help_names,
+    workflow_names_in,
+)
 from .harness import check_inputs, run_workflow
 from .progress import log as progress_log
 from .templates import CONTRACT_TEMPLATE, POLICY_TEMPLATE
@@ -44,12 +49,22 @@ _CI_PROGRESS = (
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Dependabot for LLM models: detect risky model dependencies, test "
-    "replacements through your real workflow, repair prompts/configs, and open "
-    "migration PRs with evidence.",
+    help="Keep models, prompts, and eval data in sync: detect risky model "
+    "dependencies, test replacements through your real workflow, repair "
+    "prompts/configs, and open migration PRs with evidence.",
 )
 console = Console(force_terminal=_CI_PROGRESS)
 err_console = Console(stderr=True, force_terminal=True)
+
+
+def _format_retires(days: int | None) -> str:
+    if days is None:
+        return "-"
+    if days < 0:
+        return f"retired {-days}d ago"
+    if days == 0:
+        return "retired today"
+    return f"{days}d"
 
 
 def _fail(exc: DriftlessError) -> None:
@@ -124,7 +139,10 @@ def init_policy(
 
 @app.command(name="copy-example")
 def copy_example(
-    name: str = typer.Argument(..., help="Example name, such as rag-qa or tool-agent."),
+    name: str | None = typer.Argument(
+        None,
+        help=f"Example to copy. Bundled: {example_help_names()}.",
+    ),
     out_dir: Path | None = typer.Option(
         None,
         "--out-dir",
@@ -133,16 +151,28 @@ def copy_example(
     force: bool = typer.Option(False, "--force", help="Overwrite an existing directory."),
 ) -> None:
     """Copy a bundled example project into the current directory."""
+    listed = ", ".join(available_examples()) or "(none found)"
+    if not name:
+        _fail(
+            DriftlessError(
+                "missing example name",
+                hint=f"available examples: {listed}",
+            )
+        )
+        return
     try:
         target = copy_bundled_example(name, out_dir or Path(name), force=force)
     except DriftlessError as exc:
         _fail(exc)
+        return
+    workflows = workflow_names_in(target)
+    wf_hint = workflows[0] if len(workflows) == 1 else "<workflow>"
     console.print(f"[green]created[/] {target}")
     console.print("Next:")
     console.print(f"  cd {target}")
-    console.print("  driftless validate -w <workflow>")
+    console.print(f"  driftless validate -w {wf_hint}")
     if available_examples():
-        console.print(f"Available examples: {', '.join(available_examples())}")
+        console.print(f"Available examples: {listed}")
 
 
 @app.command(name="init-ci")
@@ -396,18 +426,29 @@ def scan(
             else:
                 table.add_row(str(info), "-", "[dim]unknown[/]", "-", "-", "-", "-", str(count))
         console.print(table)
+        from .configure import suggest_workflow_name
+
+        suggested = suggest_workflow_name(path.resolve())
         if at_risk:
             console.print(
                 f"\n[bold red]{at_risk} at-risk model(s) detected.[/] "
-                "Run [bold]driftless configure <name>[/] to make a workflow migration-ready."
+                f"Run [bold]driftless configure {suggested} --apply[/] "
+                "to make a workflow migration-ready."
             )
         else:
             console.print("\n[green]No deprecated or retired models detected.[/]")
+            console.print(
+                "To gate a cheaper target, run "
+                f"[bold]driftless configure {suggested} --apply[/]."
+            )
 
 
 @app.command()
 def configure(
-    workflow: str = typer.Argument(..., help="Name for the workflow to scaffold."),
+    workflow: str | None = typer.Argument(
+        None,
+        help="Name for the workflow to scaffold. Omit to use the name scan would suggest.",
+    ),
     path: Path = typer.Argument(Path("."), help="Directory to scan for prefill."),
     apply: bool = typer.Option(
         False,
@@ -426,7 +467,12 @@ def configure(
         build_workflow_scaffold,
         placeholder_paths,
         save_scaffold,
+        suggest_workflow_name,
     )
+
+    if not workflow:
+        workflow = suggest_workflow_name(path.resolve())
+        console.print(f"Using suggested workflow name [bold]{workflow}[/]")
 
     snippet, primary = build_workflow_scaffold(workflow, path.resolve())
     out_path = save_scaffold(workflow, snippet, cwd=Path.cwd())
@@ -675,21 +721,39 @@ _ACTION_STYLE = {"pr": "green", "issue": "yellow", "notify": "cyan", "skip": "di
 
 
 def _model_change_preparer(
-    wf: Workflow, target_model: str, *, cwd: Path
+    wf: Workflow,
+    target_model: str,
+    *,
+    cwd: Path,
+    contract_path: Path | None = None,
+    workflow_name: str | None = None,
 ) -> Callable[[], object]:
-    """Build a deferred model-config edit with an exact file rollback."""
-    from .github import apply_model_change, model_change_file
+    """Build a deferred model-id edit (contract + config file) with rollback."""
+    from .github import apply_runtime_model_updates, planned_model_files
 
     def prepare() -> Callable[[], None]:
-        changed = model_change_file(wf, cwd=cwd)
-        if changed is None:
-            return lambda: None
-        path = cwd / changed
-        original = path.read_bytes()
-        apply_model_change(wf, target_model, cwd=cwd)
+        snapshots: dict[str, bytes] = {}
+        for rel in planned_model_files(
+            wf,
+            target_model,
+            cwd=cwd,
+            contract_path=contract_path,
+            workflow_name=workflow_name,
+        ):
+            path = cwd / rel
+            if path.is_file():
+                snapshots[rel] = path.read_bytes()
+        apply_runtime_model_updates(
+            wf,
+            target_model,
+            cwd=cwd,
+            contract_path=contract_path,
+            workflow_name=workflow_name,
+        )
 
         def rollback() -> None:
-            path.write_bytes(original)
+            for rel, data in snapshots.items():
+                (cwd / rel).write_bytes(data)
 
         return rollback
 
@@ -723,8 +787,9 @@ def _act_on_trigger(
         ensure_pr_branch_available,
         execute_plan,
         existing_open_item,
-        model_change_file,
+        planned_model_files,
         planned_pr_identity,
+        runtime_model_note,
     )
     from .report import render_markdown, result_to_dict, save_report
 
@@ -754,15 +819,30 @@ def _act_on_trigger(
         report_md = render_markdown(result, wf)
         committed = list(result_dict.get("edited_files", []))
         prepare_files: Callable[[], object] | None = None
+        note = None
         if result_dict.get("succeeded"):
-            changed = model_change_file(wf, cwd=cwd)
-            if changed and changed not in committed:
-                committed.append(changed)
-            if create and changed:
+            extra = planned_model_files(
+                wf,
+                result_dict["target_model"],
+                cwd=cwd,
+                workflow_name=name,
+            )
+            for path in extra:
+                if path not in committed:
+                    committed.append(path)
+            if create and extra:
                 prepare_files = _model_change_preparer(
-                    wf, result_dict["target_model"], cwd=cwd
+                    wf,
+                    result_dict["target_model"],
+                    cwd=cwd,
+                    workflow_name=name,
                 )
-        plan_obj = build_pr_plan(result_dict, report_md, committed_files=committed)
+            note = runtime_model_note(
+                wf, result_dict["current_model"], result_dict["target_model"]
+            )
+        plan_obj = build_pr_plan(
+            result_dict, report_md, committed_files=committed, runtime_note=note
+        )
         plan_obj.base = base_branch
         actions = execute_plan(
             plan_obj,
@@ -953,7 +1033,7 @@ def plan(
     for dt in triggers:
         trig = dt.trigger
         wf = contract.workflow(dt.workflow)
-        retires = f"{trig.days_until_retirement}d" if trig.days_until_retirement is not None else "-"
+        retires = _format_retires(trig.days_until_retirement)
         try:
             comparison = compare_models(dt.workflow, wf, trig.candidate_model, cwd=Path.cwd())
             passed = comparison.passed
@@ -1053,10 +1133,12 @@ def plan(
                 )
             raise typer.Exit(code=1 if any_fail else 0)
 
+        first = actionable_triggers[0]
         console.print(
             "Run [bold]driftless plan --act[/] to migrate + open PRs automatically, or do it "
-            "manually: [bold]driftless migrate -w <workflow> --to <model>[/] then "
-            "[bold]driftless open-pr -w <workflow>[/]."
+            f"manually: [bold]driftless migrate -w {first.workflow} "
+            f"--to {first.trigger.candidate_model}[/] then "
+            f"[bold]driftless open-pr -w {first.workflow}[/]."
         )
         raise typer.Exit(code=1)
     console.print("\n[green]No action required by policy.[/]")
@@ -1138,6 +1220,12 @@ def migrate(
     table.add_column("Baseline", justify="right")
     table.add_column("Naive target", justify="right")
     table.add_column("Final", justify="right")
+    show_confirm = result.holdout is not None
+    confirm_header = (
+        "Full dataset" if result.gated_on == "full_dataset" else "Holdout"
+    )
+    if show_confirm:
+        table.add_column(confirm_header, justify="right")
     for label, attr, pct in (
         ("F1", "f1", False),
         ("Precision", "precision", False),
@@ -1146,16 +1234,29 @@ def migrate(
         ("Schema error rate", "schema_error_rate", True),
         ("Refusal rate", "refusal_rate", True),
     ):
-        table.add_row(
+        row = [
             label,
             _fmt(getattr(result.baseline, attr), pct=pct),
             _fmt(getattr(result.naive_target, attr), pct=pct),
             _fmt(getattr(result.final, attr), pct=pct),
-        )
+        ]
+        if show_confirm:
+            row.append(_fmt(getattr(result.holdout, attr), pct=pct))
+        table.add_row(*row)
     console.print(table)
 
+    if result.warnings:
+        console.print("\n[bold]Confidence caveats[/]:")
+        for warning in result.warnings:
+            console.print(f"  • {warning}")
+
     if result.holdout is not None:
-        console.print("\n[bold]Holdout validation[/]:")
+        confirm_title = (
+            "Full-dataset validation"
+            if result.gated_on == "full_dataset"
+            else "Holdout validation"
+        )
+        console.print(f"\n[bold]{confirm_title}[/]:")
         for c in result.holdout_checks:
             mark = "[green]PASS[/]" if c.passed else "[red]FAIL[/]"
             console.print(f"  {mark} {c.name}: {c.detail}")
@@ -1298,11 +1399,12 @@ def refine(
             default_flow_style=False,
         )
         console.print(
-            "\n[bold]Suggested thresholds[/] (from refined holdout metrics) — "
+            "\n[bold]Suggested thresholds[/] (from the weaker of tuning and holdout) — "
             f"the old dataset's bar is stale; paste into [bold]{workflow}[/]:\n"
         )
         console.print(snippet, markup=False)
 
+    from .compare import check_thresholds
     from .datastate import dataset_signature, record_dataset_state
     from .report import save_report
 
@@ -1314,6 +1416,22 @@ def refine(
     )
     console.print(f"\n[dim]report: {md_path}[/]")
     console.print(f"[dim]result: {json_path}[/]")
+
+    if result.status == MigrationStatus.NO_CHANGE:
+        below = [
+            check
+            for check in check_thresholds(wf.thresholds, result.baseline, result.final)
+            if not check.passed and check.name.startswith(("min_", "max_schema"))
+        ]
+        if below:
+            console.print(
+                "\n[yellow]warning:[/] current prompt is below the contract bar "
+                "on the updated dataset; refine made no changes."
+            )
+            for check in below:
+                console.print(f"  [red]FAIL[/] {check.name}: {check.detail}")
+            raise typer.Exit(code=1)
+
     raise typer.Exit(code=0 if result.succeeded else 1)
 
 
@@ -1363,7 +1481,7 @@ def poll(
                     continue
                 result = fetch_dataset(wf, cwd=cwd)
                 for a in result.actions:
-                    console.print(f"[dim]fetch {name}: {a}[/]", markup=False)
+                    console.print(f"[dim]fetch {name}: {a}[/]")
 
         state = load_state(cwd=cwd)
         triggers = discover_data_change_triggers(
@@ -1460,7 +1578,12 @@ def open_pr(
     """Open a PR (or issue) from the latest migration result for a workflow."""
     import json
 
-    from .github import build_pr_plan, execute_plan, model_change_file
+    from .github import (
+        build_pr_plan,
+        execute_plan,
+        planned_model_files,
+        runtime_model_note,
+    )
 
     cwd = Path.cwd()
     result_path = cwd / ".driftless" / "migrations" / f"{workflow}.json"
@@ -1480,15 +1603,32 @@ def open_pr(
         wf = contract.workflow(workflow)
         committed = list(result.get("edited_files", []))
         prepare_files: Callable[[], object] | None = None
+        note = None
         if result.get("succeeded"):
-            changed = model_change_file(wf, cwd=cwd)
-            if changed and changed not in committed:
-                committed.append(changed)
-            if create and changed:
+            extra = planned_model_files(
+                wf,
+                result["target_model"],
+                cwd=cwd,
+                contract_path=contract_path,
+                workflow_name=workflow,
+            )
+            for path in extra:
+                if path not in committed:
+                    committed.append(path)
+            if create and extra:
                 prepare_files = _model_change_preparer(
-                    wf, result["target_model"], cwd=cwd
+                    wf,
+                    result["target_model"],
+                    cwd=cwd,
+                    contract_path=contract_path,
+                    workflow_name=workflow,
                 )
-        plan = build_pr_plan(result, report_md, committed_files=committed)
+            note = runtime_model_note(
+                wf, result["current_model"], result["target_model"]
+            )
+        plan = build_pr_plan(
+            result, report_md, committed_files=committed, runtime_note=note
+        )
         actions = execute_plan(
             plan,
             cwd=cwd,
@@ -1553,8 +1693,18 @@ def judge_check(
         )
         return
 
-    judge = build_judge(spec)
+    calib = Path(spec.calibration_path)
+    if not calib.is_file():
+        _fail(
+            DriftlessError(
+                f"judge calibration file not found: {spec.calibration_path}",
+                hint="add a human-scored JSONL file or fix eval.judge.calibration_path",
+            )
+        )
+        return
+
     try:
+        judge = build_judge(spec)
         agreement = (
             require_judge_agreement(judge, spec)
             if enforce
