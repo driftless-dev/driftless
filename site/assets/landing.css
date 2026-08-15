@@ -1019,6 +1019,7 @@ body.landing {
 .usecase-list span { color: var(--mint-deep); font-family: var(--mono); font-size: 0.65rem; }
 .usecase-list strong { font-size: 1.02rem; }
 .usecase-list p { margin: 0; color: var(--ink-soft); font-size: 0.9rem; }
+.usecase-list p code { font-family: var(--mono); font-size: 0.82em; }
 .usecase-list b { color: var(--mint-deep); font-weight: 500; }
 
 .quickstart { padding: 108px 0; background: var(--mint); color: #09201b; }

@@ -116,7 +116,19 @@ expect the simulator’s fixed `1.000 → 0.000` table.
 | **Holdout** | Eval rows kept back for a final check. The repair loop does not tune on them. |
 | **Thresholds** | Numbers in the contract such as `min_f1: 0.9` that a candidate must beat. |
 
-## Other bundled examples
+## Use cases
+
+Pick the path that matches your app. The classifier, RAG, and agent copies
+are key-free simulators: same compare → `--generator none` (blocked) →
+`--generator fixture` (pass) loop, with a different `-w` name.
+
+| Your app | Start here | `-w` | Deeper guide |
+|---|---|---|---|
+| **Classifier** (no key) | `copy-example support-classifier` | `support_classifier` | [Model swap](./blog/01-model-swap-is-not-a-migration.md), [label change](./blog/02-when-labels-move-refine-not-remodel.md) |
+| **Classifier** (live OpenAI) | `copy-example support-classifier-live` | `support_classifier_live` | [Prove live repair](#prove-live-repair) |
+| **RAG QA** | `copy-example rag-qa` | `rag_qa` | [RAG guide](./blog/07-rag-prompts-drift-too.md), [contracts](./rag-and-agents.md) |
+| **Tool-calling agent** | `copy-example tool-agent` | `support_agent` | [Agent guide](./blog/08-agent-tool-selection-drift.md), [contracts](./rag-and-agents.md) |
+| **Summarizer / free-form** | No bundled example. Bring your harness and grade with `eval.judge`. | your workflow | [LLM judge](./blog/06-trust-your-llm-judge.md) |
 
 ```bash
 driftless copy-example support-classifier
@@ -126,13 +138,15 @@ driftless copy-example tool-agent
 ```
 
 - **support-classifier-live** — same tickets as the simulator; the harness
-  calls OpenAI. Requires `OPENAI_API_KEY`.
-- **rag-qa** — retrieval QA. Retrieval stays fixed; Driftless may edit prompts.
-- **tool-agent** — a fake local agent. The eval records which tools were chosen,
+  calls OpenAI. Requires `OPENAI_API_KEY`. `--generator llm` is allowed here.
+- **rag-qa** — retrieval stays fixed; Driftless may edit answer and rewrite
+  prompts. A fluent wrong citation still fails.
+- **tool-agent** — fake local tools. The eval records which tools were chosen,
   so a fluent wrong tool call still fails.
-
-Same compare → `--generator none` (blocked) → `--generator fixture` (pass)
-pattern as above, with a different `-w` name (`rag_qa` or `support_agent`).
+- **Summarizer / judge** — there is no key-free summarizer fixture. Add
+  `eval.judge` plus a human calibration file, then run `judge-check` before
+  you trust scores. See [RAG and agents](./rag-and-agents.md#judge-graded-rag)
+  for a contract sketch.
 
 ## Adopt Driftless in an existing repository
 

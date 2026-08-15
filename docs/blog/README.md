@@ -114,6 +114,20 @@ instead of treating a model-ID edit as safe.
 - **Quality gate:** one or more thresholds that must pass before release.
 - **Gold label:** the expected answer used to score one evaluation example.
 
+## By app type
+
+The numbered posts are *situations* (retired model, new labels, cheaper
+inference). If you already know what kind of app you have:
+
+| Your app | Bundled example | Guide |
+|---|---|---|
+| Classifier | `copy-example support-classifier` (or `support-classifier-live`) | [Post 1](./01-model-swap-is-not-a-migration.md), [post 2](./02-when-labels-move-refine-not-remodel.md) |
+| Summarizer / free-form | none — configure `eval.judge` | [Post 6](./06-trust-your-llm-judge.md) |
+| RAG QA | `copy-example rag-qa` | [Post 7](./07-rag-prompts-drift-too.md) |
+| Tool-calling agent | `copy-example tool-agent` | [Post 8](./08-agent-tool-selection-drift.md) |
+
+See also [Getting Started → Use cases](../GETTING_STARTED.md#use-cases).
+
 ## The series
 
 1. [Your ticket classifier’s model got deprecated](./01-model-swap-is-not-a-migration.md) —

@@ -209,6 +209,7 @@ a:focus-visible, button:focus-visible {
 .guide-start strong { color: var(--ink); }
 .guide-start code { font-family: var(--mono); font-size: .86em; }
 .guide-start a { color: #087966; text-underline-offset: 3px; }
+.index-hero .guide-start + .guide-start { margin-top: -18px; }
 
 .blog-content h1 {
   margin: 0 0 34px;

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Use-case map** — Getting Started, hosted docs, and the landing page
+  list classifier, live classifier, RAG, agent, and summarizer/judge paths.
+
 ### Changed
 
 ### Fixed

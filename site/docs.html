@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="assets/landing.css?v=v7" />
+<link rel="stylesheet" href="assets/landing.css?v=v8" />
 <link rel="stylesheet" href="assets/docs.css?v=v1" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1514'/%3E%3Cpath d='M8 21V10l8 7 8-7v11' fill='none' stroke='%235ce1c3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
@@ -58,6 +58,7 @@
       <a href="#words">Words you'll see</a>
       <a href="#install">Installation</a>
       <a href="#quickstart">Quickstart</a>
+      <a href="#use-cases">Use cases</a>
       <a href="#adoption">Adopt in your repository</a>
       <a href="#contract">The workflow contract</a>
       <a href="#public-alpha">Public alpha</a>
@@ -174,7 +175,48 @@ driftless open-pr -w support_classifier</code></pre>
 driftless report -w support_classifier
 driftless open-pr -w support_classifier</code></pre>
         <p>Expect <code class="inline">PASS</code>. <code class="inline">open-pr</code> only prints what it would open unless you add <code class="inline">--create</code>. Do not use <code class="inline">fixture</code> on your own app. This example is a local simulator: <code class="inline">--generator llm</code> is refused here.</p>
-        <p>For a harness that calls OpenAI, use <code class="inline">copy-example support-classifier-live</code> (needs <code class="inline">OPENAI_API_KEY</code>). Other key-free demos: <code class="inline">copy-example rag-qa</code> and <code class="inline">copy-example tool-agent</code>.</p>
+        <p>For a harness that calls OpenAI, use <code class="inline">copy-example support-classifier-live</code> (needs <code class="inline">OPENAI_API_KEY</code>). Other key-free demos: <code class="inline">copy-example rag-qa</code> and <code class="inline">copy-example tool-agent</code>. See <a href="#use-cases">use cases</a> for which example matches your app.</p>
+      </section>
+
+      <section id="use-cases">
+        <h2>Use cases</h2>
+        <p>The quickstart is a classifier. Same product loop, different app shape:</p>
+        <table class="doc-table">
+          <thead><tr><th>Your app</th><th>Start here</th><th><code>-w</code></th><th>Guide</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Classifier (no key)</td>
+              <td><code>copy-example support-classifier</code></td>
+              <td><code>support_classifier</code></td>
+              <td><a href="blog/01-model-swap-is-not-a-migration.html">Model swap</a>, <a href="blog/02-when-labels-move-refine-not-remodel.html">label change</a></td>
+            </tr>
+            <tr>
+              <td>Classifier (live OpenAI)</td>
+              <td><code>copy-example support-classifier-live</code></td>
+              <td><code>support_classifier_live</code></td>
+              <td>Needs <code class="inline">OPENAI_API_KEY</code>. <code class="inline">--generator llm</code> is allowed here.</td>
+            </tr>
+            <tr>
+              <td>RAG QA</td>
+              <td><code>copy-example rag-qa</code></td>
+              <td><code>rag_qa</code></td>
+              <td><a href="blog/07-rag-prompts-drift-too.html">RAG guide</a>, <a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md">contracts</a></td>
+            </tr>
+            <tr>
+              <td>Tool-calling agent</td>
+              <td><code>copy-example tool-agent</code></td>
+              <td><code>support_agent</code></td>
+              <td><a href="blog/08-agent-tool-selection-drift.html">Agent guide</a>, <a href="https://github.com/driftless-dev/driftless/blob/main/docs/rag-and-agents.md">contracts</a></td>
+            </tr>
+            <tr>
+              <td>Summarizer / free-form</td>
+              <td>No bundled example. Bring a harness and grade with <code class="inline">eval.judge</code>.</td>
+              <td>your workflow</td>
+              <td><a href="blog/06-trust-your-llm-judge.html">LLM judge</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Classifier, RAG, and agent copies are local simulators: <code class="inline">--generator llm</code> is refused. Use <code class="inline">--generator fixture</code> for the key-free pass, or the live classifier / a customer harness for real repair.</p>
       </section>
 
       <section id="public-alpha">

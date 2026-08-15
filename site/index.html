@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/landing.css?v=v7" />
+  <link rel="stylesheet" href="assets/landing.css?v=v8" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1514'/%3E%3Cpath d='M8 21V10l8 7 8-7v11' fill='none' stroke='%235ce1c3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
 <body class="landing">
@@ -329,16 +329,16 @@
       <div class="section-shell">
         <div class="section-intro usecase-intro">
           <div>
-            <p class="eyebrow">Common use cases</p>
-            <h2>Built for real LLM workflow changes.</h2>
+            <p class="eyebrow">Use cases</p>
+            <h2>Pick the example that matches your app.</h2>
           </div>
-          <a class="inline-link" href="blog/index.html">View all guides <span>→</span></a>
+          <a class="inline-link" href="docs.html#use-cases">Full use-case map <span>→</span></a>
         </div>
         <div class="usecase-list">
-          <a href="blog/01-model-swap-is-not-a-migration.html"><span>01</span><strong>Model deprecation</strong><p>Migrate a classifier without breaking strict JSON or quality.</p><b>→</b></a>
-          <a href="blog/02-when-labels-move-refine-not-remodel.html"><span>02</span><strong>Label policy change</strong><p>Refine the prompt while keeping the model pinned.</p><b>→</b></a>
-          <a href="blog/04-cheaper-model-same-quality-bar.html"><span>04</span><strong>Cost reduction</strong><p>Adopt a cheaper model only when the same quality bar passes.</p><b>→</b></a>
-          <a href="blog/07-rag-prompts-drift-too.html"><span>07</span><strong>RAG and agents</strong><p>Test the whole application while keeping retrieval and tools fixed.</p><b>→</b></a>
+          <a href="blog/01-model-swap-is-not-a-migration.html"><span>01</span><strong>Classifier</strong><p>Gold labels and F1. Start with <code>copy-example support-classifier</code> (no key).</p><b>→</b></a>
+          <a href="blog/06-trust-your-llm-judge.html"><span>06</span><strong>Summarizer / LLM judge</strong><p>Free-form answers. Calibrate the grader before you trust its scores.</p><b>→</b></a>
+          <a href="blog/07-rag-prompts-drift-too.html"><span>07</span><strong>RAG QA</strong><p>New answer model, same retrieved docs. <code>copy-example rag-qa</code>.</p><b>→</b></a>
+          <a href="blog/08-agent-tool-selection-drift.html"><span>08</span><strong>Tool-calling agent</strong><p>New planner, same tools. <code>copy-example tool-agent</code>.</p><b>→</b></a>
         </div>
       </div>
     </section>

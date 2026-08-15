@@ -177,8 +177,10 @@ Driftless therefore previews an **issue** that records the blocker rather than a
 pull request that implies the migration is ready.
 
 A successful repair on this bundled example is also available key-free with
-`--generator fixture`. Real workflows still need `--generator llm` and provider
-credentials. Review that result before considering `open-pr --create`.
+`--generator fixture`. `--generator llm` is refused here because the harness
+does not call a model; use `copy-example support-classifier-live` or a
+customer harness for live repair. Review that result before considering
+`open-pr --create`.
 
 ![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 

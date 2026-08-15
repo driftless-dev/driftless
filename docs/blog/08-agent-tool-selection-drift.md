@@ -187,9 +187,10 @@ blocked result has no shippable prompt change. Driftless therefore previews an
 migration is ready.
 
 A passing repair on this bundled example is also available key-free with
-`--generator fixture`. Real workflows still need `--generator llm` and
-provider credentials. Review the resulting trace evidence before previewing or
-creating a pull request.
+`--generator fixture`. `--generator llm` is refused here because the harness
+does not call a model; use `copy-example support-classifier-live` or a
+customer harness for live repair. Review the resulting trace evidence before
+previewing or creating a pull request.
 
 ![Browser capture of the Driftless run viewer](../visuals/run-viewer.png)
 

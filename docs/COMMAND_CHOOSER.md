@@ -6,7 +6,8 @@ to run.
 If you just installed Driftless, start with
 `copy-example support-classifier` and the
 [getting started](./GETTING_STARTED.md) walkthrough. You do not need an API key
-for that path.
+for that path. For RAG, agents, a live classifier, or a judge-graded
+summarizer, use the [use-case map](./GETTING_STARTED.md#use-cases).
 
 `-w` is `--workflow` (the name in `driftless.yml`). `open-pr` is a dry run
 unless you pass `--create`.

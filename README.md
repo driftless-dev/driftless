@@ -190,7 +190,7 @@ and manually triggered migration examples.
 
 - [Landing page](https://driftless-dev.github.io/driftless/) — product overview.
 - [Hosted docs](https://driftless-dev.github.io/driftless/docs.html) — install, quickstart, contract, CLI.
-- [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — golden-path example, then adopt in your repo.
+- [Getting started](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md) — golden-path example, [use-case map](https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#use-cases), then adopt in your repo.
 - [Command chooser](https://github.com/driftless-dev/driftless/blob/main/docs/COMMAND_CHOOSER.md) — “I want to do X, which command?”
 - [Known limits](https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md) — what Driftless will and will not do.
 - [Eval confidence](https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md) — when a pass is trustworthy.

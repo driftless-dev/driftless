@@ -206,9 +206,10 @@ blocked result has no shippable prompt change. Driftless therefore previews an<b
 <strong>issue</strong> describing the blocker rather than a pull request that implies the<br />
 migration is ready.</p>
 <p>A passing repair on this bundled example is also available key-free with<br />
-<code>--generator fixture</code>. Real workflows still need <code>--generator llm</code> and<br />
-provider credentials. Review the resulting trace evidence before previewing or<br />
-creating a pull request.</p>
+<code>--generator fixture</code>. <code>--generator llm</code> is refused here because the harness<br />
+does not call a model; use <code>copy-example support-classifier-live</code> or a<br />
+customer harness for live repair. Review the resulting trace evidence before<br />
+previewing or creating a pull request.</p>
 <p><img alt="Browser capture of the Driftless run viewer" src="../visuals/run-viewer.png" /></p>
 <p>The report and delivery evidence shape is also shown in<br />
 <a href="https://github.com/driftless-dev/driftless/blob/main/docs/EXAMPLE_SUCCESS_PR.md"><code>EXAMPLE_SUCCESS_PR.md</code></a>. See the<br />

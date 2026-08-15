@@ -60,6 +60,20 @@ GUIDE_START = """
         <a href="../docs.html#words">Words used here →</a>
       </aside>"""
 
+BY_APP_TYPE = """
+      <aside class="guide-start" aria-label="Guides by app type">
+        <strong>By app type.</strong>
+        <a href="01-model-swap-is-not-a-migration.html">Classifier</a>
+        (<code>copy-example support-classifier</code>) ·
+        <a href="06-trust-your-llm-judge.html">Summarizer / judge</a>
+        (no bundled example) ·
+        <a href="07-rag-prompts-drift-too.html">RAG</a>
+        (<code>copy-example rag-qa</code>) ·
+        <a href="08-agent-tool-selection-drift.html">Agent</a>
+        (<code>copy-example tool-agent</code>).
+        <a href="../docs.html#use-cases">Full use-case map →</a>
+      </aside>"""
+
 MD = markdown.Markdown(
     extensions=["fenced_code", "tables", "toc", "nl2br", "sane_lists"],
     extension_configs={"toc": {"permalink": False}},
@@ -246,10 +260,11 @@ def build() -> None:
         <h1>Guides for when the model, the labels, or the eval change.</h1>
         <p>
           Each post is one situation: a retired model, cheaper inference, new gold
-          labels, RAG, or an agent. If you have not used Driftless yet, run the
-          four-row demo first — no API key.
+          labels, RAG, or an agent. If you already know your app type — classifier,
+          summarizer, RAG, or agent — start from the map below.
         </p>
 {GUIDE_START}
+{BY_APP_TYPE}
       </header>
       <div class="blog-grid">
 {"".join(cards)}
@@ -472,6 +487,7 @@ a:focus-visible, button:focus-visible {
 .guide-start strong { color: var(--ink); }
 .guide-start code { font-family: var(--mono); font-size: .86em; }
 .guide-start a { color: #087966; text-underline-offset: 3px; }
+.index-hero .guide-start + .guide-start { margin-top: -18px; }
 
 .blog-content h1 {
   margin: 0 0 34px;
