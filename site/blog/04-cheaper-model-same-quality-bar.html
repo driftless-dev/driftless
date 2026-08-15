@@ -135,8 +135,11 @@ by about 83%, but the quality result makes the saving unsafe. <code>compare</cod
 still exit with code <code>0</code>; its threshold report, not its process exit code, tells<br />
 you whether the candidate passed.</p>
 <p>These four-row values are fixture data, not provider pricing or<br />
-production-quality evidence. Use a representative evaluation and harness<br />
-measurements before making a savings claim.</p>
+production-quality evidence. <code>--generator fixture</code> can pass this demo<br />
+without a key. <code>--generator llm</code> is refused here; use<br />
+<code>copy-example support-classifier-live</code> for a live OpenAI eval, or the<br />
+testbed below for the 290-row path. Use a representative evaluation and<br />
+harness measurements before making a savings claim.</p>
 <h2 id="walkthrough-2-wire-measured-cost-into-the-contract">Walkthrough 2: wire measured cost into the contract</h2>
 <p>The separate<br />
 <a href="https://github.com/driftless-dev/support-classifier-svc">support-classifier-svc</a><br />

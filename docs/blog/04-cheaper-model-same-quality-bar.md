@@ -80,8 +80,11 @@ still exit with code `0`; its threshold report, not its process exit code, tells
 you whether the candidate passed.
 
 These four-row values are fixture data, not provider pricing or
-production-quality evidence. Use a representative evaluation and harness
-measurements before making a savings claim.
+production-quality evidence. `--generator fixture` can pass this demo
+without a key. `--generator llm` is refused here; use
+`copy-example support-classifier-live` for a live OpenAI eval, or the
+testbed below for the 290-row path. Use a representative evaluation and
+harness measurements before making a savings claim.
 
 ## Walkthrough 2: wire measured cost into the contract
 

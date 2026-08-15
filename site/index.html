@@ -349,7 +349,7 @@
           <p class="eyebrow">Try it locally</p>
           <h2>See a cheaper model get blocked — then a passing repair.</h2>
           <p>The bundled demo needs no API key. First <code>compare</code> shows a cheaper target failing the quality gate. <code>--generator none</code> keeps it blocked. <code>--generator fixture</code> applies the known-good patch and can pass. This is separate from public testbed PR #4.</p>
-          <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gating, and a key-free pass/block loop. It does not establish production quality, statistical confidence, or provider behavior. Use representative data and <code>--generator llm</code> before shipping a real workflow.</p>
+          <p class="quickstart-note"><strong>Four-row smoke demo:</strong> this proves installation, contract execution, gating, and a key-free pass/block loop. It does not establish production quality, statistical confidence, or provider behavior. <code>--generator llm</code> is refused on this simulator; for a harness that calls OpenAI, use <code>copy-example support-classifier-live</code>. Use representative data and <code>--generator llm</code> before shipping a real workflow.</p>
           <p class="quickstart-adoption">Adopting an existing app? <code>driftless configure &lt;workflow&gt; --apply</code> writes a draft <code>driftless.yml</code> you can review, then creates or appends the real file without rewriting comments. Fill in any leftover placeholders, then run <code>validate</code>. Add CI with <code>init-ci</code> last. <a href="docs.html#adoption">Follow the adoption guide →</a></p>
           <div class="quickstart-meta">
             <span>✓ No API key</span>
@@ -373,7 +373,7 @@
 <span>$</span> driftless report -w support_classifier
 <span>$</span> driftless open-pr -w support_classifier
 <span class="tok-c"># Dry run: no PR or issue is created without --create.</span></code>
-          <p class="quickstart-note"><code>--generator none</code> exits non-zero because the cheaper target fails the quality gate. <code>--generator fixture</code> applies the bundled known-good patch and can pass. Both save evidence for <code>report</code> and the dry-run <code>open-pr</code> preview.</p>
+          <p class="quickstart-note"><code>--generator none</code> exits non-zero because the cheaper target fails the quality gate. <code>--generator fixture</code> applies the bundled known-good patch and can pass. <code>--generator llm</code> is refused here. Both saved runs leave evidence for <code>report</code> and the dry-run <code>open-pr</code> preview.</p>
         </div>
       </div>
     </section>

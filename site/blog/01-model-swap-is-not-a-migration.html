@@ -155,8 +155,10 @@ that the sample is too small for a reliable production migration decision; they<
 do not contradict the deterministic demo result.</p>
 <p><code>--generator none</code> makes no prompt edits, so <code>migrate</code> stays <code>BLOCKED</code>.<br />
 <code>--generator fixture</code> applies the known-good patch shipped with this example<br />
-and can pass, still without an API key. On a real workflow, <code>--generator llm</code><br />
-needs credentials and is nondeterministic.</p>
+and can pass, still without an API key. <code>--generator llm</code> is refused on this<br />
+simulator; use <code>copy-example support-classifier-live</code> for a harness that<br />
+calls OpenAI. On a customer workflow, <code>--generator llm</code> needs credentials<br />
+and is nondeterministic.</p>
 <p><img alt="Actual Driftless compare output showing the target model blocked by the quality gate" src="../visuals/compare-terminal.png" /></p>
 <h3 id="2-reproduce-the-regression-in-the-290-row-testbed">2. Reproduce the regression in the 290-row testbed</h3>
 <p>The next commands clone and install the external testbed, restore the hand-written<br />

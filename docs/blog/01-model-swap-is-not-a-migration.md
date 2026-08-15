@@ -105,8 +105,10 @@ do not contradict the deterministic demo result.
 
 `--generator none` makes no prompt edits, so `migrate` stays `BLOCKED`.
 `--generator fixture` applies the known-good patch shipped with this example
-and can pass, still without an API key. On a real workflow, `--generator llm`
-needs credentials and is nondeterministic.
+and can pass, still without an API key. `--generator llm` is refused on this
+simulator; use `copy-example support-classifier-live` for a harness that
+calls OpenAI. On a customer workflow, `--generator llm` needs credentials
+and is nondeterministic.
 
 ![Actual Driftless compare output showing the target model blocked by the quality gate](../visuals/compare-terminal.png)
 
