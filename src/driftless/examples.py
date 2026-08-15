@@ -28,7 +28,7 @@ def available_examples() -> list[str]:
 
 def example_help_names() -> str:
     names = available_examples()
-    return ", ".join(names) if names else "support-classifier, rag-qa, tool-agent"
+    return ", ".join(names) if names else "support-classifier, support-classifier-live, rag-qa, tool-agent"
 
 
 def workflow_names_in(project: Path) -> list[str]:

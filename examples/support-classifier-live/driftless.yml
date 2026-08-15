@@ -1,0 +1,41 @@
+version: 1
+workflows:
+  support_classifier_live:
+    description: "Live OpenAI ticket classifier. Requires OPENAI_API_KEY."
+    model:
+      current: gpt-4o
+      target_candidates:
+        - gpt-4o-mini
+      env_var: MODEL
+      config_file: config/llm.yml
+      config_path: model
+      portable: true
+
+    files:
+      editable:
+        - prompts/classifier.md
+      readonly:
+        - app/
+        - config/llm.yml
+        - evals/tickets.jsonl
+        - evals/gold.jsonl
+
+    run:
+      command: python3 -m app.eval_classifier
+      input_path: evals/tickets.jsonl
+      output_path: evals/outputs.jsonl
+      timeout_seconds: 180
+
+    eval:
+      id_field: id
+      labels_path: evals/gold.jsonl
+      label_field: label
+      split:
+        tuning: 60%
+        holdout: 40%
+
+    thresholds:
+      min_f1: 0.90
+
+    migration:
+      max_iterations: 3

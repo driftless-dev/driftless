@@ -804,6 +804,13 @@ def _act_on_trigger(
             ensure_pr_branch_available(identity, cwd=cwd, push=True)
             if original_branch != base_branch:
                 checkout_git_branch(base_branch, cwd=cwd)
+        from .generators import refuse_llm_on_bundled_simulator
+
+        refuse_llm_on_bundled_simulator(
+            cwd=cwd,
+            editable=wf.files.editable,
+            generator=generator_name,
+        )
         gen = build_generator(generator_name)
         result = run_migration(
             name,
@@ -917,6 +924,13 @@ def _act_on_data_change(
             ensure_pr_branch_available(identity, cwd=cwd, push=True)
             if original_branch != base_branch:
                 checkout_git_branch(base_branch, cwd=cwd)
+        from .generators import refuse_llm_on_bundled_simulator
+
+        refuse_llm_on_bundled_simulator(
+            cwd=cwd,
+            editable=wf.files.editable,
+            generator=generator_name,
+        )
         gen = build_generator(generator_name)
         result = run_migration(
             name, wf, wf.model.current, generator=gen, cwd=cwd, seed=seed,
@@ -1192,6 +1206,13 @@ def migrate(
             workflow, wf, skip=skip_label_audit, strict=strict_label_audit
         )
         _preflight(wf, to)
+        from .generators import refuse_llm_on_bundled_simulator
+
+        refuse_llm_on_bundled_simulator(
+            cwd=Path.cwd(),
+            editable=wf.files.editable,
+            generator=generator,
+        )
         gen = build_generator(
             generator,
             provider=generator_provider,
@@ -1329,6 +1350,13 @@ def refine(
         wf = contract.workflow(workflow)
         _label_audit_preflight(
             workflow, wf, skip=skip_label_audit, strict=strict_label_audit
+        )
+        from .generators import refuse_llm_on_bundled_simulator
+
+        refuse_llm_on_bundled_simulator(
+            cwd=Path.cwd(),
+            editable=wf.files.editable,
+            generator=generator,
         )
         gen = build_generator(
             generator,

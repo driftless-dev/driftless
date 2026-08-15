@@ -21,12 +21,14 @@ faithfulness, citation support, and cost. Here it is deterministic so the exampl
 runs without provider keys.
 
 Same key-free loop as the classifier: `--generator none` should `BLOCKED`,
-`--generator fixture` should `PASS`.
+`--generator fixture` should `PASS`. `--generator llm` is refused here;
+the harness does not call a model. For a live OpenAI eval, use
+`copy-example support-classifier-live`.
 
 ```bash
 driftless migrate -w rag_qa --to gpt-4o-mini --generator none
 driftless migrate -w rag_qa --to gpt-4o-mini --generator fixture
 ```
 
-The three names accepted by `copy-example` are `support-classifier`, `rag-qa`,
-and `tool-agent`.
+The names accepted by `copy-example` are `support-classifier`,
+`support-classifier-live`, `rag-qa`, and `tool-agent`.

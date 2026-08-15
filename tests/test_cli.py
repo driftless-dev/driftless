@@ -139,11 +139,20 @@ def test_copy_example_prints_support_classifier_workflow(tmp_path, monkeypatch):
     assert "driftless validate -w support_classifier" in _plain(result.output)
 
 
+def test_copy_example_prints_live_classifier_workflow(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["copy-example", "support-classifier-live"])
+
+    assert result.exit_code == 0
+    assert "driftless validate -w support_classifier_live" in _plain(result.output)
+
+
 def test_copy_example_help_lists_support_classifier():
     result = runner.invoke(app, ["copy-example", "--help"])
 
     assert result.exit_code == 0
     assert "support-classifier" in result.output
+    assert "support-classifier-live" in result.output
     assert "rag-qa" in result.output
     assert "tool-agent" in result.output
 
@@ -156,6 +165,7 @@ def test_copy_example_requires_name_and_lists_examples(tmp_path, monkeypatch):
     out = _plain(result.output)
     assert "missing example name" in out
     assert "support-classifier" in out
+    assert "support-classifier-live" in out
     assert "Traceback" not in out
 
 

@@ -102,6 +102,7 @@ include = [
     "docs/rag-and-agents.md",
     "docs/blog",
     "examples/support-classifier",
+    "examples/support-classifier-live",
     "examples/rag-qa",
     "examples/tool-agent",
 ]

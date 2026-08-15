@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.6] - 2026-08-15
+
+### Added
+
+- **`support-classifier-live`** — same four tickets as the key-free
+  classifier, but the harness calls OpenAI. Use this for `--generator llm`.
+
+### Changed
+
+- **`--generator llm` on bundled simulators** — refused with a pointer to
+  `--generator fixture` or `copy-example support-classifier-live`. The
+  key-free examples do not call a model.
+
+---
+
 ## [0.3.5] - 2026-08-15
 
 ### Changed
@@ -482,7 +497,8 @@ First public release on [PyPI](https://pypi.org/project/driftless/0.1.0/).
 - **Docs** — project overview, repair algorithm spec, 2×2 migration methodology,
   Poetry + Dependabot product framing.
 
-[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/driftless-dev/driftless/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/driftless-dev/driftless/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/driftless-dev/driftless/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/driftless-dev/driftless/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/driftless-dev/driftless/compare/v0.3.2...v0.3.3

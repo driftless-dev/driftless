@@ -102,6 +102,7 @@ testbed's own simulator) and may differ.
 Other bundled examples:
 
 ```bash
+driftless copy-example support-classifier-live
 driftless copy-example rag-qa
 driftless copy-example tool-agent
 ```
@@ -134,7 +135,7 @@ Not a classifier? Pick a grading mode that matches the task:
 
 | Command | Purpose |
 |---|---|
-| `copy-example` | Copy a bundled example (`support-classifier`, `rag-qa`, `tool-agent`). |
+| `copy-example` | Copy a bundled example (`support-classifier`, `support-classifier-live`, `rag-qa`, `tool-agent`). |
 | `init` | Scaffold a `driftless.yml`. |
 | `init-policy` | Scaffold a `.driftless/policy.yml` (when to migrate). |
 | `init-ci` | Scaffold `.github/workflows/` for scan, migrate, refine, poll, plan, label audit, and judge check. |
@@ -175,7 +176,7 @@ A composite GitHub Action wraps the same CLI so scans and migrations can run in
 CI. After you have a working local contract:
 
 ```yaml
-- uses: driftless-dev/driftless@v0.3.5
+- uses: driftless-dev/driftless@v0.3.6
   with:
     command: scan
 ```
