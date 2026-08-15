@@ -16,7 +16,7 @@ unless you pass `--create`.
 | User situation | Command | Important behavior |
 |---|---|---|
 | Show the installed release or command help. | `driftless --version`, `driftless --help`, or `driftless <command> --help` | Help is the authoritative option list for the installed wheel. |
-| Try the golden-path bundled example. | `driftless copy-example support-classifier --out-dir <dir>` | Also accepts `rag-qa` and `tool-agent`; `--force` overwrites an existing destination. |
+| Try the golden-path bundled example. | `driftless copy-example support-classifier --out-dir <dir>` | Also accepts `support-classifier-live`, `rag-qa`, and `tool-agent`; `--force` overwrites an existing destination. |
 | Scaffold a neutral contract manually. | `driftless init [--path driftless.yml]` | Contains explicit placeholders and refuses to run until they are resolved. |
 | Find probable LLM usage and lifecycle risk. | `driftless scan [path]` | Use `--no-files` for a shorter result. Discovery does not edit the repo. |
 | Turn a detected workflow into a contract. | `driftless configure <workflow> [path] --apply` | Always writes a reviewable draft; `--apply` safely creates/appends root `driftless.yml`. |
@@ -30,7 +30,7 @@ unless you pass `--create`.
 | Check parsing and run the harness. | `driftless validate -w <workflow>` | Omit `-w` for all workflows; `--no-run` checks configuration without executing the harness. |
 | Establish a baseline and starting thresholds. | `driftless calibrate -w <workflow>` | `--margin` adjusts suggested headroom. Suggestions still require human review. |
 | Measure a target before editing files. | `driftless compare -w <workflow> --to <model> [--enforce]` | Default is informational; `--enforce` exits non-zero when gates fail. |
-| Repair exact editable paths for a model switch. | `driftless migrate -w <workflow> --to <model>` | Default `--generator llm` needs provider credentials. `--generator none` makes no repair. `--generator fixture` reproduces the known-good bundled-example patch without keys. |
+| Repair exact editable paths for a model switch. | `driftless migrate -w <workflow> --to <model>` | Default `--generator llm` needs provider credentials and is refused on bundled simulators. `--generator none` makes no repair. `--generator fixture` reproduces the known-good bundled-example patch without keys. |
 | Re-optimize after eval data changes with the model pinned. | `driftless refine -w <workflow>` | Same repair/cost caveats as `migrate`, but no `--to` model. |
 | Check classification labels before optimization. | `driftless audit-labels -w <workflow>` | `--fail` exits non-zero on conflicts; tune near-duplicate matching with `--near-threshold`. |
 | Check an LLM judge against human calibration. | `driftless judge-check -w <workflow>` | `--enforce` exits non-zero when configured MAE/correlation gates fail. |
@@ -90,6 +90,15 @@ To reproduce a passing bundled repair without keys:
 
 ```bash
 driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
+```
+
+`--generator llm` is refused on that simulator. For a harness that calls
+OpenAI:
+
+```bash
+driftless copy-example support-classifier-live --out-dir driftless-classifier-live
+cd driftless-classifier-live
+driftless migrate -w support_classifier_live --to gpt-4o-mini --generator llm
 ```
 
 For an existing repository, use `driftless scan`, then

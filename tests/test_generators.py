@@ -19,6 +19,7 @@ from driftless.generators import (
     build_generator,
     build_user_prompt,
     parse_patch,
+    refuse_llm_on_bundled_simulator,
 )
 
 RUN_PY = """\
@@ -264,6 +265,44 @@ def test_fixture_recipe_matches_classifier_and_is_idempotent():
 
 def test_fixture_recipe_unknown_workflow_returns_none():
     assert _fixture_recipe({"prompts/other.md": "hello"}) is None
+
+
+def test_fixture_recipe_ignores_live_classifier_prompt():
+    live = (
+        Path(__file__).resolve().parents[1]
+        / "examples"
+        / "support-classifier-live"
+        / "prompts"
+        / "classifier.md"
+    )
+    assert _fixture_recipe({"prompts/classifier.md": live.read_text()}) is None
+
+
+def test_refuse_llm_on_bundled_simulator(tmp_path: Path):
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    (prompts / "classifier.md").write_text(
+        "Classify each support ticket by its main customer intent.\n"
+    )
+    with pytest.raises(DriftlessError, match="local simulator"):
+        refuse_llm_on_bundled_simulator(
+            cwd=tmp_path,
+            editable=["prompts/classifier.md"],
+            generator="llm",
+        )
+
+
+def test_refuse_llm_allows_fixture_and_unknown_prompts(tmp_path: Path):
+    refuse_llm_on_bundled_simulator(
+        cwd=tmp_path,
+        editable=["prompts/classifier.md"],
+        generator="fixture",
+    )
+    refuse_llm_on_bundled_simulator(
+        cwd=tmp_path,
+        editable=["prompts/other.md"],
+        generator="llm",
+    )
 
 
 def test_fixture_generator_raises_on_unknown_workflow(tmp_path: Path):

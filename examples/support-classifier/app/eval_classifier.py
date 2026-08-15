@@ -11,9 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LABELS = ("billing", "technical", "account", "shipping")
 KNOWN_LABELS = LABELS + ("refund",)
 
-# Phrasings a real repair LLM actually writes. The old check required the
-# exact fixture sentence ``use exact labels only``, which live ``--generator
-# llm`` never discovered.
+# Phrasings that recover mini on this simulator. Live ``--generator llm``
+# is refused here; use ``support-classifier-live`` for a real model call.
 _STRICT_HINTS = (
     "use exact labels only",
     "exact labels only",

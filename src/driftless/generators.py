@@ -620,6 +620,35 @@ def _fixture_recipe(files: dict[str, str]) -> dict[str, str] | None:
     return None
 
 
+def refuse_llm_on_bundled_simulator(
+    *,
+    cwd: Path,
+    editable: list[str],
+    generator: str,
+) -> None:
+    """Block ``--generator llm`` on key-free bundled simulators.
+
+    Those examples do not call a model. Live repair belongs on
+    ``support-classifier-live`` (or a customer harness).
+    """
+    if generator != "llm":
+        return
+    files: dict[str, str] = {}
+    for rel in editable:
+        path = cwd / rel
+        if path.is_file():
+            files[rel] = path.read_text(encoding="utf-8")
+    if _fixture_recipe(files) is None:
+        return
+    raise DriftlessError(
+        "this bundled example is a local simulator and does not call a model",
+        hint=(
+            "use --generator fixture for the key-free tour, or "
+            "`driftless copy-example support-classifier-live` for --generator llm"
+        ),
+    )
+
+
 class FixturePatchGenerator:
     """Apply the known-good patch for a bundled Driftless example.
 

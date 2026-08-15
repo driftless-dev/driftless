@@ -30,6 +30,9 @@ There are three built-in generators, then a custom seam:
 2. **`--generator fixture`** — apply the known-good patch for a bundled example
    (`support-classifier`, `rag-qa`, `tool-agent`). Key-free reproduction only.
 3. **`--generator llm`** — ask OpenAI or Anthropic to repair `files.editable`.
+   Refused on bundled simulators (`support-classifier`, `rag-qa`,
+   `tool-agent`); use `copy-example support-classifier-live` or a customer
+   harness.
 4. **Write your own generator** that implements the `PatchGenerator` protocol.
 
 ## The migration loop

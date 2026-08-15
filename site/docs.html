@@ -173,8 +173,8 @@ driftless open-pr -w support_classifier</code></pre>
 <pre class="has-copy"><button class="copy-btn">copy</button><code>driftless migrate -w support_classifier --to gpt-4o-mini --generator fixture
 driftless report -w support_classifier
 driftless open-pr -w support_classifier</code></pre>
-        <p>Expect <code class="inline">PASS</code>. <code class="inline">open-pr</code> only prints what it would open unless you add <code class="inline">--create</code>. Do not use <code class="inline">fixture</code> on your own app.</p>
-        <p>Other demos: <code class="inline">copy-example rag-qa</code> and <code class="inline">copy-example tool-agent</code>.</p>
+        <p>Expect <code class="inline">PASS</code>. <code class="inline">open-pr</code> only prints what it would open unless you add <code class="inline">--create</code>. Do not use <code class="inline">fixture</code> on your own app. This example is a local simulator: <code class="inline">--generator llm</code> is refused here.</p>
+        <p>For a harness that calls OpenAI, use <code class="inline">copy-example support-classifier-live</code> (needs <code class="inline">OPENAI_API_KEY</code>). Other key-free demos: <code class="inline">copy-example rag-qa</code> and <code class="inline">copy-example tool-agent</code>.</p>
       </section>
 
       <section id="public-alpha">
@@ -380,7 +380,7 @@ driftless init-ci</code></pre>
           <li>Embedding migrations and vector-index rebuilds are out of scope; RAG migrations keep retrieval fixed.</li>
           <li>Agent tools should be fake or sandboxed, and provider lifecycle data is bundled/CI-refreshed rather than a live hosted catalog.</li>
           <li>Small evals can produce noisy passes. Use representative data, meaningful holdout, and multiple seeds for high-risk changes. See <a href="https://github.com/driftless-dev/driftless/blob/main/docs/CONFIDENCE.md">eval confidence</a>.</li>
-          <li><code class="inline">--generator fixture</code> only repairs bundled examples. Customer workflows use <code class="inline">--generator llm</code>.</li>
+          <li><code class="inline">--generator fixture</code> only repairs bundled simulators. <code class="inline">--generator llm</code> is refused on those; use <code class="inline">support-classifier-live</code> or a customer harness.</li>
         </ul>
         <p>Read the <a href="https://github.com/driftless-dev/driftless/blob/main/docs/LIMITS.md">full limits and ownership boundaries</a> before broad rollout.</p>
       </section>
@@ -422,7 +422,7 @@ driftless init-ci</code></pre>
         <table class="doc-table">
           <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
           <tbody>
-            <tr><td><code>copy-example &lt;name&gt;</code></td><td>Copy a bundled project: <code>support-classifier</code>, <code>rag-qa</code>, or <code>tool-agent</code>.</td></tr>
+            <tr><td><code>copy-example &lt;name&gt;</code></td><td>Copy a bundled project: <code>support-classifier</code>, <code>support-classifier-live</code>, <code>rag-qa</code>, or <code>tool-agent</code>.</td></tr>
             <tr><td><code>init</code></td><td>Scaffold a neutral <code>driftless.yml</code> with explicit placeholders.</td></tr>
             <tr><td><code>init-policy</code></td><td>Scaffold migration-trigger policy.</td></tr>
             <tr><td><code>init-ci</code></td><td>Scaffold GitHub Actions; infers app setup when possible, or pass <code>--setup-command</code>; opt into <code>--refine-on-push</code>.</td></tr>
@@ -554,7 +554,7 @@ driftless view -w support_classifier</code></pre>
     <span class="tok-k">runs-on</span>: ubuntu-latest
     <span class="tok-k">steps</span>:
       - <span class="tok-k">uses</span>: actions/checkout@v5
-      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.4
+      - <span class="tok-k">uses</span>: driftless-dev/driftless@v0.3.6
         <span class="tok-k">with</span>:
           <span class="tok-k">command</span>: <span class="tok-s">plan</span></code></pre>
         <p>This is a policy <code class="inline">plan</code> preview, not the dependency-only <code class="inline">scan</code> workflow. A scheduled <code class="inline">plan</code> gates CI when a deprecated model needs attention; a manually-triggered <code class="inline">migrate</code> opens a PR (or an issue when blocked) with the evidence attached.</p>

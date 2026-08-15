@@ -76,12 +76,32 @@ driftless open-pr -w support_classifier
 
 `--generator fixture` applies the known-good patch shipped with this example.
 Expect `PASS`. This proves the published CLI can produce a passing evidence
-artifact. It is not a general optimizer — real apps use `--generator llm` and
-need a provider key. On this example, a prompt that lists the four labels and
-says to return only those labels is enough; `llm` can learn that phrasing.
+artifact. It is not a general optimizer.
+
+This example is a **local simulator**. `--generator llm` is refused here;
+use [the live classifier](#prove-live-repair) when you want a real model
+call.
 
 The four-row set is still too small to trust as production evidence. See
 [eval confidence](./CONFIDENCE.md).
+
+## Prove live repair
+
+Same four tickets, but the harness calls OpenAI. You need a key, and each
+run costs a little money. Scores are not deterministic.
+
+```bash
+pip install 'driftless[llm]'
+export OPENAI_API_KEY=...
+driftless copy-example support-classifier-live --out-dir driftless-classifier-live
+cd driftless-classifier-live
+driftless validate -w support_classifier_live
+driftless compare -w support_classifier_live --to gpt-4o-mini
+driftless migrate -w support_classifier_live --to gpt-4o-mini --generator llm
+```
+
+Without a key the harness exits with `OPENAI_API_KEY is not set`. Do not
+expect the simulator’s fixed `1.000 → 0.000` table.
 
 ## Words used here
 
@@ -100,10 +120,13 @@ The four-row set is still too small to trust as production evidence. See
 
 ```bash
 driftless copy-example support-classifier
+driftless copy-example support-classifier-live
 driftless copy-example rag-qa
 driftless copy-example tool-agent
 ```
 
+- **support-classifier-live** — same tickets as the simulator; the harness
+  calls OpenAI. Requires `OPENAI_API_KEY`.
 - **rag-qa** — retrieval QA. Retrieval stays fixed; Driftless may edit prompts.
 - **tool-agent** — a fake local agent. The eval records which tools were chosen,
   so a fluent wrong tool call still fails.

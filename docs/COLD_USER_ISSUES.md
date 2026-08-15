@@ -468,10 +468,11 @@ failure was still “no LLM provider API key found for patch generation,” not
 
 ### CU-20 — Live `--generator llm` fails on the golden-path demo
 
-**Status:** fixed. Mini recovery accepts common “return only / one of the
-following” phrasings plus the four label names, not only the fixture
-sentence `use exact labels only`. Combined with CU-24 (gold labels in the
-repair prompt).
+**Status:** fixed by splitting the demo. `--generator llm` is refused on
+the key-free simulator. Live repair uses
+`copy-example support-classifier-live`, whose harness calls OpenAI.
+Re-validated on PyPI `0.3.5`: widening magic phrases was not enough; a
+real repair model still missed the simulator’s stock wording.
 
 2026-08-15, published `0.3.4`, OpenAI `gpt-4o` as the repair model.
 
@@ -494,9 +495,10 @@ A new user who finishes the key-free tour and then tries the documented
 **Where:** `examples/support-classifier/app/eval_classifier.py`
 (`prompt_is_strict`); `src/driftless/generators.py` (`LLMPatchGenerator`).
 
-**Fix:** Make the demo harness score prompt quality in a way an LLM can
-learn (or document that `llm` is not expected to pass this example). Do not
-present fixture-pass and llm-repair as the same loop.
+**Fix:** Keep the key-free simulator. Refuse `--generator llm` when the
+editable files match a bundled fixture recipe. Ship
+`support-classifier-live` for real model calls. Do not present fixture-pass
+and llm-repair as the same loop.
 
 Live `judge-check` with a key **did** work: 4 calibration rows, MAE 0.410
 (over a 0.25 gate), correlation 0.988. Default exit 0; `--enforce` exited 1
@@ -686,7 +688,8 @@ These matched the docs on 2026-08-15 / 0.3.4:
 - `scripts/check_site_links.py` on the committed site: OK.
 
 - Live `--generator llm` migrate (OpenAI): API calls succeed; bundled
-  classifier stays **BLOCKED** after 7 attempts (CU-20).
+  classifier stayed **BLOCKED** after 7 attempts on `0.3.4`/`0.3.5`
+  (CU-20). Unreleased refuses `llm` on that simulator.
 - Live `judge-check` (OpenAI): scores 4 calibration rows; `--enforce`
   applies `max_mae` / `min_correlation` correctly.
 - Live OpenAI harness (real `chat.completions.create`, exact-label
@@ -702,8 +705,10 @@ prompt for `gpt-4` (CU-13).
 - CU-7, CU-10, CU-11, CU-12 — GitHub delivery: contract model bump, PR URL,
   example config file, CI generator input / skip empty open-pr (source fix;
   not yet released on PyPI).
-- CU-13, CU-16, CU-20, CU-24 — demo harness, poll gate, and repair taxonomy
-  (source fix; not yet released on PyPI).
+- CU-13, CU-16, CU-24 — demo harness, poll gate, and repair taxonomy
+  (source fix; shipped in 0.3.5).
+- CU-20 — `--generator llm` refused on simulators; live repair uses
+  `support-classifier-live` (shipped in 0.3.6).
 - CU-21, CU-22, CU-23 — split honesty and PASS/BLOCKED scorecards (source
   fix; not yet released on PyPI).
 - CU-1, CU-2, CU-3, CU-4, CU-18, CU-19 — first-hour CLI: real workflow names
