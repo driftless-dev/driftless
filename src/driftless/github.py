@@ -539,7 +539,7 @@ def find_open_blocked_issue(
     if not rows:
         return None
     for row in rows:
-        if row.get("title") == title:
+        if isinstance(row, dict) and row.get("title") == title:
             return row
     return None
 
