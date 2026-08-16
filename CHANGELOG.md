@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Use-case map** — Getting Started, hosted docs, and the landing page
   list classifier, live classifier, RAG, agent, and summarizer/judge paths.
+- **Smallest working contract** — Getting Started and hosted docs lead
+  adoption with a six-block `driftless.yml` before optional knobs.
 
 ### Changed
 

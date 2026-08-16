@@ -63,6 +63,7 @@
       <a href="#use-cases">Use cases</a>
       <a href="#adoption">Adopt in your repository</a>
       <a href="#contract">The workflow contract</a>
+      <a href="#minimum-contract">Smallest working contract</a>
       <a href="#public-alpha">Public alpha</a>
 
       <h5>Concepts</h5>
@@ -251,13 +252,35 @@ driftless init-ci</code></pre>
           <span class="ci" aria-hidden="true">!</span>
           <p><code class="inline">configure --apply</code> writes a reviewable draft and safely creates or appends root <code class="inline">driftless.yml</code> without rewriting existing comments. It prefills description, harness paths, model/env, a cheaper same-provider target when known, and common readonly trees. Driftless refuses to run until every remaining placeholder is resolved. <code class="inline">init-ci</code> infers app setup from <code class="inline">pyproject.toml</code> / <code class="inline">requirements.txt</code> / Node manifests; override with <code class="inline">--setup-command</code> when needed.</p>
         </div>
-        <p>If discovery does not fit your setup, <code class="inline">driftless init</code> writes a commented <code class="inline">driftless.yml</code> template. The <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#adopt-driftless-in-an-existing-repository">guided repository walkthrough</a> includes a concrete draft-to-contract before/after, provider-cost guidance, and a staged safety checklist.</p>
+        <p>If discovery does not fit your setup, start from the <a href="#minimum-contract">smallest working contract</a> or run <code class="inline">driftless init</code>. The <a href="https://github.com/driftless-dev/driftless/blob/main/docs/GETTING_STARTED.md#smallest-working-contract">Getting Started walkthrough</a> shows that minimum file, then a fuller draft-to-contract example.</p>
       </section>
 
       <!-- CONTRACT -->
       <section id="contract">
         <h2>The workflow contract</h2>
         <p><code class="inline">driftless.yml</code> is the one file you fill in. Each named block under <code class="inline">workflows:</code> is one LLM task. Unknown keys are errors, so typos fail fast instead of being ignored.</p>
+        <h3 id="minimum-contract">Smallest working contract</h3>
+        <p>For a classifier with gold labels, this is enough to <code class="inline">validate</code> and <code class="inline">compare</code>. You do not need <code class="inline">config_file</code>, token fields, or a second workflow.</p>
+<pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-k">version</span>: <span class="tok-p">1</span>
+<span class="tok-k">workflows</span>:
+  <span class="tok-k">my_classifier</span>:
+    <span class="tok-k">model</span>:
+      <span class="tok-k">current</span>: <span class="tok-s">gpt-4</span>
+      <span class="tok-k">env_var</span>: <span class="tok-s">MODEL</span>
+    <span class="tok-k">files</span>:
+      <span class="tok-k">editable</span>:
+        - <span class="tok-s">prompts/system.md</span>
+    <span class="tok-k">run</span>:
+      <span class="tok-k">command</span>: <span class="tok-s">python evals/run_eval.py</span>
+      <span class="tok-k">input_path</span>: <span class="tok-s">evals/inputs.jsonl</span>
+      <span class="tok-k">output_path</span>: <span class="tok-s">evals/outputs.jsonl</span>
+    <span class="tok-k">eval</span>:
+      <span class="tok-k">labels_path</span>: <span class="tok-s">evals/gold.jsonl</span>
+      <span class="tok-k">label_field</span>: <span class="tok-s">label</span>
+    <span class="tok-k">thresholds</span>:
+      <span class="tok-k">min_f1</span>: <span class="tok-p">0.90</span></code></pre>
+        <p>The harness must write one JSON object per line to <code class="inline">output_path</code> and read the model from the env var. <code class="inline">model.current</code> is Driftless's baseline, not what the app reads at runtime. Skip <code class="inline">config_file</code> unless a PR should rewrite an in-repo model ID. Not a classifier? Use <code class="inline">eval.score_field</code>, <code class="inline">eval.pass_field</code>, or <code class="inline">eval.judge</code> instead of labels.</p>
+        <p>A fuller contract can add holdout, cost gates, schema checks, and <code class="inline">config_file</code> once that minimum runs:</p>
 <pre class="has-copy"><button class="copy-btn">copy</button><code><span class="tok-k">workflows</span>:
   <span class="tok-k">support_classifier</span>:
     <span class="tok-k">run</span>:
@@ -287,7 +310,7 @@ driftless init-ci</code></pre>
       <span class="tok-k">max_iterations</span>: <span class="tok-p">4</span>
       <span class="tok-k">holdout_required</span>: <span class="tok-k">true</span>
       <span class="tok-k">split_seed_count</span>: <span class="tok-p">1</span></code></pre>
-        <p>There are two override mechanisms, and a workflow may use both:</p>
+        <p>You need one way to swap the model at runtime. <code class="inline">env_var</code> is enough. A workflow may also set <code class="inline">config_file</code>:</p>
         <ul>
           <li><strong><code class="inline">env_var</code></strong> — Driftless sets this environment variable when it runs your command, so the same script can use a different model during eval.</li>
           <li><strong><code class="inline">config_file</code> + <code class="inline">config_path</code></strong> — a path into a JSON/YAML file. Used when opening a PR, to write the new model ID into the repo.</li>

@@ -156,7 +156,8 @@ workflow, you still have to bring the eval. Driftless will not invent one.
 ### Checklist (you own these)
 
 1. **Eval command** — a repeatable harness that writes JSONL to `run.output_path`.
-2. **Model override** — `model.env_var` or `model.config_file` + `model.config_path`.
+2. **Model override** — `model.env_var` is enough. Add `config_file` +
+   `config_path` only if a PR should rewrite an in-repo model ID.
 3. **Editable scope** — exact file paths in `files.editable`; everything else is read-only.
 4. **Labels or scorer** — `eval.labels_path` / `score_field` / `pass_field` / `judge`.
 5. **Thresholds** — start from `calibrate`, then review; do not auto-accept.
@@ -181,6 +182,42 @@ It prefills description, harness paths, model/env, a cheaper same-provider
 target when known, and common readonly trees. Without `--apply`, copy the
 reviewed workflow block manually. Driftless refuses to load a contract while
 `TODO` or `<placeholder>` values remain.
+
+### Smallest working contract
+
+You do not need `config_file`, token fields, or a second workflow. For a
+classifier with gold labels, this is enough to `validate` and `compare`:
+
+```yaml
+version: 1
+workflows:
+  my_classifier:
+    model:
+      current: gpt-4
+      env_var: MODEL
+    files:
+      editable:
+        - prompts/system.md
+    run:
+      command: python evals/run_eval.py
+      input_path: evals/inputs.jsonl
+      output_path: evals/outputs.jsonl
+    eval:
+      labels_path: evals/gold.jsonl
+      label_field: label
+    thresholds:
+      min_f1: 0.90
+```
+
+That assumes the harness writes one JSON object per line to
+`evals/outputs.jsonl`, reads the model from `$MODEL` (Driftless sets that
+when it runs), and that gold labels live in `evals/gold.jsonl` with a
+`label` field. Only `prompts/system.md` may be edited.
+
+`model.current` is Driftless's baseline, not what the app reads at runtime.
+Skip `config_file` unless the production model ID lives in a repo YAML/JSON
+file that a PR should change. Not a classifier? Use `eval.score_field`,
+`eval.pass_field`, or `eval.judge` instead of `labels_path` / `label_field`.
 
 ### 1. Turn the draft into a concrete contract
 
@@ -207,8 +244,9 @@ workflows:
       min_score: TODO
 ```
 
-Replace the placeholders with values that match the real harness, then merge
-this reviewed block into root `driftless.yml`:
+Replace the placeholders with values that match the real harness. Start from
+the [smallest working contract](#smallest-working-contract). A fuller file
+can add holdout, cost gates, and `files.context` once that minimum runs:
 
 ```yaml
 workflows:
