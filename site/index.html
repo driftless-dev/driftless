@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/landing.css?v=v8" />
+  <link rel="stylesheet" href="assets/landing.css?v=v13" />
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
 </head>
 <body class="landing">
@@ -68,37 +68,62 @@
           </div>
         </div>
 
-        <div class="workbench" aria-label="Reproducible Driftless comparison result">
+        <div class="workbench workbench-flow" role="img" aria-label="Driftless workflow: compare a model change, diagnose failures, repair only allowed prompt files, then pass holdout and open a draft pull request.">
           <div class="workbench-bar">
             <div class="window-controls" aria-hidden="true"><i></i><i></i><i></i></div>
-            <span>compare / support-classifier</span>
-            <span class="run-state"><i></i> 4-row smoke demo</span>
+            <span>prompt migration · gpt-4 → gpt-4o-mini</span>
+            <span class="run-state">
+              <i></i>
+              <span class="flow-phase">
+                <span>comparing</span>
+                <span>diagnosing</span>
+                <span>repairing</span>
+                <span>opening PR</span>
+              </span>
+            </span>
           </div>
-          <div class="workbench-body">
-            <div class="run-command"><span>$</span> driftless compare -w support_classifier --to gpt-4o-mini</div>
-            <div class="model-route">
-              <div><small>FROM</small><strong>gpt-4</strong></div>
-              <span class="route-line"><i></i></span>
-              <div><small>TO</small><strong>gpt-4o-mini</strong></div>
+          <div class="flow-body">
+            <div class="run-command"><span>$</span> driftless migrate -w support_classifier --to gpt-4o-mini</div>
+            <ol class="flow-track">
+              <li class="flow-step flow-step-1">
+                <span class="flow-dot" aria-hidden="true"></span>
+                <div>
+                  <strong>Compare</strong>
+                  <p>Same harness, current vs target</p>
+                </div>
+                <b>drift found</b>
+              </li>
+              <li class="flow-step flow-step-2">
+                <span class="flow-dot" aria-hidden="true"></span>
+                <div>
+                  <strong>Diagnose</strong>
+                  <p>Schema errors and wrong labels</p>
+                </div>
+                <b>2 clusters</b>
+              </li>
+              <li class="flow-step flow-step-3">
+                <span class="flow-dot" aria-hidden="true"></span>
+                <div>
+                  <strong>Repair</strong>
+                  <p>Edits only the prompt files you allow</p>
+                </div>
+                <b>prompt</b>
+              </li>
+              <li class="flow-step flow-step-4">
+                <span class="flow-dot" aria-hidden="true"></span>
+                <div>
+                  <strong>Validate</strong>
+                  <p>Winner must pass untouched holdout</p>
+                </div>
+                <b>gate</b>
+              </li>
+            </ol>
+            <div class="flow-outcome">
+              <span class="flow-outcome-line flow-outcome-a"><em>×</em> cheaper, not shippable</span>
+              <span class="flow-outcome-line flow-outcome-b"><em>●</em> clustering failures</span>
+              <span class="flow-outcome-line flow-outcome-c"><em>+</em> repairing prompts/system.md</span>
+              <span class="flow-outcome-line flow-outcome-d"><em>✓</em> holdout passed · draft PR ready</span>
             </div>
-            <div class="metric-header">
-              <span>Same prompt, same eval harness</span>
-              <strong class="failed"><i></i> DRIFT FOUND</strong>
-            </div>
-            <div class="metric-grid">
-              <div class="metric-name">Macro F1</div>
-              <div><small>current</small><span class="metric-good">1.000</span></div>
-              <div><small>target</small><span class="metric-bad">0.000</span></div>
-              <div class="metric-name">Total cost</div>
-              <div><small>current</small><span>0.024</span></div>
-              <div><small>target</small><span class="metric-good">0.004</span></div>
-            </div>
-            <div class="changed-files">
-              <div class="changed-title"><span>Contract checks</span><span class="diff-stat">1 pass&nbsp;&nbsp;1 fail</span></div>
-              <div><span class="file-icon">✓</span> max_cost_increase <span class="file-bars">−83.3%</span></div>
-              <div><span class="file-icon failed">×</span> min_f1 <span class="file-bars failed">0.000 &lt; 0.900</span></div>
-            </div>
-            <div class="workbench-footer"><span class="failed">× target is cheaper, not shippable</span><span>Repair required →</span></div>
           </div>
         </div>
       </div>
@@ -285,35 +310,11 @@
           <h2>Every run ends with evidence, not optimism.</h2>
         </div>
 
-        <div class="outcome-grid">
-          <article class="outcome-card outcome-blocked">
-            <div class="outcome-status"><span><i></i> <code>--generator none</code></span><strong>REPRODUCIBLE BLOCK</strong></div>
-            <h3>Cheaper is not shippable</h3>
-            <p>The bundled four-row demo fails the quality gate. Driftless records the blocker and previews an issue instead of a false-confidence PR.</p>
-            <div class="blocked-log">
-              <span>support_classifier → gpt-4o-mini</span>
-              <code>FAIL min_f1 0.000 &lt; 0.900</code>
-              <small>No prompt files committed</small>
-            </div>
-          </article>
-
-          <article class="outcome-card outcome-pass">
-            <div class="outcome-status"><span><i></i> <code>--generator fixture</code></span><strong>REPRODUCIBLE PASS</strong></div>
-            <h3>The published CLI can pass</h3>
-            <p>The same example applies a known-good bundled patch, still without provider keys. Reviewers get the prompt diff, scorecard, and holdout checks.</p>
-            <div class="outcome-preview">
-              <div><span>Target Macro F1</span><b>0.000 → 1.000</b></div>
-              <div><span>Holdout min_f1</span><b>PASS</b></div>
-              <div><span>Prompt files changed</span><b>1 in scope</b></div>
-            </div>
-          </article>
-        </div>
-
         <div class="evidence-proof">
           <div class="evidence-proof-copy">
-            <span>HISTORICAL TESTBED PROOF · PR #4</span>
-            <strong>A larger captured run</strong>
-            <p>Public draft PR from a 290-label testbed: generated report, untouched holdout, one prompt repair, and a model configuration update. Separate from the four-row demo above.</p>
+            <span>PUBLIC DRAFT PR #4</span>
+            <strong>A pull request with the evidence</strong>
+            <p>Public draft PR from a 290-label testbed: generated report, untouched holdout, one prompt repair, and a model configuration update.</p>
             <details class="evidence-details">
               <summary>Reproduction details</summary>
               <p>The published CLI reproduces the four-row pass with <code>--generator fixture</code>. Regenerating PR #4’s exact patch still needs the testbed harness plus <code>--generator llm</code> (or the testbed simulator) and may differ.</p>
