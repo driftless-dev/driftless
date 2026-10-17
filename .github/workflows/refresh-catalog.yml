@@ -83,7 +83,7 @@ jobs:
       - name: Open PR if the catalog changed
         id: catalog_pr
         continue-on-error: true
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "chore(catalog): refresh model lifecycle data"
           title: "chore(catalog): refresh model lifecycle data"
